@@ -18,7 +18,8 @@ module.exports = {
     output: {
         filename: "butlerov.js",
         library: "butlerov",
+        libraryTarget: "umd",
         // eslint-disable-next-line
-    path: path.resolve(__dirname, "dist"),
+        path: path.resolve(__dirname, "dist"),
     },
 };

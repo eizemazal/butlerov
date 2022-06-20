@@ -1,13 +1,15 @@
 {
   "name": "butlerov",
-  "version": "0.0.1",
+  "version": "0.0.5",
   "description": "Draw chemical structures with js and Konva",
-  "main": "src/main.js",
+  "main": "dist/butlerov.js",
+  "types": "dist/main.d.js",
   "scripts": {
     "build": "npm run clean && npx webpack --mode=production",
     "dev": "npm run clean && npx webpack --mode=development",
     "clean": "node build/clean.js",
-    "test": "node src/tests/test.js"
+    "test": "node src/tests/test.js",
+    "prepare": "npm run build"
   },
   "keywords": [
     "chemistry",
@@ -28,5 +30,6 @@
   },
   "dependencies": {
     "konva": "^8.3.9"
-  }
+  },
+  "files": ["dist/**/*"]
 }

@@ -21,6 +21,7 @@ class MoleculeEditor {
     active_edge: Edge | null;
     active_vertex: Vertex | null;
     downed_vertex: Vertex | null;
+    _onchange: (() => void) | null;
     constructor(stage: Konva.Stage) {
         this.stage = stage;
         this.stylesheet = new Stylesheet();
@@ -55,14 +56,12 @@ class MoleculeEditor {
         this.stage.add(this.drawing_layer);
         this.stage.add(this.top_layer);
         this.update_background();
+        this._onchange = null;
     }
 
-    static from_html_element(stage_el_id: string) {
-        const el = document.getElementById(stage_el_id);
-        if (!el)
-            throw Error("Unable to bind stage by id " + stage_el_id);
+    static from_html_element(el: HTMLDivElement) {
         const stage = new Konva.Stage({
-            container: stage_el_id,
+            container: el,
             width: el.clientWidth,
             height: el.clientHeight
         });
@@ -109,6 +108,8 @@ class MoleculeEditor {
 
     clear() {
         this.graph.clear();
+        if (this._onchange)
+            this._onchange();
         this.update_background();
     }
 
@@ -128,6 +129,8 @@ class MoleculeEditor {
         if (evt.key == "Backspace" || evt.key == "Delete") {
             this.graph.delete_vertex(this.active_vertex);
             this.active_vertex = null;
+            if (this._onchange)
+                this._onchange();
             return;
         }
         if (evt.key.match(/[A-Za-z]/)) {
@@ -144,6 +147,8 @@ class MoleculeEditor {
         }
         this.active_vertex.update();
         this.graph.find_edges_by_vertex(this.active_vertex).forEach(e => e.update());
+        if (this._onchange)
+            this._onchange();
     }
 
     toggle_menu() {
@@ -161,7 +166,7 @@ class MoleculeEditor {
             edge.bond.bond_type != BondType.Double && this.menu.add_button( new MenuButton("2", "Double", () => {edge.bond.bond_type = BondType.Double; edge.update(); } ));
             edge.bond.bond_type != BondType.Triple && this.menu.add_button( new MenuButton("3", "Triple", () => {edge.bond.bond_type = BondType.Triple; edge.update(); } ));
             this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
-            this.menu.add_button( new MenuButton("x", "Delete", () => {this.graph.delete_edge(edge); } ));
+            this.menu.add_button( new MenuButton("x", "Delete", () => {this.graph.delete_edge(edge); if (this._onchange) this._onchange();} ));
         }
         else if (this.active_vertex) {
             this.menu.clear_buttons();
@@ -169,7 +174,7 @@ class MoleculeEditor {
             this.menu.add_button( new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); } ));
             this.menu.add_button( new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); } ));
             //this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
-            this.menu.add_button( new MenuButton("x", "Delete", () => { this.graph.delete_vertex(vertex); } ));
+            this.menu.add_button( new MenuButton("x", "Delete", () => { this.graph.delete_vertex(vertex); if (this._onchange) this._onchange(); } ));
         }
         else {
             this.menu.clear_buttons();
@@ -189,34 +194,34 @@ class MoleculeEditor {
 
     menu_attach_ring(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.graph.attach_ring(vertex, 3); } ));
-        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.graph.attach_ring(vertex, 4); } ));
-        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.graph.attach_ring(vertex, 5); } ));
-        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.graph.attach_ring(vertex, 6); } ));
-        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.graph.attach_ring(vertex, 7); } ));
-        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.graph.attach_ring(vertex, 8); } ));
+        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.graph.attach_ring(vertex, 3); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.graph.attach_ring(vertex, 4); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.graph.attach_ring(vertex, 5); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.graph.attach_ring(vertex, 6); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.graph.attach_ring(vertex, 7); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.graph.attach_ring(vertex, 8); if (this._onchange) this._onchange(); } ));
         this.menu.visible = true;
     }
 
     menu_fuse_ring(edge: Edge) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.graph.fuse_ring(edge, 3); } ));
-        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.graph.fuse_ring(edge, 4); } ));
-        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.graph.fuse_ring(edge, 5); } ));
-        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.graph.fuse_ring(edge, 6); } ));
-        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.graph.fuse_ring(edge, 7); } ));
-        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.graph.fuse_ring(edge, 8); } ));
+        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.graph.fuse_ring(edge, 3); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.graph.fuse_ring(edge, 4); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.graph.fuse_ring(edge, 5); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.graph.fuse_ring(edge, 6); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.graph.fuse_ring(edge, 7); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.graph.fuse_ring(edge, 8); if (this._onchange) this._onchange(); } ));
         this.menu.visible = true;
     }
 
     menu_chain(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("1", "Methyl", () => { this.graph.add_chain(vertex, 1); } ));
-        this.menu.add_button( new MenuButton("2", "Ethyl", () => { this.graph.add_chain(vertex, 2); } ));
+        this.menu.add_button( new MenuButton("1", "Methyl", () => { this.graph.add_chain(vertex, 1); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("2", "Ethyl", () => { this.graph.add_chain(vertex, 2); if (this._onchange) this._onchange(); } ));
         this.menu.add_button( new MenuButton("3", "Propyl", () => { this.graph.add_chain(vertex, 3); } ));
-        this.menu.add_button( new MenuButton("4", "Butyl", () => { this.graph.add_chain(vertex, 4); } ));
-        this.menu.add_button( new MenuButton("5", "Amyl", () => { this.graph.add_chain(vertex, 5); } ));
-        this.menu.add_button( new MenuButton("6", "Hexyl", () => { this.graph.add_chain(vertex, 6); } ));
+        this.menu.add_button( new MenuButton("4", "Butyl", () => { this.graph.add_chain(vertex, 4); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("5", "Amyl", () => { this.graph.add_chain(vertex, 5); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("6", "Hexyl", () => { this.graph.add_chain(vertex, 6); if (this._onchange) this._onchange(); } ));
         this.menu.visible = true;
     }
 
@@ -294,6 +299,7 @@ class MoleculeEditor {
     on_vertex_dragmove(vertex: Vertex, evt: KonvaEventObject<MouseEvent>) {
         vertex.on_drag(!evt.evt.altKey);
         this.graph.find_edges_by_vertex(vertex).forEach(e => e.update());
+        if (this._onchange) this._onchange();
     }
 
     on_vertex_mouseover(vertex: Vertex) {
@@ -311,6 +317,7 @@ class MoleculeEditor {
         if (evt.evt.button == 2)
             return;
         this.graph.add_bound_vertex_to(vertex);
+        if (this._onchange) this._onchange();
     }
 
     on_vertex_mousedown(vertex: Vertex) {
@@ -325,6 +332,7 @@ class MoleculeEditor {
             edge.update();
             this.downed_vertex.update();
             vertex.update();
+            if (this._onchange) this._onchange();
         }
         this.downed_vertex = null;
     }
@@ -340,11 +348,16 @@ class MoleculeEditor {
         const pos = this.background_layer.getRelativePointerPosition();
         const vertex1 = this.graph.add_vertex(pos.x, pos.y);
         this.graph.add_bound_vertex_to(vertex1);
+        if (this._onchange) this._onchange();
         this.update_background();
     }
 
     on_background_mouseup() {
         this.downed_vertex = null;
+    }
+
+    public set onchange(handler: () => void) {
+        this._onchange = handler;
     }
 }
 
