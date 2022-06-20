@@ -1,6 +1,6 @@
 {
   "name": "butlerov",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Draw chemical structures with js and Konva",
   "main": "dist/butlerov.js",
   "types": "dist/main.d.js",
@@ -16,7 +16,7 @@
     "structure",
     "2d"
   ],
-  "author": "Alex Ustinov",
+  "author": "Alex Ustinov, Lumiprobe",
   "license": "MIT",
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.27.0",

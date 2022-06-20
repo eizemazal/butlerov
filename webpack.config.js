@@ -21,5 +21,6 @@ module.exports = {
         libraryTarget: "umd",
         // eslint-disable-next-line
         path: path.resolve(__dirname, "dist"),
+        globalObject: "this",
     },
 };
