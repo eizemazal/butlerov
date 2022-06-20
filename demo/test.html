@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Test chemical drawing</title>
+        <script type="text/javascript" src="../dist/butlerov.js"></script>
+        <script type="text/javascript">
+            let d;
+            //eslint-disable-next-line
+            function init() {
+                d = window.butlerov.MoleculeEditor.from_html_element("chemical");
+            }
+            //eslint-disable-next-line
+            function clearDrawing() {
+                d.clear();
+            }
+            //eslint-disable-next-line
+            function getMol() {
+                document.getElementById("moltxt").value = d.get_mol_string();
+            }
+            //eslint-disable-next-line
+            function readMol() {
+                d.load_mol_from_string(document.getElementById("moltxt").value);
+            }
+        </script>
+        <style type="text/css">
+            .wrapper {
+                width: 600px;
+                margin: 50px auto;
+            }
+            #chemical {
+                width: 600px;
+                height: 600px;
+                border: solid 1px #ddd;
+            }
+            #moltxt {
+                width: 600px;
+                margin: 20px 0;
+                min-height: 300px;
+            }
+        </style>
+    </head>
+    <body onload="init()">
+        <button onclick="clearDrawing()">Clear</button>
+        <button onclick="getMol()">Get mol</button>
+        <button onclick="readMol()">Read mol</button>
+        <div class="wrapper">
+            <div id="chemical" />
+        </div>
+        <textarea id="moltxt"></textarea>
+    </body>
+</html>
