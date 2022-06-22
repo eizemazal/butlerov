@@ -5,10 +5,6 @@ import { Stylesheet } from "./Stylesheet";
 
 class Vertex {
     protected group: Konva.Group;
-    protected text: Konva.Text | null;
-    protected circle: Konva.Circle | null;
-    protected active_box: Konva.Rect | null;
-    protected _label: string;
     protected _atom: Atom;
     protected stylesheet: Stylesheet;
     protected _neighbors: Array<Vertex>;
@@ -19,11 +15,9 @@ class Vertex {
         this.stylesheet = stylesheet;
         this.group = new Konva.Group({
             draggable: true,
+            x: this._atom.x*this.stylesheet.scale + this.stylesheet.offset_x,
+            y: this._atom.y*this.stylesheet.scale + this.stylesheet.offset_y,
         });
-        this.text = null;
-        this.circle = null;
-        this.active_box = null;
-        this._label = "";
         this.is_active = false;
         this._neighbors = [];
         this.update();
@@ -38,40 +32,62 @@ class Vertex {
         this.update();
     }
 
+    public get label(): string {
+        return this._atom.label == "C" && this.neighbors.length ? "" : this._atom.label;
+    }
+
+    public set label(label: string) {
+        this._atom.label = label;
+        this.update();
+    }
+
+    public get charge(): number {
+        return this._atom.charge;
+    }
+
+    public set charge(charge: number) {
+        this._atom.charge = charge;
+    }
+
+    public get atom_x(): number {
+        return this._atom.x;
+    }
+
+    public get atom_y(): number {
+        return this._atom.y;
+    }
+
     update() {
         this.group.draggable(this._neighbors.length <= 1);
-        this.group.setAttr("x", this.atom.x*this.stylesheet.scale + this.stylesheet.offset_x);
-        this.group.setAttr("y", this.atom.y*this.stylesheet.scale + this.stylesheet.offset_y);
-        this._label = this.atom.label == "C" && this.neighbors.length ? "" : this.atom.label;
-        if (this._label) {
+        this.group.setAttr("x", this._atom.x*this.stylesheet.scale + this.stylesheet.offset_x);
+        this.group.setAttr("y", this._atom.y*this.stylesheet.scale + this.stylesheet.offset_y);
+
+        if (this.label) {
             this.group.findOne("#circle")?.destroy();
             this.group.findOne("#active_box")?.destroy();
-            this.active_box = null;
-            this.circle = null;
-            this.text = <Konva.Text>this.group.findOne("#text") || new Konva.Text({
+            const text = <Konva.Text>this.group.findOne("#text") || new Konva.Text({
                 x: 0,
                 y: 0,
                 fontFamily: this.stylesheet.atom_font_family,
                 fontSize: this.stylesheet.atom_font_size_px,
                 id: "text",
             });
-            this.text.setAttr("text", this._label);
-            this.text.setAttr("fill", this.is_active ? this.stylesheet.atom_active_label_color : this.stylesheet.atom_label_color);
+            text.setAttr("text", this.label);
+            text.setAttr("fill", this.is_active ? this.stylesheet.atom_active_label_color : this.stylesheet.atom_label_color);
+            this.group.add(text);
             this._center_text();
-            this.group.add(this.text);
         }
         else {
             this.group.findOne("#text")?.destroy();
-            this.text = null;
-            this.circle = <Konva.Circle>this.group.findOne("#circle") || new Konva.Circle({
+            const circle = <Konva.Circle>this.group.findOne("#circle") || new Konva.Circle({
                 x: 0,
                 y: 0,
                 fill: this.stylesheet.bond_stroke_color,
                 id: "circle",
             });
-            this.circle.setAttr("radius", this._neighbors.length > 1 ? this.stylesheet.bond_thickness_px/2 : 0);
-            this.group.add(this.circle);
-            this.active_box = <Konva.Rect>this.group.findOne("#active_box") || new Konva.Rect({
+            circle.setAttr("radius", this._neighbors.length > 1 ? this.stylesheet.bond_thickness_px/2 : 0);
+            this.group.add(circle);
+            const active_box = <Konva.Rect>this.group.findOne("#active_box") || new Konva.Rect({
                 x: -5,
                 y: -5,
                 width: 10,
@@ -80,8 +96,8 @@ class Vertex {
                 strokeWidth: 1,
                 id: "active_box",
             });
-            this.active_box.setAttr("strokeWidth", this.is_active ? 1 : 0);
-            this.group.add(this.active_box);
+            active_box.setAttr("strokeWidth", this.is_active ? 1 : 0);
+            this.group.add(active_box);
         }
     }
 
@@ -99,13 +115,14 @@ class Vertex {
             alfa = Math.round((alfa * 180 / Math.PI) / this.stylesheet.bond_snap_degrees)*this.stylesheet.bond_snap_degrees * Math.PI/180;
         this.x = neighbor.x + Math.cos(alfa) * this.stylesheet.bond_length_px;
         this.y = neighbor.y + Math.sin(alfa) * this.stylesheet.bond_length_px;
-        this.atom.x = (this.x - this.stylesheet.offset_x) / this.stylesheet.scale;
-        this.atom.y = (this.y - this.stylesheet.offset_y) / this.stylesheet.scale;
     }
 
     _center_text() {
-        this.text?.setAttr("x", -this.text.width() / 2);
-        this.text?.setAttr("y", -this.text.height() / 2);
+        const text = this.group.findOne("#text");
+        if (!text)
+            return;
+        text.setAttr("x", -text.width() / 2);
+        text.setAttr("y", -text.height() / 2);
     }
 
     public get x() {
@@ -114,35 +131,26 @@ class Vertex {
 
     public set x(x: number) {
         this.group.setAttr("x", x);
+        this._atom.x = (x - this.stylesheet.offset_x) / this.stylesheet.scale;
     }
 
     public get y() {
         return this.group.getAttr("y");
     }
 
-    public set y(x: number) {
-        this.group.setAttr("y", x);
-    }
-
-    public get label() {
-        return this._label;
-    }
-
-    public set label(label: string) {
-        this._label = label;
-        this.update();
+    public set y(y: number) {
+        this.group.setAttr("y", y);
+        this._atom.y = (y - this.stylesheet.offset_y) / this.stylesheet.scale;
     }
 
     public get width() {
-        return this.text ? this.text.width() + this.stylesheet.atom_label_horizontal_clearance_px : 0;
+        const text = this.group.findOne("#text");
+        return text ? text.width() + this.stylesheet.atom_label_horizontal_clearance_px : 0;
     }
 
     public get height() {
-        return this.text ? this.text.height() + this.stylesheet.atom_label_vertical_clearance_px : 0;
-    }
-
-    public get atom() {
-        return this._atom;
+        const text = this.group.findOne("#text");
+        return text ? text.height() + this.stylesheet.atom_label_vertical_clearance_px : 0;
     }
 
     public get neighbors() {
@@ -160,6 +168,10 @@ class Vertex {
             return;
         this._neighbors.splice(index, 1);
         this.update();
+    }
+
+    erase() {
+        this.group.destroyChildren();
     }
 
     as_group(): Konva.Group {

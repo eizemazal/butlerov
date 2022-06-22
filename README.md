@@ -2,11 +2,11 @@ Butlerov - a free and open source chemical structure editor written in Typescrip
 
 For now, it is meant to be used to edit files in Mol format, because I need this badly. Other formats and SMILES might be supported later, as well as more advanced chemical drawing of multiple fragments and chemical artwork.
 
-The package is named after Alexander M. Butlerov (1828-1886), a Russian chemist who proposed the idea that order of atom connection matters for oragnic compounds, so basically introduced chemical structures.
+The package is named after Alexander M. Butlerov (1828-1886), a Russian chemist who proposed the idea that order of atom connection matters for organic compounds, so basically introduced chemical structures.
 
 ### Demo and current features
 
-A demo of the current version is avaialble at Codepen:
+A demo of the current version is available at Codepen:
 https://codepen.io/au1985/pen/ExQzmoJ
 
 Use both your mouse and your keyboard for fast drawing. The context menu (inspired by Blender 3D editor software) is invoked by space bar when the mouse is over a bond or atom. The hot keys are specified in the menu.

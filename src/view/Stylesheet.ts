@@ -8,6 +8,7 @@ class Stylesheet {
     atom_active_label_color: string;
     bond_length_px: number;
     bond_thickness_px: number;
+    bond_wedge_px: number;
     bond_selected_thickness_px: number;
     bond_spacing_px: number;
     bond_stroke_color: string;
@@ -31,6 +32,7 @@ class Stylesheet {
         this.atom_active_label_color = "red";
         this.bond_length_px = 25;
         this.bond_thickness_px = 2;
+        this.bond_wedge_px = 6;
         this.bond_selected_thickness_px = 3;
         this.bond_spacing_px = 6;
         this.bond_stroke_color = "#555";

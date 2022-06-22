@@ -12,4 +12,4 @@ class Atom {
     }
 }
 
-export {Atom};
+export { Atom };

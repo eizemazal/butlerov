@@ -1,13 +1,14 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { BondType } from "../model/Bond";
-import { Edge } from "../view/Edge";
+import { Edge, EdgeShape } from "../view/Edge";
 import { Graph } from "../view/Graph";
 import { Stylesheet } from "../view/Stylesheet";
 import { Vertex } from "../view/Vertex";
 import { Elements } from "../lib/elements";
 import { Menu } from "../view/Menu";
 import { MenuButton } from "../view/MenuButton";
+import { Action, AddBoundVertexAction, AddChainAction, AddDefaultFragmentAction, AttachRingAction, BindVerticesAction, ChangeAtomLabelAction, ClearGraphAction, DeleteEdgeAction, DeleteVertexAction, FuseRingAction, MoveVertexAction, UpdatableAction, UpdateEdgeShapeAction } from "./Action";
 
 class MoleculeEditor {
     stage: Konva.Stage;
@@ -21,6 +22,8 @@ class MoleculeEditor {
     active_edge: Edge | null;
     active_vertex: Vertex | null;
     downed_vertex: Vertex | null;
+    action_stack: Array<Action>;
+    actions_rolled_back: number;
     _onchange: (() => void) | null;
     constructor(stage: Konva.Stage) {
         this.stage = stage;
@@ -57,6 +60,8 @@ class MoleculeEditor {
         this.stage.add(this.top_layer);
         this.update_background();
         this._onchange = null;
+        this.action_stack = [];
+        this.actions_rolled_back = 0;
     }
 
     static from_html_element(el: HTMLDivElement) {
@@ -66,6 +71,61 @@ class MoleculeEditor {
             height: el.clientHeight
         });
         return new MoleculeEditor(stage);
+    }
+
+    commit_action(action: Action) {
+        // find last action that has not been rolled back, and throw away history after it
+        for (let i = 0; i < this.actions_rolled_back; i++) {
+            this.action_stack.pop();
+        }
+        this.actions_rolled_back = 0;
+        if (this.action_stack.length) {
+            const last_action = this.action_stack[this.action_stack.length - 1];
+            if (last_action instanceof UpdatableAction && action.constructor == last_action.constructor) {
+                if (last_action.update(<UpdatableAction>action)) {
+                    if (this._onchange)
+                        this._onchange();
+                    this.update_background();
+                    return;
+                }
+            }
+        }
+        this.action_stack.push(action);
+        action.commit();
+        if (this._onchange)
+            this._onchange();
+        this.update_background();
+    }
+    rollback_actions(count: number) {
+        for (let i = 0; i < count; i++) {
+            if (this.actions_rolled_back >= this.action_stack.length)
+                return;
+            this.actions_rolled_back += 1;
+            this.action_stack[this.action_stack.length - this.actions_rolled_back].rollback();
+        }
+        this.active_edge = null;
+        this.active_vertex = null;
+        if (this._onchange)
+            this._onchange();
+        this.update_background();
+    }
+    recommit_actions(count: number) {
+        for (let i = 0; i < count; i++) {
+            if (this.actions_rolled_back < 1 )
+                return;
+            this.action_stack[this.action_stack.length - this.actions_rolled_back].commit();
+            this.actions_rolled_back -= 1;
+        }
+        this.active_edge = null;
+        this.active_vertex = null;
+        if (this._onchange)
+            this._onchange();
+        this.update_background();
+    }
+
+    clear_actions() {
+        this.actions_rolled_back = 0;
+        this.action_stack = [];
     }
 
     update_background() {
@@ -97,6 +157,7 @@ class MoleculeEditor {
     }
 
     load_mol_from_string(mol_string: string) {
+        this.clear_actions();
         this.graph.load_mol_string(mol_string);
         this.autoscale_view();
         this.update_background();
@@ -107,10 +168,7 @@ class MoleculeEditor {
     }
 
     clear() {
-        this.graph.clear();
-        if (this._onchange)
-            this._onchange();
-        this.update_background();
+        this.commit_action(new ClearGraphAction(this.graph));
     }
 
     get_next_element_label(label: string, key: string): string {
@@ -127,28 +185,16 @@ class MoleculeEditor {
         if (!this.active_vertex)
             return;
         if (evt.key == "Backspace" || evt.key == "Delete") {
-            this.graph.delete_vertex(this.active_vertex);
+            this.commit_action(new DeleteVertexAction(this.graph, this.active_vertex));
             this.active_vertex = null;
-            if (this._onchange)
-                this._onchange();
             return;
         }
         if (evt.key.match(/[A-Za-z]/)) {
-            const new_label = this.get_next_element_label(this.active_vertex.atom.label, evt.key);
+            const new_label = this.get_next_element_label(this.active_vertex.label, evt.key);
             if (new_label == "")
                 return;
-            this.active_vertex.atom.label = new_label;
+            this.commit_action(new ChangeAtomLabelAction(this.graph, this.active_vertex, new_label));
         }
-        if (evt.key == "+") {
-            this.active_vertex.atom.charge += 1;
-        }
-        if (evt.key == "-") {
-            this.active_vertex.atom.charge -= 1;
-        }
-        this.active_vertex.update();
-        this.graph.find_edges_by_vertex(this.active_vertex).forEach(e => e.update());
-        if (this._onchange)
-            this._onchange();
     }
 
     toggle_menu() {
@@ -162,11 +208,25 @@ class MoleculeEditor {
         if (this.active_edge) {
             this.menu.clear_buttons();
             const edge = this.active_edge;
-            edge.bond.bond_type != BondType.Single && this.menu.add_button( new MenuButton("1", "Single", () => {edge.bond.bond_type = BondType.Single; edge.update(); } ));
-            edge.bond.bond_type != BondType.Double && this.menu.add_button( new MenuButton("2", "Double", () => {edge.bond.bond_type = BondType.Double; edge.update(); } ));
-            edge.bond.bond_type != BondType.Triple && this.menu.add_button( new MenuButton("3", "Triple", () => {edge.bond.bond_type = BondType.Triple; edge.update(); } ));
+            this.menu.add_button( new MenuButton("1", "Single", () => {
+                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Single));
+            } ));
+            edge.bond_type != BondType.Double && this.menu.add_button( new MenuButton("2", "Double", () => {
+                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Double));
+            } ));
+            edge.bond_type != BondType.Triple && this.menu.add_button( new MenuButton("3", "Triple", () => {
+                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Triple));
+            } ));
+            this.menu.add_button( new MenuButton("w", "Wedged up", () => {
+                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.SingleUp));
+            } ));
+            this.menu.add_button( new MenuButton("q", "Wedged down", () => {
+                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.SingleDown));
+            } ));
             this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
-            this.menu.add_button( new MenuButton("x", "Delete", () => {this.graph.delete_edge(edge); if (this._onchange) this._onchange();} ));
+            this.menu.add_button( new MenuButton("x", "Delete", () =>  {
+                this.commit_action(new DeleteEdgeAction(this.graph, edge));
+            } ));
         }
         else if (this.active_vertex) {
             this.menu.clear_buttons();
@@ -174,7 +234,9 @@ class MoleculeEditor {
             this.menu.add_button( new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); } ));
             this.menu.add_button( new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); } ));
             //this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
-            this.menu.add_button( new MenuButton("x", "Delete", () => { this.graph.delete_vertex(vertex); if (this._onchange) this._onchange(); } ));
+            this.menu.add_button( new MenuButton("x", "Delete", () => {
+                this.commit_action(new DeleteVertexAction(this.graph, vertex));
+            } ));
         }
         else {
             this.menu.clear_buttons();
@@ -194,34 +256,36 @@ class MoleculeEditor {
 
     menu_attach_ring(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.graph.attach_ring(vertex, 3); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.graph.attach_ring(vertex, 4); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.graph.attach_ring(vertex, 5); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.graph.attach_ring(vertex, 6); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.graph.attach_ring(vertex, 7); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.graph.attach_ring(vertex, 8); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 3)); } ));
+        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 4)); } ));
+        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 5)); } ));
+        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 6)); } ));
+        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 7)); } ));
+        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 8)); } ));
         this.menu.visible = true;
     }
 
     menu_fuse_ring(edge: Edge) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.graph.fuse_ring(edge, 3); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.graph.fuse_ring(edge, 4); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.graph.fuse_ring(edge, 5); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.graph.fuse_ring(edge, 6); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.graph.fuse_ring(edge, 7); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.graph.fuse_ring(edge, 8); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 3)); } ));
+        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 4)); } ));
+        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 5)); } ));
+        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 6)); } ));
+        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 7)); } ));
+        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 8)); } ));
         this.menu.visible = true;
     }
 
     menu_chain(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("1", "Methyl", () => { this.graph.add_chain(vertex, 1); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("2", "Ethyl", () => { this.graph.add_chain(vertex, 2); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("3", "Propyl", () => { this.graph.add_chain(vertex, 3); } ));
-        this.menu.add_button( new MenuButton("4", "Butyl", () => { this.graph.add_chain(vertex, 4); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("5", "Amyl", () => { this.graph.add_chain(vertex, 5); if (this._onchange) this._onchange(); } ));
-        this.menu.add_button( new MenuButton("6", "Hexyl", () => { this.graph.add_chain(vertex, 6); if (this._onchange) this._onchange(); } ));
+        this.menu.add_button( new MenuButton("1", "Methyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 1)); } ));
+        this.menu.add_button( new MenuButton("2", "Ethyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 2)); } ));
+        this.menu.add_button( new MenuButton("3", "Propyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 3)); } ));
+        this.menu.add_button( new MenuButton("4", "Butyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 4)); } ));
+        this.menu.add_button( new MenuButton("5", "Amyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 5)); } ));
+        this.menu.add_button( new MenuButton("6", "Hexyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 6)); } ));
+        this.menu.add_button( new MenuButton("7", "Heptyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 7)); } ));
+        this.menu.add_button( new MenuButton("8", "Octyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 8)); } ));
         this.menu.visible = true;
     }
 
@@ -242,6 +306,14 @@ class MoleculeEditor {
             this.menu.handle_key(evt.key);
             return;
         }
+        if (evt.key == "z" && (evt.metaKey || evt.ctrlKey) && !evt.shiftKey) {
+            this.rollback_actions(1);
+            return;
+        }
+        if (evt.key == "y" && (evt.metaKey || evt.ctrlKey) || (evt.key == "z" && (evt.metaKey || evt.ctrlKey) && evt.shiftKey) ) {
+            this.recommit_actions(1);
+            return;
+        }
         if (this.active_vertex) {
             this.on_vertex_keydown(evt);
             return;
@@ -249,23 +321,25 @@ class MoleculeEditor {
         if (this.active_edge) {
             switch (evt.key) {
             case "1":
-                this.active_edge.bond.bond_type = BondType.Single;
-                this.active_edge.update();
+                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.Single));
                 break;
             case "2":
-                this.active_edge.bond.bond_type = BondType.Double;
-                this.active_edge.update();
+                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.Double));
                 break;
             case "3":
-                this.active_edge.bond.bond_type = BondType.Triple;
-                this.active_edge.update();
+                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.Triple));
+                break;
+            case "w":
+                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.SingleUp));
+                break;
+            case "q":
+                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.SingleDown));
                 break;
             case "Backspace":
             case "Delete":
-                this.graph.delete_edge(this.active_edge);
+                this.commit_action(new DeleteEdgeAction(this.graph, this.active_edge));
                 this.active_edge = null;
             }
-
         }
     }
 
@@ -273,21 +347,22 @@ class MoleculeEditor {
         // disable right click processing
         if (evt.evt.button == 2)
             return;
-        switch (edge.bond.bond_type) {
+        switch (edge.bond_type) {
         case BondType.Single:
-            edge.bond.bond_type = BondType.Double;
+            this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Double));
             break;
         case BondType.Double:
-            edge.bond.bond_type = BondType.Triple;
+            this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Triple));
             break;
         case BondType.Triple:
-            edge.bond.bond_type = BondType.Single;
+            this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Single));
             break;
         }
         edge.update();
     }
 
     on_edge_mouseover(edge: Edge) {
+        this.stage.container().focus();
         this.active_edge = edge;
         edge.active = true;
     }
@@ -298,11 +373,11 @@ class MoleculeEditor {
 
     on_vertex_dragmove(vertex: Vertex, evt: KonvaEventObject<MouseEvent>) {
         vertex.on_drag(!evt.evt.altKey);
-        this.graph.find_edges_by_vertex(vertex).forEach(e => e.update());
-        if (this._onchange) this._onchange();
+        this.commit_action(new MoveVertexAction(this.graph, vertex));
     }
 
     on_vertex_mouseover(vertex: Vertex) {
+        this.stage.container().focus();
         vertex.active = true;
         this.active_vertex = vertex;
     }
@@ -316,8 +391,7 @@ class MoleculeEditor {
         // disable right click processing
         if (evt.evt.button == 2)
             return;
-        this.graph.add_bound_vertex_to(vertex);
-        if (this._onchange) this._onchange();
+        this.commit_action(new AddBoundVertexAction(this.graph, vertex));
     }
 
     on_vertex_mousedown(vertex: Vertex) {
@@ -328,11 +402,7 @@ class MoleculeEditor {
         if (!this.downed_vertex)
             return;
         if (vertex != this.downed_vertex && !this.graph.vertices_are_bound(vertex, this.downed_vertex)) {
-            const edge = this.graph.bind_vertices(this.downed_vertex, vertex);
-            edge.update();
-            this.downed_vertex.update();
-            vertex.update();
-            if (this._onchange) this._onchange();
+            this.commit_action(new BindVerticesAction(this.graph, this.downed_vertex, vertex));
         }
         this.downed_vertex = null;
     }
@@ -346,10 +416,7 @@ class MoleculeEditor {
             return;
         }
         const pos = this.background_layer.getRelativePointerPosition();
-        const vertex1 = this.graph.add_vertex(pos.x, pos.y);
-        this.graph.add_bound_vertex_to(vertex1);
-        if (this._onchange) this._onchange();
-        this.update_background();
+        this.commit_action(new AddDefaultFragmentAction(this.graph, pos.x, pos.y));
     }
 
     on_background_mouseup() {
