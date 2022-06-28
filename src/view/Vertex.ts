@@ -22,6 +22,7 @@ class Vertex {
     protected _charge : number;
     protected _label : string;
     protected element: ChemicalElement | null;
+    public id: string;
 
     constructor() {
         this._atomic_coords = { x: 0, y: 0};
@@ -32,6 +33,7 @@ class Vertex {
         this.group = null;
         this.is_active = false;
         this._neighbors = new Set();
+        this.id = "";
     }
 
     copy(): Vertex {
@@ -40,6 +42,7 @@ class Vertex {
         v._label = this.label;
         v.element = this.element;
         v._charge = this._charge;
+        v.id = this.id;
         return v;
     }
 

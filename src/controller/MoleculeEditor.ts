@@ -1,6 +1,6 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import { Edge, EdgeShape, BondType } from "../view/Edge";
+import { Edge, EdgeShape, BondType, EdgeOrientation } from "../view/Edge";
 import { Graph } from "../view/Graph";
 import { Stylesheet } from "../view/Stylesheet";
 import { Vertex } from "../view/Vertex";
@@ -209,19 +209,25 @@ class MoleculeEditor {
             this.menu.clear_buttons();
             const edge = this.active_edge;
             this.menu.add_button( new MenuButton("1", "Single", () => {
-                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Single));
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Single));
             } ));
-            edge.bond_type != BondType.Double && this.menu.add_button( new MenuButton("2", "Double", () => {
-                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Double));
+            this.menu.add_button( new MenuButton("2", "Double", () => {
+                if (edge.shape != EdgeShape.Double) {
+                    this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double));
+                }
+                else if (edge.orientation == EdgeOrientation.Auto || edge.orientation == EdgeOrientation.Right)
+                    this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Left));
+                else
+                    this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Right));
             } ));
             edge.bond_type != BondType.Triple && this.menu.add_button( new MenuButton("3", "Triple", () => {
-                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Triple));
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Triple));
             } ));
             this.menu.add_button( new MenuButton("w", "Wedged up", () => {
-                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.SingleUp));
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleUp));
             } ));
             this.menu.add_button( new MenuButton("q", "Wedged down", () => {
-                this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.SingleDown));
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleDown));
             } ));
             this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () =>  {
@@ -321,19 +327,25 @@ class MoleculeEditor {
         if (this.active_edge) {
             switch (evt.key) {
             case "1":
-                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.Single));
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Single));
                 break;
             case "2":
-                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.Double));
+                if (this.active_edge.shape != EdgeShape.Double) {
+                    this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double));
+                }
+                else if (this.active_edge.orientation == EdgeOrientation.Auto || this.active_edge.orientation == EdgeOrientation.Right)
+                    this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Left));
+                else
+                    this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Right));
                 break;
             case "3":
-                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.Triple));
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Triple));
                 break;
             case "w":
-                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.SingleUp));
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleUp));
                 break;
             case "q":
-                this.commit_action(new UpdateEdgeShapeAction(this.active_edge, EdgeShape.SingleDown));
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleDown));
                 break;
             case "Backspace":
             case "Delete":
@@ -349,13 +361,13 @@ class MoleculeEditor {
             return;
         switch (edge.bond_type) {
         case BondType.Single:
-            this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Double));
+            this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double));
             break;
         case BondType.Double:
-            this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Triple));
+            this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Triple));
             break;
         case BondType.Triple:
-            this.commit_action(new UpdateEdgeShapeAction(edge, EdgeShape.Single));
+            this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Single));
             break;
         }
         edge.update();

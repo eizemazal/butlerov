@@ -1,6 +1,6 @@
 import Konva from "konva";
 import { MoleculeEditor } from "../main";
-import { Edge, EdgeShape } from "./Edge";
+import { Edge, EdgeOrientation, EdgeShape, EdgeTopology } from "./Edge";
 import { AtomicCoords, ScreenCoords, Vertex } from "./Vertex";
 
 type Rect = {
@@ -15,12 +15,28 @@ class Graph {
     edges: Array<Edge>;
     group: Konva.Group | null;
     controller: MoleculeEditor | null;
+    ringsystems: Array<Graph>;
 
     constructor() {
         this.controller = null;
         this.vertices = [];
         this.edges = [];
         this.group = null;
+        this.ringsystems = [];
+    }
+
+    // provide a detached copy of the graph, maintaining connectivity and order of vertices and edges in the lists
+    copy() {
+        const r = new Graph();
+        r.vertices = this.vertices.map( e => e.copy() );
+        r.edges = this.edges.map( e => {
+            const v1 = r.vertices[this.vertices.findIndex( v => v == e.v1 )];
+            const v2 = r.vertices[this.vertices.findIndex( v => v == e.v2 )];
+            v1.add_neighbor(v2);
+            v2.add_neighbor(v1);
+            return e.copy(v1, v2);
+        });
+        return r;
     }
 
     attach(controller: MoleculeEditor) {
@@ -72,8 +88,8 @@ class Graph {
                 throw Error(`Error in line ${i}, unable to parse bond declaration`);
 
             // mol files use base-1 unlike arrays that are base-0
-            const atom_index1 = parseInt(match_object[1])-1;
-            const atom_index2 = parseInt(match_object[2])-1;
+            const atom_index2 = parseInt(match_object[1])-1;
+            const atom_index1 = parseInt(match_object[2])-1;
             const bond_type = parseInt(match_object[3]);
             const stereo = parseInt(match_object[4]);
             const bond = this.bind_vertices(this.vertices[atom_index2], this.vertices[atom_index1], EdgeShape.Single, false);
@@ -83,8 +99,9 @@ class Graph {
         if (this.controller != null) {
             const c = this.controller;
             this.vertices.forEach( e=> { this.group?.add(e.attach(c)); });
-            this.edges.forEach( e=> { this.group?.add(e.attach(c)); } );
+            this.edges.forEach( e=> { this.group?.add(e.attach(c)); e.z_index = 0; } );
         }
+        this.update_topology();
     }
 
     get_mol_string(): string {
@@ -122,6 +139,8 @@ class Graph {
     }
 
     get_molecule_rect() : Rect {
+        if (!this.vertices.length)
+            return {x1: 0, y1: 0, x2: 100, y2: 100};
         const x_coords = this.vertices.map(e => e.atomic_coords.x);
         const y_coords = this.vertices.map(e => e.atomic_coords.y);
         return {
@@ -199,6 +218,7 @@ class Graph {
             this.group?.add(edge.attach(this.controller));
             // edges of bonds are below vertices of atoms, put them back
             edge.z_index = 0;
+            this.update_topology();
         }
         return edge;
     }
@@ -212,7 +232,7 @@ class Graph {
         return r;
     }
 
-    delete_edge(edge: Edge): Graph {
+    delete_edge(edge: Edge, drop_dangling_vertices = true): Graph {
         const r: Graph = new Graph();
         r.edges.push(edge);
         edge.detach();
@@ -220,12 +240,12 @@ class Graph {
         edge.v1.remove_neighbor(edge.v2);
         edge.v2.remove_neighbor(edge.v1);
         // delete lone vertices
-        if (edge.v1.neighbors.size == 0) {
+        if (drop_dangling_vertices && edge.v1.neighbors.size == 0) {
             edge.v1.detach();
             r.vertices.push(edge.v1);
             this.vertices = this.vertices.filter( e => e != edge.v1);
         }
-        if (edge.v2.neighbors.size == 0) {
+        if (drop_dangling_vertices && edge.v2.neighbors.size == 0) {
             edge.v2.detach();
             r.vertices.push(edge.v2);
             this.vertices = this.vertices.filter( e => e != edge.v2);
@@ -386,8 +406,8 @@ class Graph {
     fuse_ring(edge: Edge, natoms: number): Graph {
         const alfa = Math.atan2(edge.v2.screen_coords.y-edge.v1.screen_coords.y, edge.v2.screen_coords.x-edge.v1.screen_coords.x);
         const beta = (natoms-2) * Math.PI / natoms;
-        const h = edge.length * Math.tan(beta/2) / 2;
-        const l = edge.length / (2* Math.cos(beta / 2));
+        const h = edge.center_length * Math.tan(beta/2) / 2;
+        const l = edge.center_length / (2* Math.cos(beta / 2));
         const center_x1 = h * Math.sin(Math.PI - alfa) + (edge.v1.screen_coords.x + edge.v2.screen_coords.x) / 2;
         const center_y1 = h * Math.cos(Math.PI - alfa) + (edge.v1.screen_coords.y + edge.v2.screen_coords.y) / 2;
         const center_x2 = -h * Math.sin(Math.PI - alfa) + (edge.v1.screen_coords.x + edge.v2.screen_coords.x) / 2;
@@ -433,6 +453,107 @@ class Graph {
         r.vertices = [...r.vertices, ...frag.vertices];
         r.edges = [...r.edges, ...frag.edges];
         return r;
+    }
+
+    add_numbering(): void {
+        this.vertices.forEach( (e,idx) => e.id = `${idx}` );
+        this.edges.forEach( (e,idx) => e.id = `${idx}` );
+    }
+
+    // get subgraphs as separate graphs. Subgraphs do not have connected paths between each other.
+    subgraphs(): Array<Graph> {
+        const res: Array<Graph> = [];
+        const rest_vertices: Set<Vertex> = new Set(this.vertices);
+        while (rest_vertices.size) {
+            const subgraph_vertices: Set<Vertex> = new Set();
+            const to_visit: Set<Vertex> = new Set([rest_vertices.values().next().value]);
+            while (to_visit.size) {
+                const vertex = to_visit.values().next().value;
+                rest_vertices.delete(vertex);
+                to_visit.delete(vertex);
+                subgraph_vertices.add(vertex);
+                for (const neighbor of vertex.neighbors.values()) {
+                    if (subgraph_vertices.has(neighbor))
+                        continue;
+                    to_visit.add(neighbor);
+                }
+            }
+            const subgraph = new Graph();
+            subgraph.vertices = [...subgraph_vertices];
+            subgraph.edges = this.edges.filter(e => subgraph_vertices.has(e.v1) );
+            res.push(subgraph);
+        }
+        return res;
+    }
+
+    edge_topology(edge: Edge): EdgeTopology {
+        if ( edge.v1.neighbors.size == 1 || edge.v2.neighbors.size == 1)
+            return EdgeTopology.Chain;
+        const edge_index = this.edges.findIndex(e => e == edge);
+        const graph_copy = this.copy();
+        const edge_copy = graph_copy.edges[edge_index];
+        const nsubgraphs = graph_copy.subgraphs().length;
+        graph_copy.delete_edge(edge_copy, false);
+        const nsubgraphs2 = graph_copy.subgraphs().length;
+        return nsubgraphs == nsubgraphs2 ? EdgeTopology.Ring : EdgeTopology.Chain;
+    }
+
+    update_edge_orientation(edge: Edge) : void {
+        if (!edge.is_asymmetric)
+            return;
+        for (const ringsystem of this.ringsystems) {
+            if (ringsystem.edges.findIndex(e => e == edge) != -1) {
+                const center = {
+                    x: ringsystem.vertices.reduce( (p, e) => p + e.screen_coords.x, 0)/ringsystem.vertices.length,
+                    y: ringsystem.vertices.reduce( (p, e) => p + e.screen_coords.y, 0)/ringsystem.vertices.length,
+                };
+                if ( (edge.v2.screen_coords.x - edge.v1.screen_coords.x) * (center.y - edge.v1.screen_coords.y) -
+                            (edge.v2.screen_coords.y - edge.v1.screen_coords.y) * (center.x - edge.v1.screen_coords.x) > 0)
+                    edge.orientation = EdgeOrientation.Right;
+                else
+                    edge.orientation = EdgeOrientation.Left;
+                edge.update();
+            }
+        }
+    }
+
+    update_topology() : void {
+        for (const edge of this.edges) {
+            edge.topology = this.edge_topology(edge);
+        }
+        this.add_numbering();
+        const graph_copy = this.copy();
+        const chain_edges = graph_copy.edges.filter( e => e.topology == EdgeTopology.Chain);
+        chain_edges.forEach( e => graph_copy.delete_edge(e) );
+        // remove lone vertices; they might have been present originally
+        graph_copy.vertices = graph_copy.vertices.filter( e => e.neighbors.size );
+        this.ringsystems = [];
+        for (const ringsystem_copy of graph_copy.subgraphs()) {
+            const ringsystem = new Graph();
+            ringsystem.vertices = <Array<Vertex>>ringsystem_copy.vertices.map( ce => this.vertices.find(e => e.id == ce.id)).filter(e => !!e);
+            ringsystem.edges = <Array<Edge>>ringsystem_copy.edges.map( ce => this.edges.find(e => e.id == ce.id)).filter(e => !!e);
+            // for attached graph instance, recalculate bond orientations
+            if (this.controller) {
+                let center:ScreenCoords|null = null;
+                ringsystem.edges.forEach ( e => {
+                    if (e.is_asymmetric) {
+                        // calculate on demand
+                        if (!center)
+                            center = {
+                                x: ringsystem.vertices.reduce( (p, e) => p + e.screen_coords.x, 0)/ringsystem.vertices.length,
+                                y: ringsystem.vertices.reduce( (p, e) => p + e.screen_coords.y, 0)/ringsystem.vertices.length,
+                            };
+                        if ( (e.v2.screen_coords.x - e.v1.screen_coords.x) * (center.y - e.v1.screen_coords.y) -
+                            (e.v2.screen_coords.y - e.v1.screen_coords.y) * (center.x - e.v1.screen_coords.x) > 0)
+                            e.orientation = EdgeOrientation.Right;
+                        else
+                            e.orientation = EdgeOrientation.Left;
+                        e.update();
+                    }
+                });
+            }
+            this.ringsystems.push(ringsystem);
+        }
     }
 }
 

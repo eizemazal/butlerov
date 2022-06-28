@@ -1,4 +1,4 @@
-import { Edge, EdgeShape } from "../view/Edge";
+import { Edge, EdgeOrientation, EdgeShape } from "../view/Edge";
 import { Graph } from "../view/Graph";
 import { ScreenCoords, Vertex } from "../view/Vertex";
 
@@ -12,20 +12,32 @@ abstract class UpdatableAction extends Action {
 }
 
 class UpdateEdgeShapeAction extends Action {
+    graph: Graph;
     edge: Edge;
     old_shape: EdgeShape;
     new_shape: EdgeShape;
-    constructor(edge: Edge, edge_shape: EdgeShape) {
+    old_orientation: EdgeOrientation;
+    new_orientation: EdgeOrientation;
+    constructor(graph: Graph, edge: Edge, edge_shape: EdgeShape, orientation: EdgeOrientation = EdgeOrientation.Auto) {
         super();
+        this.graph = graph;
         this.edge = edge;
-        this.new_shape = this.old_shape = edge_shape;
+        this.old_shape = edge.shape;
+        this.new_shape = edge_shape;
+        this.old_orientation = edge.orientation;
+        this.new_orientation = orientation;
     }
     commit() {
         this.edge.shape = this.new_shape;
+        this.edge.orientation = this.new_orientation;
+        if (this.new_orientation == EdgeOrientation.Auto) {
+            this.graph.update_edge_orientation(this.edge);
+        }
         this.edge.update();
     }
     rollback() {
         this.edge.shape = this.old_shape;
+        this.edge.orientation = this.old_orientation;
         this.edge.update();
     }
 }
