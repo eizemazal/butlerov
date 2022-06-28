@@ -1,12 +1,8 @@
 import { Edge, EdgeShape } from "../view/Edge";
-import { Graph, Fragment } from "../view/Graph";
-import { Vertex } from "../view/Vertex";
+import { Graph } from "../view/Graph";
+import { ScreenCoords, Vertex } from "../view/Vertex";
 
 abstract class Action {
-    committed: boolean;
-    constructor() {
-        this.committed = false;
-    }
     abstract commit() : void;
     abstract rollback() : void;
 }
@@ -22,18 +18,15 @@ class UpdateEdgeShapeAction extends Action {
     constructor(edge: Edge, edge_shape: EdgeShape) {
         super();
         this.edge = edge;
-        this.new_shape = edge_shape;
-        this.old_shape = edge.shape;
+        this.new_shape = this.old_shape = edge_shape;
     }
     commit() {
         this.edge.shape = this.new_shape;
         this.edge.update();
-        this.committed = true;
     }
     rollback() {
         this.edge.shape = this.old_shape;
         this.edge.update();
-        this.committed = false;
     }
 }
 
@@ -48,37 +41,33 @@ class ClearGraphAction extends Action {
     commit() {
         this.mol = this.graph.get_mol_string();
         this.graph.clear();
-        this.committed = true;
     }
     rollback() {
         this.graph.load_mol_string(this.mol);
         this.graph.update();
-        this.committed = false;
     }
 }
 
 class DeleteVertexAction extends Action {
     graph: Graph;
     vertex: Vertex;
-    removed_fragment: Fragment;
+    removed: Graph;
 
     constructor(graph: Graph, vertex: Vertex) {
         super();
         this.graph = graph;
         this.vertex = vertex;
-        this.removed_fragment = {vertices: [], edges: []};
+        this.removed = new Graph();
     }
 
     commit() {
         this.vertex.active = false;
-        this.removed_fragment = this.graph.delete_vertex(this.vertex);
-        this.committed = true;
+        this.removed = this.graph.delete_vertex(this.vertex);
     }
 
     rollback() {
-        this.graph.add_fragment(this.removed_fragment);
+        this.graph.add(this.removed);
         this.graph.update();
-        this.committed = false;
     }
 
 }
@@ -86,52 +75,48 @@ class DeleteVertexAction extends Action {
 class DeleteEdgeAction extends Action {
     graph: Graph;
     edge: Edge;
-    removed_fragment: Fragment;
+    removed: Graph;
 
     constructor(graph: Graph, edge: Edge) {
         super();
         this.graph = graph;
         this.edge = edge;
-        this.removed_fragment = {vertices: [], edges: []};
+        this.removed = new Graph();
     }
 
     commit() {
         this.edge.active = false;
-        this.removed_fragment = this.graph.delete_edge(this.edge);
-        this.committed = true;
+        this.removed = this.graph.delete_edge(this.edge);
     }
 
     rollback() {
-        this.graph.add_fragment(this.removed_fragment);
+        this.graph.add(this.removed);
         this.graph.update();
-        this.committed = false;
     }
 }
 
 class AddBoundVertexAction extends Action {
     graph: Graph;
     vertex: Vertex;
-    added_fragment: Fragment | null;
+    added: Graph | null;
 
     constructor(graph: Graph, vertex: Vertex) {
         super();
         this.graph = graph;
         this.vertex = vertex;
-        this.added_fragment = null;
+        this.added = null;
     }
 
     commit() {
-        if (this.added_fragment)
-            this.graph.add_fragment(this.added_fragment);
+        if (this.added)
+            this.graph.add(this.added);
         else
-            this.added_fragment = this.graph.add_bound_vertex_to(this.vertex);
-        this.committed = true;
+            this.added = this.graph.add_bound_vertex_to(this.vertex);
     }
     rollback() {
-        if (!this.added_fragment)
+        if (!this.added)
             return;
-        this.graph.remove_fragment(this.added_fragment);
-        this.committed = false;
+        this.graph.remove(this.added);
     }
 }
 
@@ -139,29 +124,27 @@ class AddDefaultFragmentAction extends Action {
     graph: Graph;
     x: number;
     y: number;
-    added_fragment: Fragment | null;
+    added: Graph | null;
 
     constructor(graph: Graph, x: number, y: number ) {
         super();
         this.graph = graph;
         this.x = x;
         this.y = y;
-        this.added_fragment = null;
+        this.added = null;
     }
 
     commit() {
-        if (this.added_fragment)
-            this.graph.add_fragment(this.added_fragment);
+        if (this.added)
+            this.graph.add(this.added);
         else
-            this.added_fragment = this.graph.add_default_fragment(this.x, this.y);
-        this.committed = true;
+            this.added = this.graph.add_default_fragment({x: this.x, y: this.y});
     }
 
     rollback() {
-        if (!this.added_fragment)
+        if (!this.added)
             return;
-        this.graph.remove_fragment(this.added_fragment);
-        this.committed = false;
+        this.graph.remove(this.added);
     }
 
 }
@@ -185,7 +168,6 @@ class BindVerticesAction extends Action {
         this.edge.update();
         this.v1.update();
         this.v2.update();
-        this.committed = true;
     }
 
     rollback() {
@@ -193,14 +175,13 @@ class BindVerticesAction extends Action {
             return;
         this.graph.delete_edge(this.edge);
         this.edge = null;
-        this.committed = false;
     }
 }
 
 class AddChainAction extends Action {
     graph: Graph;
     vertex: Vertex;
-    added_fragment: Fragment | null;
+    added: Graph | null;
     natoms: number;
 
     constructor(graph: Graph, vertex: Vertex, natoms: number) {
@@ -208,29 +189,27 @@ class AddChainAction extends Action {
         this.graph = graph;
         this.vertex = vertex;
         this.natoms = natoms;
-        this.added_fragment = null;
+        this.added = null;
     }
 
     commit() {
-        if (this.added_fragment)
-            this.graph.add_fragment(this.added_fragment);
+        if (this.added)
+            this.graph.add(this.added);
         else
-            this.added_fragment = this.graph.add_chain(this.vertex, this.natoms);
-        this.committed = true;
+            this.added = this.graph.add_chain(this.vertex, this.natoms);
     }
 
     rollback() {
-        if (!this.added_fragment)
+        if (!this.added)
             return;
-        this.graph.remove_fragment(this.added_fragment);
-        this.committed = false;
+        this.graph.remove(this.added);
     }
 }
 
 class AttachRingAction extends Action {
     graph: Graph;
     vertex: Vertex;
-    added_fragment: Fragment | null;
+    added: Graph | null;
     natoms: number;
 
     constructor(graph: Graph, vertex: Vertex, natoms: number) {
@@ -238,29 +217,27 @@ class AttachRingAction extends Action {
         this.graph = graph;
         this.vertex = vertex;
         this.natoms = natoms;
-        this.added_fragment = null;
+        this.added = null;
     }
 
     commit() {
-        if (this.added_fragment)
-            this.graph.add_fragment(this.added_fragment);
+        if (this.added)
+            this.graph.add(this.added);
         else
-            this.added_fragment = this.graph.attach_ring(this.vertex, this.natoms);
-        this.committed = true;
+            this.added = this.graph.attach_ring(this.vertex, this.natoms);
     }
 
     rollback() {
-        if (!this.added_fragment)
+        if (!this.added)
             return;
-        this.graph.remove_fragment(this.added_fragment);
-        this.committed = false;
+        this.graph.remove(this.added);
     }
 }
 
 class FuseRingAction extends Action {
     graph: Graph;
     edge: Edge;
-    added_fragment: Fragment | null;
+    added: Graph | null;
     natoms: number;
 
     constructor(graph: Graph, edge: Edge, natoms: number) {
@@ -268,22 +245,20 @@ class FuseRingAction extends Action {
         this.graph = graph;
         this.edge = edge;
         this.natoms = natoms;
-        this.added_fragment = null;
+        this.added = null;
     }
 
     commit() {
-        if (this.added_fragment)
-            this.graph.add_fragment(this.added_fragment);
+        if (this.added)
+            this.graph.add(this.added);
         else
-            this.added_fragment = this.graph.fuse_ring(this.edge, this.natoms);
-        this.committed = true;
+            this.added = this.graph.fuse_ring(this.edge, this.natoms);
     }
 
     rollback() {
-        if (!this.added_fragment)
+        if (!this.added)
             return;
-        this.graph.remove_fragment(this.added_fragment);
-        this.committed = false;
+        this.graph.remove(this.added);
     }
 }
 
@@ -306,11 +281,9 @@ class ChangeAtomLabelAction extends UpdatableAction {
     }
     commit() {
         this._set_label(this.new_label);
-        this.committed = true;
     }
     rollback() {
         this._set_label(this.old_label);
-        this.committed = false;
     }
     update(action: this): boolean {
         if (this.vertex != action.vertex)
@@ -324,31 +297,24 @@ class ChangeAtomLabelAction extends UpdatableAction {
 class MoveVertexAction extends UpdatableAction {
     graph: Graph;
     vertex: Vertex;
-    old_x: number;
-    old_y: number;
-    new_x: number;
-    new_y: number;
+    old_coords: ScreenCoords;
+    new_coords: ScreenCoords;
 
     constructor(graph: Graph, vertex: Vertex) {
         super();
         this.graph = graph;
         this.vertex = vertex;
-        this.new_x = this.vertex.x;
-        this.new_y = this.vertex.y;
-        this.old_x = this.vertex.x;
-        this.old_y = this.vertex.y;
+        this.new_coords = this.old_coords = this.vertex.screen_coords;
     }
 
     commit() : void {
-        this.new_x = this.vertex.x;
-        this.new_y = this.vertex.y;
+        this.new_coords = this.vertex.screen_coords;
         this.vertex.update();
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
     }
 
     rollback(): void {
-        this.vertex.x = this.old_x;
-        this.vertex.y = this.old_y;
+        this.vertex.screen_coords = this.old_coords;
         this.vertex.update();
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
     }
@@ -356,8 +322,7 @@ class MoveVertexAction extends UpdatableAction {
     update(action: this) : boolean {
         if (action.vertex != this.vertex)
             return false;
-        this.new_x = action.vertex.x;
-        this.new_y = action.vertex.y;
+        this.new_coords = action.vertex.screen_coords;
         this.vertex.update();
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
         return true;

@@ -1,20 +1,7 @@
 import Konva from "konva";
 import { MoleculeEditor } from "../main";
-import { KonvaEventObject } from "konva/lib/Node";
-import { Atom } from "../model/Atom";
 import { Edge, EdgeShape } from "./Edge";
-import { Stylesheet } from "./Stylesheet";
-import { Vertex } from "./Vertex";
-
-type Fragment = {
-    vertices: Array<Vertex>;
-    edges: Array<Edge>;
-}
-
-type Point = {
-    x: number;
-    y: number;
-}
+import { AtomicCoords, ScreenCoords, Vertex } from "./Vertex";
 
 type Rect = {
     x1: number;
@@ -26,17 +13,29 @@ type Rect = {
 class Graph {
     vertices: Array<Vertex>;
     edges: Array<Edge>;
-    group: Konva.Group;
-    stylesheet: Stylesheet;
-    controller: MoleculeEditor;
+    group: Konva.Group | null;
+    controller: MoleculeEditor | null;
 
-    constructor(stylesheet: Stylesheet, controller: MoleculeEditor) {
-        this.controller = controller;
-        this.stylesheet = stylesheet;
+    constructor() {
+        this.controller = null;
         this.vertices = [];
         this.edges = [];
-        this.controller.stage.width();
-        this.group = new Konva.Group();
+        this.group = null;
+    }
+
+    attach(controller: MoleculeEditor) {
+        this.controller = controller;
+        if (!this.group)
+            this.group = new Konva.Group();
+        this.vertices.forEach( e => this.group?.add(e.attach(controller)) );
+        this.edges.forEach( e => this.group?.add(e.attach(controller)) );
+    }
+
+    detach() {
+        this.vertices.forEach( e => e.detach() );
+        this.edges.forEach( e => e.detach() );
+        this.group = null;
+        this.controller = null;
     }
 
     load_mol_string(mol_str: string) : void {
@@ -64,8 +63,7 @@ class Graph {
             const x = parseFloat(match_object[1]);
             const y = -parseFloat(match_object[3]);
             const element = match_object[7];
-            const atom = new Atom(x, y, element);
-            this.add_vertex_for_atom(atom);
+            this.add_vertex({x: x, y: y}, element);
         }
         offset += atom_count;
         for (let i = offset; i < offset+bond_count; i++) {
@@ -78,9 +76,14 @@ class Graph {
             const atom_index2 = parseInt(match_object[2])-1;
             const bond_type = parseInt(match_object[3]);
             const stereo = parseInt(match_object[4]);
-            const bond = this.bind_vertices(this.vertices[atom_index2], this.vertices[atom_index1]);
+            const bond = this.bind_vertices(this.vertices[atom_index2], this.vertices[atom_index1], EdgeShape.Single, false);
             bond.bond_type = bond_type;
             bond.bond_stereo = stereo;
+        }
+        if (this.controller != null) {
+            const c = this.controller;
+            this.vertices.forEach( e=> { this.group?.add(e.attach(c)); });
+            this.edges.forEach( e=> { this.group?.add(e.attach(c)); } );
         }
     }
 
@@ -93,8 +96,8 @@ class Graph {
         const nbonds = `${this.edges.length}`.padStart(3, " ");
         r += `${natoms}${nbonds}  0  0  0  0  0  0  0  0  1 V2000\n`;
         this.vertices.forEach(e => {
-            const x = `${e.atom_x.toFixed(4)}`.padStart(10, " ");
-            const y = `${(-e.atom_y).toFixed(4)}`.padStart(10, " ");
+            const x = `${e.atomic_coords.x.toFixed(4)}`.padStart(10, " ");
+            const y = `${(-e.atomic_coords.y).toFixed(4)}`.padStart(10, " ");
             const z = "    0.0000";
             const element = `${e.label ? e.label : "C"}`.padEnd(3, " ");
             r += `${x}${y}${z} ${element} 0  0  0  0  0  0  0  0  0  0  0  0\n`;
@@ -114,13 +117,13 @@ class Graph {
         if (!this.edges.length)
             return 1.54; // average CC bond in Angstrøms
         const total_distance = this.edges.reduce( (p, e) =>
-            p + Math.sqrt((e.v1.atom_x - e.v2.atom_x)*(e.v1.atom_x - e.v2.atom_x)+(e.v1.atom_y - e.v2.atom_y)*(e.v1.atom_y - e.v2.atom_y)), 0);
+            p + Math.sqrt((e.v1.atomic_coords.x - e.v2.atomic_coords.x)*(e.v1.atomic_coords.x - e.v2.atomic_coords.x)+(e.v1.atomic_coords.y - e.v2.atomic_coords.y)*(e.v1.atomic_coords.y - e.v2.atomic_coords.y)), 0);
         return total_distance / this.edges.length;
     }
 
     get_molecule_rect() : Rect {
-        const x_coords = this.vertices.map(e => e.atom_x);
-        const y_coords = this.vertices.map(e => e.atom_y);
+        const x_coords = this.vertices.map(e => e.atomic_coords.x);
+        const y_coords = this.vertices.map(e => e.atomic_coords.y);
         return {
             x1: Math.min(...x_coords),
             y1: Math.min(...y_coords),
@@ -138,43 +141,24 @@ class Graph {
         }
     }
 
-    atomic_coords2screen(coordinates: Point): Point {
-        return {
-            x: coordinates.x*this.stylesheet.scale + this.stylesheet.offset_x,
-            y: coordinates.y*this.stylesheet.scale + this.stylesheet.offset_x
-        };
-    }
-
-    screen_coords2atomic(coordinates: Point): Point {
-        return {
-            x: (coordinates.x - this.stylesheet.offset_x ) / this.stylesheet.scale,
-            y: (coordinates.y - this.stylesheet.offset_y ) / this.stylesheet.scale
-        };
-    }
-
-    add_vertex(x: number, y: number, label = "C"): Vertex {
-        const atom = new Atom( (x - this.stylesheet.offset_x)/this.stylesheet.scale, (y - this.stylesheet.offset_y)/this.stylesheet.scale, label );
-        return this.add_vertex_for_atom(atom);
-    }
-
-    add_vertex_for_atom(atom: Atom): Vertex {
-        const vertex = new Vertex(atom, this.stylesheet);
-        vertex.on("dragmove", (vertex: Vertex, evt: KonvaEventObject<MouseEvent>) => this.controller.on_vertex_dragmove(vertex, evt));
-        vertex.on("mouseover", (vertex: Vertex) => this.controller.on_vertex_mouseover(vertex));
-        vertex.on("mouseout", (vertex: Vertex) => this.controller.on_vertex_mouseout(vertex));
-        vertex.on("click", (vertex: Vertex, evt: KonvaEventObject<MouseEvent>) => this.controller.on_vertex_click(vertex, evt));
-        vertex.on("contextmenu", (vertex: Vertex, evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.controller.toggle_menu();} );
-        vertex.on("mousedown", (vertex: Vertex) => this.controller.on_vertex_mousedown(vertex));
-        vertex.on("mouseup", (vertex: Vertex) => this.controller.on_vertex_mouseup(vertex));
+    add_vertex_by_screen_coords(coords: ScreenCoords, label = "C"): Vertex {
+        if (!this.controller)
+            throw("Graph not attached to controller");
+        const vertex = new Vertex();
         this.vertices.push(vertex);
-        const group = vertex.as_group();
-        this.group.add(group);
+        this.group?.add(vertex.attach(this.controller));
+        vertex.screen_coords = coords;
+        vertex.label = label;
         return vertex;
     }
 
-    /*find_vertex_by_atom(atom: Atom) : Vertex | undefined  {
-        return this.vertices.find(e => e.atom == atom);
-    }*/
+    add_vertex( coords: AtomicCoords, label = "C"): Vertex {
+        const vertex = new Vertex();
+        vertex.label = label;
+        vertex.atomic_coords = coords;
+        this.vertices.push(vertex);
+        return vertex;
+    }
 
     find_edges_by_vertex(vertex: Vertex): Array<Edge> {
         return this.edges.filter(e => e.v1 == vertex || e.v2 == vertex);
@@ -184,62 +168,65 @@ class Graph {
         return this.edges.findIndex( e => (e.v1 == v1 && e.v2 == v2) || (e.v1 == v2 && e.v2 == v1) ) != -1;
     }
 
-    add_fragment(fragment: Fragment): void {
-        this.vertices.push(...fragment.vertices);
-        this.edges.push(...fragment.edges);
+    add(graph: Graph): void {
+        this.vertices.push(...graph.vertices);
+        this.edges.push(...graph.edges);
         this.edges.forEach(e => { e.v1.add_neighbor(e.v2); e.v2.add_neighbor(e.v1); });
+        if (this.controller) {
+            const controller = this.controller;
+            graph.vertices.forEach(e => { this.group?.add(e.attach(controller)); });
+            graph.edges.forEach(e => { this.group?.add(e.attach(controller)); } );
+        }
         this.update();
     }
 
-    remove_fragment(fragment: Fragment) : void {
-        this.vertices = this.vertices.filter(e => fragment.vertices.indexOf(e) == -1);
-        this.edges = this.edges.filter( e => fragment.edges.indexOf(e) == -1);
-        fragment.edges.forEach( e => { e.v1.remove_neighbor(e.v2); e.v2.remove_neighbor(e.v1); });
-        fragment.vertices.forEach( e  => e.erase() );
-        fragment.edges.forEach( e  => e.erase() );
+    remove(graph: Graph) : void {
+        graph.vertices.forEach( e  => e.detach() );
+        graph.edges.forEach( e  => e.detach() );
+        this.vertices = this.vertices.filter(e => graph.vertices.indexOf(e) == -1);
+        this.edges = this.edges.filter( e => graph.edges.indexOf(e) == -1);
+        graph.edges.forEach( e => { e.v1.remove_neighbor(e.v2); e.v2.remove_neighbor(e.v1); });
         this.update();
     }
 
-    bind_vertices(v1: Vertex, v2: Vertex, edge_shape: EdgeShape = EdgeShape.Single): Edge {
+    bind_vertices(v1: Vertex, v2: Vertex, edge_shape: EdgeShape = EdgeShape.Single, attach = true): Edge {
         v1.add_neighbor(v2);
         v2.add_neighbor(v1);
-        const edge = new Edge(v1, v2, this.stylesheet, edge_shape);
-        edge.on("click", (edge: Edge, evt: KonvaEventObject<MouseEvent>) => this.controller.on_edge_click(edge, evt));
-        edge.on("mouseover", (edge: Edge) => this.controller.on_edge_mouseover(edge));
-        edge.on("mouseout", (edge: Edge) => this.controller.on_edge_mouseout(edge));
-        edge.on("contextmenu", (edge: Edge, evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.controller.toggle_menu();} );
+        const edge = new Edge(v1, v2);
+        edge.shape = edge_shape;
         this.edges.push(edge);
-        const group = edge.as_group();
-        this.group.add(group);
-        // edges of bonds are below vertices of atoms, put them back
-        group.setAttr("zIndex", 0);
+        if (attach && this.controller) {
+            this.group?.add(edge.attach(this.controller));
+            // edges of bonds are below vertices of atoms, put them back
+            edge.z_index = 0;
+        }
         return edge;
     }
 
-    delete_vertex(vertex: Vertex): Fragment {
-        const r: Fragment = {vertices: [vertex], edges: []};
+    delete_vertex(vertex: Vertex): Graph {
+        const r: Graph = new Graph();
         const edges = this.find_edges_by_vertex(vertex);
         edges.forEach(e => { const s = this.delete_edge(e); r.vertices.push(...s.vertices); r.edges.push(...s.edges); });
-        vertex.as_group().destroyChildren();
+        vertex.detach();
         this.vertices = this.vertices.filter( e => e != vertex);
         return r;
     }
 
-    delete_edge(edge: Edge): Fragment {
-        const r: Fragment = {vertices: [], edges: []};
+    delete_edge(edge: Edge): Graph {
+        const r: Graph = new Graph();
         r.edges.push(edge);
-        edge.as_group().destroyChildren();
+        edge.detach();
         this.edges = this.edges.filter( e => e != edge);
         edge.v1.remove_neighbor(edge.v2);
         edge.v2.remove_neighbor(edge.v1);
         // delete lone vertices
-        if (edge.v1.neighbors.length == 0) {
-            edge.v1.as_group().destroyChildren();
+        if (edge.v1.neighbors.size == 0) {
+            edge.v1.detach();
             r.vertices.push(edge.v1);
             this.vertices = this.vertices.filter( e => e != edge.v1);
         }
-        if (edge.v2.neighbors.length == 0) {
-            edge.v2.as_group().destroyChildren();
+        if (edge.v2.neighbors.size == 0) {
+            edge.v2.detach();
             r.vertices.push(edge.v2);
             this.vertices = this.vertices.filter( e => e != edge.v2);
         }
@@ -256,14 +243,14 @@ class Graph {
     // for a given set of points, get the one that is farthest all the atoms
     // this is using r2 metric, but this is not perfect sometimes
     // this is computationally intense, use caching to assess only atoms that are near
-    least_crowded_point(points: Array<Point>): Point {
+    least_crowded_point(points: Array<ScreenCoords>): ScreenCoords {
         // garbage in garbage out
         if (!points.length)
             return {x: 0, y: 0};
         let best_distance: number | null = null;
-        let best_point: Point = points[0];
+        let best_point: ScreenCoords = points[0];
         for (const point of points) {
-            const distance = this.vertices.reduce( (d, e) => d + (e.x-point.x)*(e.x-point.x) + (e.y-point.y)*(e.y-point.y), 0 );
+            const distance = this.vertices.reduce( (d, e) => d + (e.screen_coords.x-point.x)*(e.screen_coords.x-point.x) + (e.screen_coords.y-point.y)*(e.screen_coords.y-point.y), 0 );
             if (best_distance === null || distance > best_distance) {
                 best_distance = distance;
                 best_point = point;
@@ -272,36 +259,56 @@ class Graph {
         return best_point;
     }
 
-    add_bound_vertex_to(vertex: Vertex): Fragment {
+    add_bound_vertex_to(vertex: Vertex): Graph {
+        if (!this.controller)
+            throw Error("Graph not attached to controller.");
+        const r = new Graph();
         const neighbors = this.neighboring_vertices(vertex);
+        const bond_len = this.controller.stylesheet.bond_length_px;
         if (neighbors.length == 0) {
             // make a new bond to 60 deg up and right
-            const new_vertex = this.add_vertex(vertex.x + this.stylesheet.bond_length_px*Math.cos(Math.PI/6), vertex.y - this.stylesheet.bond_length_px*Math.sin(Math.PI/6));
-            return { edges: [this.bind_vertices(vertex, new_vertex)], vertices: [new_vertex] };
+            const new_vertex = this.add_vertex_by_screen_coords({
+                x: vertex.screen_coords.x + bond_len * Math.cos(Math.PI/6),
+                y: vertex.screen_coords.y - bond_len * Math.sin(Math.PI/6)
+            });
+            r.edges = [this.bind_vertices(vertex, new_vertex)];
+            r.vertices = [new_vertex];
+            return r;
         }
         // for atoms with only one neighbor, add atom and bond at 120 deg to existing bond with the same distance
         if (neighbors.length == 1) {
-            const delta_x = neighbors[0].x - vertex.x;
-            const delta_y = neighbors[0].y - vertex.y;
+            const delta_x = neighbors[0].screen_coords.x - vertex.screen_coords.x;
+            const delta_y = neighbors[0].screen_coords.y - vertex.screen_coords.y;
             const alfa = Math.atan2(delta_y, delta_x);
             const bond_len = Math.sqrt(delta_x * delta_x + delta_y * delta_y);
-            const coordinates = this.least_crowded_point([
+            const coordinates: ScreenCoords = this.least_crowded_point([
                 {
-                    x: vertex.x + bond_len * Math.cos(alfa+Math.PI/1.5),
-                    y: vertex.y + bond_len * Math.sin(alfa+Math.PI/1.5)
+                    x: vertex.screen_coords.x + bond_len * Math.cos(alfa+Math.PI/1.5),
+                    y: vertex.screen_coords.y + bond_len * Math.sin(alfa+Math.PI/1.5)
                 },
                 {
-                    x: vertex.x + bond_len * Math.cos(alfa-Math.PI/1.5),
-                    y: vertex.y + bond_len * Math.sin(alfa-Math.PI/1.5)
+                    x: vertex.screen_coords.x + bond_len * Math.cos(alfa-Math.PI/1.5),
+                    y: vertex.screen_coords.y + bond_len * Math.sin(alfa-Math.PI/1.5)
                 },
             ]);
-            const new_vertex = this.add_vertex(coordinates.x, coordinates.y);
-            return { edges: [this.bind_vertices(vertex, new_vertex)], vertices: [new_vertex] };
+            const new_vertex = this.add_vertex_by_screen_coords(coordinates);
+            r.edges = [this.bind_vertices(vertex, new_vertex)];
+            r.vertices = [new_vertex];
+            return r;
+        }
+        let neighbor_to_move:Vertex | null = null;
+        // help drawing 4-substituted carbon atom
+        if (neighbors.length == 3) {
+            for (const neighbor of neighbors) {
+                if (neighbor.neighbors.size == 1) {
+                    neighbor_to_move = neighbor;
+                    break;
+                }
+            }
         }
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         let angles: Array<number> = [];
-        angles = neighbors.map(e => Math.atan2(e.y-vertex.y, e.x-vertex.x));
-        const bond_len = this.stylesheet.bond_length_px;
+        angles = neighbors.filter(e => e != neighbor_to_move).map(e => Math.atan2(e.screen_coords.y-vertex.screen_coords.y, e.screen_coords.x-vertex.screen_coords.x));
         angles.sort( (a,b) => a > b ? 1 : -1);
         let largest_diff = 0;
         let angle1 = 0;
@@ -314,35 +321,56 @@ class Graph {
                 angle1 = angles[prev_idx];
             }
         }
-        // divide the largest angle by half, convert to degress, round the result to 15 deg, and convert back to radians
-        const alfa =  Math.PI * Math.round( (angle1 + largest_diff/2)*180/(Math.PI*15) )*15 / 180;
-        const new_vertex = this.add_vertex(vertex.x + bond_len * Math.cos(alfa), vertex.y + bond_len * Math.sin(alfa));
-        return { edges: [this.bind_vertices(vertex, new_vertex)], vertices: [new_vertex] };
+        let alfa: number;
+        if (neighbor_to_move) {
+            // divide the largest angle by half, convert to degress, round the result to 15 deg, and convert back to radians
+            alfa =  Math.PI * Math.round( (angle1 + largest_diff/3)*180/(Math.PI*15) )*15 / 180;
+            neighbor_to_move.screen_coords = {
+                x: vertex.screen_coords.x + bond_len * Math.cos(alfa),
+                y: vertex.screen_coords.y + bond_len * Math.sin(alfa)
+            };
+            this.edges.find(e => e.v1 == neighbor_to_move || e.v2 == neighbor_to_move)?.update();
+            alfa =  Math.PI * Math.round( (angle1 + largest_diff*2/3)*180/(Math.PI*15) )*15 / 180;
+        }
+        else {
+            // divide the largest angle by half, convert to degress, round the result to 15 deg, and convert back to radians
+            alfa =  Math.PI * Math.round( (angle1 + largest_diff/2)*180/(Math.PI*15) )*15 / 180;
+        }
+
+        const new_vertex = this.add_vertex_by_screen_coords({
+            x: vertex.screen_coords.x + bond_len * Math.cos(alfa),
+            y: vertex.screen_coords.y + bond_len * Math.sin(alfa)
+        });
+        r.edges = [this.bind_vertices(vertex, new_vertex)];
+        r.vertices = [new_vertex];
+        return r;
     }
 
     as_group(): Konva.Group {
+        if (!this.group)
+            throw Error("Graph not attached to controller");
         return this.group;
     }
 
     clear() : void {
         this.vertices = [];
         this.edges = [];
-        this.group.destroyChildren();
+        this.group?.destroyChildren();
     }
 
-    add_default_fragment(x: number, y: number): Fragment {
-        const vertex1 = this.add_vertex(x, y);
-        const r: Fragment = {vertices: [vertex1], edges: []};
+    add_default_fragment(coords: ScreenCoords): Graph {
+        const vertex1 = this.add_vertex_by_screen_coords(coords);
+        const r = new Graph();
+        r.vertices = [vertex1];
         const frag = this.add_bound_vertex_to(vertex1);
         r.vertices = [ ...r.vertices, ...frag.vertices ];
         r.edges = [ ...r.edges, ...frag.edges ];
         return r;
     }
 
-    add_chain(vertex: Vertex, natoms: number) : Fragment {
-        const r: Fragment = { edges: [], vertices: [vertex] };
-        //const vertices_to_update: Array<Vertex> = [vertex];
-        //const new_edges: Array<Edge> = [];
+    add_chain(vertex: Vertex, natoms: number) : Graph {
+        const r = new Graph;
+        r.vertices = [vertex];
         for (let i = 0; i < natoms; i++) {
             const fragment = this.add_bound_vertex_to(r.vertices[r.vertices.length-1]);
             r.edges.push(fragment.edges[0]);
@@ -351,22 +379,22 @@ class Graph {
         r.edges.forEach(e => e.update());
         r.vertices.forEach(e => e.update());
         // remove vertex that we added initially
-        r.vertices = r.vertices.splice(0,1);
+        r.vertices = r.vertices.filter(e => e != vertex);
         return r;
     }
 
-    fuse_ring(edge: Edge, natoms: number): Fragment {
-        const alfa = Math.atan2(edge.v2.y-edge.v1.y, edge.v2.x-edge.v1.x);
+    fuse_ring(edge: Edge, natoms: number): Graph {
+        const alfa = Math.atan2(edge.v2.screen_coords.y-edge.v1.screen_coords.y, edge.v2.screen_coords.x-edge.v1.screen_coords.x);
         const beta = (natoms-2) * Math.PI / natoms;
         const h = edge.length * Math.tan(beta/2) / 2;
         const l = edge.length / (2* Math.cos(beta / 2));
-        const center_x1 = h * Math.sin(Math.PI - alfa) + (edge.v1.x + edge.v2.x) / 2;
-        const center_y1 = h * Math.cos(Math.PI - alfa) + (edge.v1.y + edge.v2.y) / 2;
-        const center_x2 = -h * Math.sin(Math.PI - alfa) + (edge.v1.x + edge.v2.x) / 2;
-        const center_y2 = -h * Math.cos(Math.PI - alfa) + (edge.v1.y + edge.v2.y) / 2;
+        const center_x1 = h * Math.sin(Math.PI - alfa) + (edge.v1.screen_coords.x + edge.v2.screen_coords.x) / 2;
+        const center_y1 = h * Math.cos(Math.PI - alfa) + (edge.v1.screen_coords.y + edge.v2.screen_coords.y) / 2;
+        const center_x2 = -h * Math.sin(Math.PI - alfa) + (edge.v1.screen_coords.x + edge.v2.screen_coords.x) / 2;
+        const center_y2 = -h * Math.cos(Math.PI - alfa) + (edge.v1.screen_coords.y + edge.v2.screen_coords.y) / 2;
         const coordinates: Array<[number, number]> = [];
         let direction = true;
-        const least_crowded_center = this.least_crowded_point([{x:center_x1, y:center_y1}, {x:center_x2, y:center_y2}]);
+        const least_crowded_center:ScreenCoords = this.least_crowded_point([{x:center_x1, y:center_y1}, {x:center_x2, y:center_y2}]);
         if (least_crowded_center.x == center_x1 && least_crowded_center.y == center_y1) {
             direction = true;
             for (let i = 1; i <= natoms - 2; i++) {
@@ -386,9 +414,9 @@ class Graph {
             }
         }
         let last_vertex = direction ? edge.v1 : edge.v2;
-        const r: Fragment = { edges: [], vertices: [] };
+        const r = new Graph();
         for (const coordinate of coordinates) {
-            const vertex = this.add_vertex(coordinate[0], coordinate[1], "C");
+            const vertex = this.add_vertex_by_screen_coords({x: coordinate[0], y:coordinate[1]}, "C");
             r.vertices.push(vertex);
             r.edges.push(this.bind_vertices(vertex, last_vertex));
             last_vertex = vertex;
@@ -399,8 +427,8 @@ class Graph {
         return r;
     }
 
-    attach_ring(vertex: Vertex, natoms: number) : Fragment {
-        const r: Fragment = this.add_bound_vertex_to(vertex);
+    attach_ring(vertex: Vertex, natoms: number) : Graph {
+        const r: Graph = this.add_bound_vertex_to(vertex);
         const frag = this.fuse_ring(r.edges[0], natoms);
         r.vertices = [...r.vertices, ...frag.vertices];
         r.edges = [...r.edges, ...frag.edges];
@@ -408,4 +436,4 @@ class Graph {
     }
 }
 
-export { Graph, Fragment };
+export { Graph };

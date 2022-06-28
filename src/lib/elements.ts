@@ -14,7 +14,7 @@ class ChemicalElement {
     }
 }
 
-const Elements: { [key: string] :  ChemicalElement } = {
+const ChemicalElements: { [key: string] :  ChemicalElement } = {
     "H": new ChemicalElement("H", "Hydrogen", 1, 1.00794, [1]),
     "He": new ChemicalElement("He", "Helium", 2, 4.002602, []),
     "Li": new ChemicalElement("Li", "Lithium", 3, 6.941, [1]),
@@ -120,4 +120,4 @@ const Elements: { [key: string] :  ChemicalElement } = {
     "Lr": new ChemicalElement("Lr", "Lawrencium", 103, 262.1098, [3]),
 };
 
-export {Elements};
+export {ChemicalElement, ChemicalElements};

@@ -1,11 +1,10 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import { BondType } from "../model/Bond";
-import { Edge, EdgeShape } from "../view/Edge";
+import { Edge, EdgeShape, BondType } from "../view/Edge";
 import { Graph } from "../view/Graph";
 import { Stylesheet } from "../view/Stylesheet";
 import { Vertex } from "../view/Vertex";
-import { Elements } from "../lib/elements";
+import { ChemicalElements } from "../lib/elements";
 import { Menu } from "../view/Menu";
 import { MenuButton } from "../view/MenuButton";
 import { Action, AddBoundVertexAction, AddChainAction, AddDefaultFragmentAction, AttachRingAction, BindVerticesAction, ChangeAtomLabelAction, ClearGraphAction, DeleteEdgeAction, DeleteVertexAction, FuseRingAction, MoveVertexAction, UpdatableAction, UpdateEdgeShapeAction } from "./Action";
@@ -28,7 +27,8 @@ class MoleculeEditor {
     constructor(stage: Konva.Stage) {
         this.stage = stage;
         this.stylesheet = new Stylesheet();
-        this.graph = new Graph(this.stylesheet, this);
+        this.graph = new Graph();
+        this.graph.attach(this);
         this.background_layer = new Konva.Layer();
         this.background_layer.add(new Konva.Rect({
             x: 0,
@@ -172,7 +172,7 @@ class MoleculeEditor {
     }
 
     get_next_element_label(label: string, key: string): string {
-        const element_labels = Object.keys(Elements).filter(e => e.toLowerCase()[0] == key.toLowerCase()).sort((a,b) => a < b ? -1 : 1);
+        const element_labels = Object.keys(ChemicalElements).filter(e => e.toLowerCase()[0] == key.toLowerCase()).sort((a,b) => a < b ? -1 : 1);
         if (element_labels.length == 0)
             return "";
         const index = element_labels.indexOf(label);
