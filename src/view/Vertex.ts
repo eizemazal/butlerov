@@ -21,7 +21,7 @@ class Vertex {
     protected _atomic_coords: AtomicCoords;
     protected _charge : number;
     protected _label : string;
-    protected element: ChemicalElement | null;
+    protected _element: ChemicalElement | null;
     public id: string;
 
     constructor() {
@@ -29,7 +29,7 @@ class Vertex {
         this._label = "";
         this._charge = 0;
         this.controller = null;
-        this.element = null;
+        this._element = ChemicalElements["C"];
         this.group = null;
         this.is_active = false;
         this._neighbors = new Set();
@@ -40,7 +40,7 @@ class Vertex {
         const v = new Vertex();
         v._atomic_coords = { ...this._atomic_coords };
         v._label = this.label;
-        v.element = this.element;
+        v._element = this._element;
         v._charge = this._charge;
         v.id = this.id;
         return v;
@@ -84,8 +84,15 @@ class Vertex {
     }
 
     public set label(label: string) {
-        if (label in ChemicalElements) {
-            this.element = ChemicalElements[label];
+        if (label == "") {
+            this._element = ChemicalElements["C"];
+            if (this.neighbors.size)
+                this._label = "";
+            else
+                this._label = "C";
+        }
+        else if (label in ChemicalElements) {
+            this._element = ChemicalElements[label];
             if (label == "C" && this.neighbors.size)
                 this._label = "";
             else
@@ -116,6 +123,10 @@ class Vertex {
             this.group?.setAttr("x", this._atomic_coords.x*stylesheet.scale + stylesheet.offset_x);
             this.group?.setAttr("y", this._atomic_coords.y*stylesheet.scale + stylesheet.offset_y);
         }
+    }
+
+    public get element(): ChemicalElement|null {
+        return this._element;
     }
 
     update() {

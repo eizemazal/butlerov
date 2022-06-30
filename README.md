@@ -31,6 +31,8 @@ Use both your mouse and your keyboard for fast drawing. The context menu (inspir
 
 ### Local build / contribs
 
+Clone, build from source and test locally:
+
     git clone git@github.com:au1985/butlerov.git
     cd butlerov
     npm i
@@ -38,6 +40,16 @@ Use both your mouse and your keyboard for fast drawing. The context menu (inspir
     firefox demo/test.html
 
 Open demo/test.html in browser, and see how it works.
+
+Run tests:
+npm run test
+
+Automated tests require node-canvas package that is dependent on many graphic libs installed on your system. If it does not work out of the box, follow instructions for your platform here: https://github.com/Automattic/node-canvas. For example, for MacOS, the following dependencies are to be installed:
+
+    brew install pkg-config cairo pango libpng jpeg giflib librsvg
+
+(For Mac M1, I had to switch to node v.14.19 to run tests, because node and libs must be built with the same architecture).
+
 The project uses eslint. I am developing using VS code and eslint plugin. Contributions are highly welcome.
 
 ### License

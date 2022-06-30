@@ -169,6 +169,8 @@ class MoleculeEditor {
 
     clear() {
         this.commit_action(new ClearGraphAction(this.graph));
+        this.active_edge = null;
+        this.active_vertex = null;
     }
 
     get_next_element_label(label: string, key: string): string {
@@ -376,6 +378,7 @@ class MoleculeEditor {
     on_edge_mouseover(edge: Edge) {
         this.stage.container().focus();
         this.active_edge = edge;
+        this.active_vertex = null;
         edge.active = true;
     }
     on_edge_mouseout(edge: Edge) {
@@ -391,6 +394,7 @@ class MoleculeEditor {
     on_vertex_mouseover(vertex: Vertex) {
         this.stage.container().focus();
         vertex.active = true;
+        this.active_edge = null;
         this.active_vertex = vertex;
     }
 
