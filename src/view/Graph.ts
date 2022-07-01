@@ -32,8 +32,8 @@ class Graph {
         r.edges = this.edges.map( e => {
             const v1 = r.vertices[this.vertices.findIndex( v => v == e.v1 )];
             const v2 = r.vertices[this.vertices.findIndex( v => v == e.v2 )];
-            v1.add_neighbor(v2);
-            v2.add_neighbor(v1);
+            v1.add_neighbor(v2, e.bond_order);
+            v2.add_neighbor(v1, e.bond_order);
             return e.copy(v1, v2);
         });
         return r;
@@ -190,11 +190,11 @@ class Graph {
     add(graph: Graph): void {
         this.vertices.push(...graph.vertices);
         this.edges.push(...graph.edges);
-        this.edges.forEach(e => { e.v1.add_neighbor(e.v2); e.v2.add_neighbor(e.v1); });
+        this.edges.forEach(e => { e.v1.add_neighbor(e.v2, e.bond_order); e.v2.add_neighbor(e.v1, e.bond_order); });
         if (this.controller) {
             const controller = this.controller;
             graph.vertices.forEach(e => { this.group?.add(e.attach(controller)); });
-            graph.edges.forEach(e => { this.group?.add(e.attach(controller)); } );
+            graph.edges.forEach(e => { this.group?.add(e.attach(controller)); e.z_index = 0; } );
         }
         this.update();
     }
@@ -209,10 +209,10 @@ class Graph {
     }
 
     bind_vertices(v1: Vertex, v2: Vertex, edge_shape: EdgeShape = EdgeShape.Single, attach = true): Edge {
-        v1.add_neighbor(v2);
-        v2.add_neighbor(v1);
         const edge = new Edge(v1, v2);
         edge.shape = edge_shape;
+        v1.add_neighbor(v2, edge.bond_order);
+        v2.add_neighbor(v1, edge.bond_order);
         this.edges.push(edge);
         if (attach && this.controller) {
             this.group?.add(edge.attach(this.controller));
@@ -240,12 +240,12 @@ class Graph {
         edge.v1.remove_neighbor(edge.v2);
         edge.v2.remove_neighbor(edge.v1);
         // delete lone vertices
-        if (drop_dangling_vertices && edge.v1.neighbors.size == 0) {
+        if (drop_dangling_vertices && edge.v1.neighbors.length == 0) {
             edge.v1.detach();
             r.vertices.push(edge.v1);
             this.vertices = this.vertices.filter( e => e != edge.v1);
         }
-        if (drop_dangling_vertices && edge.v2.neighbors.size == 0) {
+        if (drop_dangling_vertices && edge.v2.neighbors.length == 0) {
             edge.v2.detach();
             r.vertices.push(edge.v2);
             this.vertices = this.vertices.filter( e => e != edge.v2);
@@ -317,10 +317,10 @@ class Graph {
             return r;
         }
         let neighbor_to_move:Vertex | null = null;
-        // help drawing 4-substituted carbon atom
+        // help drawing 4-substituted atoms
         if (neighbors.length == 3) {
             for (const neighbor of neighbors) {
-                if (neighbor.neighbors.size == 1) {
+                if (neighbor.neighbors.length == 1) {
                     neighbor_to_move = neighbor;
                     break;
                 }
@@ -472,10 +472,10 @@ class Graph {
                 rest_vertices.delete(vertex);
                 to_visit.delete(vertex);
                 subgraph_vertices.add(vertex);
-                for (const neighbor of vertex.neighbors.values()) {
-                    if (subgraph_vertices.has(neighbor))
+                for (const neighbor of vertex.neighbors) {
+                    if (subgraph_vertices.has(neighbor.vertex))
                         continue;
-                    to_visit.add(neighbor);
+                    to_visit.add(neighbor.vertex);
                 }
             }
             const subgraph = new Graph();
@@ -487,7 +487,7 @@ class Graph {
     }
 
     edge_topology(edge: Edge): EdgeTopology {
-        if ( edge.v1.neighbors.size == 1 || edge.v2.neighbors.size == 1)
+        if ( edge.v1.neighbors.length == 1 || edge.v2.neighbors.length == 1)
             return EdgeTopology.Chain;
         const edge_index = this.edges.findIndex(e => e == edge);
         const graph_copy = this.copy();
@@ -526,7 +526,7 @@ class Graph {
         const chain_edges = graph_copy.edges.filter( e => e.topology == EdgeTopology.Chain);
         chain_edges.forEach( e => graph_copy.delete_edge(e) );
         // remove lone vertices; they might have been present originally
-        graph_copy.vertices = graph_copy.vertices.filter( e => e.neighbors.size );
+        graph_copy.vertices = graph_copy.vertices.filter( e => e.neighbors.length );
         this.ringsystems = [];
         for (const ringsystem_copy of graph_copy.subgraphs()) {
             const ringsystem = new Graph();

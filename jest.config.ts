@@ -12,7 +12,7 @@ export default {
     ],
     testEnvironment: "jsdom",
     testMatch: [
-        "**/__tests__/**/*.[jt]s?(x)",
+        "**/tests/**/*.ts",
         "**/?(*.)+(spec|test).[tj]s?(x)"
     ],
     transform: {

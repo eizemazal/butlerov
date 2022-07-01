@@ -29,7 +29,7 @@ function charge_to_superscript(charge: number): string {
     if (charge > 0)
         return int_to_superscript(charge) + "⁺";
     if (charge < 0)
-        return int_to_superscript(charge) + "⁻";
+        return int_to_superscript(-charge) + "⁻";
     return "";
 }
 

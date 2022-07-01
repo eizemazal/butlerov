@@ -7,7 +7,7 @@ The package is named after Alexander M. Butlerov (1828-1886), a Russian chemist 
 ### Demo and current features
 
 A demo of the current version is available at Codepen:
-https://codepen.io/au1985/pen/ExQzmoJ
+https://codepen.io/eizemazal/pen/ExQzmoJ
 
 Use both your mouse and your keyboard for fast drawing. The context menu (inspired by Blender 3D editor software) is invoked by space bar when the mouse is over a bond or atom. The hot keys are specified in the menu.
 
@@ -33,7 +33,7 @@ Use both your mouse and your keyboard for fast drawing. The context menu (inspir
 
 Clone, build from source and test locally:
 
-    git clone git@github.com:au1985/butlerov.git
+    git clone git@github.com:eizemazal/butlerov.git
     cd butlerov
     npm i
     npm run build

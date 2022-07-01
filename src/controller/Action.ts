@@ -33,11 +33,15 @@ class UpdateEdgeShapeAction extends Action {
         if (this.new_orientation == EdgeOrientation.Auto) {
             this.graph.update_edge_orientation(this.edge);
         }
+        this.edge.v1.change_neighbor_bond(this.edge.v2, this.edge.bond_order);
+        this.edge.v2.change_neighbor_bond(this.edge.v1, this.edge.bond_order);
         this.edge.update();
     }
     rollback() {
         this.edge.shape = this.old_shape;
         this.edge.orientation = this.old_orientation;
+        this.edge.v1.change_neighbor_bond(this.edge.v2, this.edge.bond_order);
+        this.edge.v2.change_neighbor_bond(this.edge.v1, this.edge.bond_order);
         this.edge.update();
     }
 }
@@ -322,12 +326,14 @@ class MoveVertexAction extends UpdatableAction {
     commit() : void {
         this.new_coords = this.vertex.screen_coords;
         this.vertex.update();
+        this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
     }
 
     rollback(): void {
         this.vertex.screen_coords = this.old_coords;
         this.vertex.update();
+        this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
     }
 
@@ -336,10 +342,45 @@ class MoveVertexAction extends UpdatableAction {
             return false;
         this.new_coords = action.vertex.screen_coords;
         this.vertex.update();
+        this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
         return true;
     }
 }
+
+class IncrementAtomChargeAction extends UpdatableAction {
+    vertex: Vertex;
+    old_charge: number;
+    increment: number;
+
+    constructor(vertex: Vertex, increment: number) {
+        super();
+        this.vertex = vertex;
+        this.old_charge = vertex.charge;
+        this.increment = increment;
+    }
+
+    commit() : void {
+        this.vertex.charge = this.old_charge + this.increment;
+        this.vertex.update();
+    }
+
+    rollback(): void {
+        this.vertex.charge = this.old_charge;
+        this.vertex.update();
+    }
+
+    update(action: this) : boolean {
+        if (action.vertex != this.vertex)
+            return false;
+        this.increment += action.increment;
+        this.vertex.charge = this.old_charge + this.increment;
+        this.vertex.update();
+        return true;
+    }
+}
+
+
 
 export {
     Action,
@@ -353,6 +394,7 @@ export {
     ClearGraphAction,
     DeleteEdgeAction,
     DeleteVertexAction,
+    IncrementAtomChargeAction,
     FuseRingAction,
     MoveVertexAction,
     UpdateEdgeShapeAction,

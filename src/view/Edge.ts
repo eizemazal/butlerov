@@ -108,6 +108,14 @@ class Edge {
         this.group?.on(event, (evt: KonvaEventObject<MouseEvent>) => { f(this, evt); } );
     }
 
+    public get bond_order(): number {
+        if (this._shape == EdgeShape.Double)
+            return 2;
+        if (this._shape == EdgeShape.Triple)
+            return 3;
+        return 1;
+    }
+
     public get bond_type(): BondType {
         switch( this._shape ) {
         case EdgeShape.Double:
@@ -227,7 +235,7 @@ class Edge {
                 stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
                 fill: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
                 strokeWidth: stylesheet.bond_thickness_px,
-                hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.hit_stroke_width),
+                hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
                 id: "bond_line",
                 closed: true,
             });
@@ -275,7 +283,7 @@ class Edge {
         new Konva.Line({
             stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
             strokeWidth: stylesheet.bond_thickness_px,
-            hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.hit_stroke_width),
+            hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
             id: "bond_line2",
         });
         if (this.orientation == EdgeOrientation.Left) {
@@ -296,7 +304,7 @@ class Edge {
         new Konva.Line({
             stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
             strokeWidth: stylesheet.bond_thickness_px,
-            hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.hit_stroke_width),
+            hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
             id: "bond_line2",
         });
         line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
@@ -308,7 +316,7 @@ class Edge {
         new Konva.Line({
             stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
             strokeWidth: stylesheet.bond_thickness_px,
-            hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.hit_stroke_width),
+            hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
             id: "bond_line3",
         });
         line3.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);

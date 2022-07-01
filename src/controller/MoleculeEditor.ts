@@ -7,7 +7,23 @@ import { Vertex } from "../view/Vertex";
 import { ChemicalElements } from "../lib/elements";
 import { Menu } from "../view/Menu";
 import { MenuButton } from "../view/MenuButton";
-import { Action, AddBoundVertexAction, AddChainAction, AddDefaultFragmentAction, AttachRingAction, BindVerticesAction, ChangeAtomLabelAction, ClearGraphAction, DeleteEdgeAction, DeleteVertexAction, FuseRingAction, MoveVertexAction, UpdatableAction, UpdateEdgeShapeAction } from "./Action";
+import {
+    Action,
+    AddBoundVertexAction,
+    AddChainAction,
+    AddDefaultFragmentAction,
+    AttachRingAction,
+    BindVerticesAction,
+    ChangeAtomLabelAction,
+    ClearGraphAction,
+    DeleteEdgeAction,
+    DeleteVertexAction,
+    FuseRingAction,
+    IncrementAtomChargeAction,
+    MoveVertexAction,
+    UpdatableAction,
+    UpdateEdgeShapeAction
+} from "./Action";
 
 class MoleculeEditor {
     stage: Konva.Stage;
@@ -41,6 +57,7 @@ class MoleculeEditor {
         this.background_layer.add(this.welcome_message);
         this.background_layer.on("click", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_click(evt); } );
         this.background_layer.on("contextmenu", (evt:KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(); } );
+        this.background_layer.on("mouseover", () => {this.active_vertex = null; this.active_edge = null; } );
         this.drawing_layer = new Konva.Layer();
         this.drawing_layer.add(this.graph.as_group());
         this.drawing_layer.draw();
@@ -141,7 +158,10 @@ class MoleculeEditor {
             fontSize: 14,
             fill: "#bbb",
             align: "center",
-            text: "Welcome to my new chemical editor!\n Use your mouse to draw, and Spacebar to open context menu.",
+            text: `Butlerov - draw chemical structures in your browser. \n
+            Use 1) your mouse to draw, 2) Spacebar to open context menu.\n
+            The hotkeys are shown in the menu.
+            `,
         });
         txt.setAttr("x", (this.stage.width() - txt.width()) / 2);
         txt.setAttr("y", (this.stage.height() - txt.height()) / 2);
@@ -196,6 +216,14 @@ class MoleculeEditor {
             if (new_label == "")
                 return;
             this.commit_action(new ChangeAtomLabelAction(this.graph, this.active_vertex, new_label));
+        }
+        if (evt.key == "+") {
+            this.commit_action(new IncrementAtomChargeAction(this.active_vertex, 1));
+            return;
+        }
+        if (evt.key == "-") {
+            this.commit_action(new IncrementAtomChargeAction(this.active_vertex, -1));
+            return;
         }
     }
 
