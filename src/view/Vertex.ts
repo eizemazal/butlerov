@@ -157,7 +157,7 @@ class Vertex {
             }
         }
         angle1 = angle1 + largest_diff/2;
-        return angle1 < Math.PI * 2 ? angle1 : angle1 - Math.PI*2;
+        return (angle1 + 2*Math.PI) % (2*Math.PI);
     }
 
     private _reposition_charge_group(stylesheet: Stylesheet, charge_group: Konva.Group) {
