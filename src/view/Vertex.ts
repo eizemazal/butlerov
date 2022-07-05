@@ -20,6 +20,12 @@ type Neighbor = {
     bond_order: number;
 }
 
+enum VertexTopology {
+    Undefined = 0,
+    Chain,
+    Ring,
+}
+
 class Vertex {
     protected group: Konva.Group | null;
     protected controller: MoleculeEditor | null;
@@ -30,6 +36,7 @@ class Vertex {
     protected _label : string;
     protected _element: ChemicalElement | null;
     protected _h_count: number;
+    public topology: VertexTopology;
     public id: string;
 
     constructor() {
@@ -43,6 +50,7 @@ class Vertex {
         this.is_active = false;
         this._neighbors = [];
         this.id = "";
+        this.topology = VertexTopology.Undefined;
     }
 
     copy(): Vertex {
@@ -53,6 +61,7 @@ class Vertex {
         v._charge = this._charge;
         v._h_count = this._h_count;
         v.id = this.id;
+        v.topology = this.topology;
         return v;
     }
 
@@ -407,4 +416,4 @@ class Vertex {
     }
 }
 
-export { Vertex, AtomicCoords, ScreenCoords };
+export { Vertex, AtomicCoords, ScreenCoords, VertexTopology };

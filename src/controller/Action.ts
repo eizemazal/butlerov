@@ -17,8 +17,8 @@ class UpdateEdgeShapeAction extends Action {
     old_shape: EdgeShape;
     new_shape: EdgeShape;
     old_orientation: EdgeOrientation;
-    new_orientation: EdgeOrientation;
-    constructor(graph: Graph, edge: Edge, edge_shape: EdgeShape, orientation: EdgeOrientation = EdgeOrientation.Auto) {
+    new_orientation: EdgeOrientation | null;
+    constructor(graph: Graph, edge: Edge, edge_shape: EdgeShape, orientation: EdgeOrientation | null = null) {
         super();
         this.graph = graph;
         this.edge = edge;
@@ -29,10 +29,12 @@ class UpdateEdgeShapeAction extends Action {
     }
     commit() {
         this.edge.shape = this.new_shape;
-        this.edge.orientation = this.new_orientation;
-        if (this.new_orientation == EdgeOrientation.Auto) {
+        if (this.new_orientation === null) {
             this.graph.update_edge_orientation(this.edge);
+            this.new_orientation = this.edge.orientation;
         }
+        else
+            this.edge.orientation = this.new_orientation;
         this.edge.v1.change_neighbor_bond(this.edge.v2, this.edge.bond_order);
         this.edge.v2.change_neighbor_bond(this.edge.v1, this.edge.bond_order);
         this.edge.update();

@@ -1,7 +1,7 @@
 import Konva from "konva";
 import { MoleculeEditor } from "../main";
 import { Edge, EdgeOrientation, EdgeShape, EdgeTopology } from "./Edge";
-import { AtomicCoords, ScreenCoords, Vertex } from "./Vertex";
+import { AtomicCoords, ScreenCoords, Vertex, VertexTopology } from "./Vertex";
 
 type Rect = {
     x1: number;
@@ -513,13 +513,31 @@ class Graph {
                 else
                     edge.orientation = EdgeOrientation.Left;
                 edge.update();
+                return;
             }
+        }
+        // non-cyclic bond with heteroatoms - symmetrical
+        if (edge.v1.label || edge.v2.label) {
+            edge.orientation = EdgeOrientation.Center;
+            edge.update();
+            return;
+        }
+        // exocyclic double bond - draw symmetrical
+        if (edge.v1.topology == VertexTopology.Ring || edge.v2.topology == VertexTopology.Ring) {
+            edge.orientation = EdgeOrientation.Center;
+            edge.update();
+            return;
         }
     }
 
     update_topology() : void {
+        this.vertices.forEach( e => e.topology = VertexTopology.Chain);
         for (const edge of this.edges) {
             edge.topology = this.edge_topology(edge);
+            if (edge.topology == EdgeTopology.Ring) {
+                edge.v1.topology = VertexTopology.Ring;
+                edge.v2.topology = VertexTopology.Ring;
+            }
         }
         this.add_numbering();
         const graph_copy = this.copy();

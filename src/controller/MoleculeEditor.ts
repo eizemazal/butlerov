@@ -245,8 +245,10 @@ class MoleculeEditor {
                 if (edge.shape != EdgeShape.Double) {
                     this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double));
                 }
-                else if (edge.orientation == EdgeOrientation.Auto || edge.orientation == EdgeOrientation.Right)
+                else if (edge.orientation == EdgeOrientation.Right)
                     this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Left));
+                else if (edge.orientation == EdgeOrientation.Left)
+                    this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Center));
                 else
                     this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Right));
             } ));
@@ -363,8 +365,10 @@ class MoleculeEditor {
                 if (this.active_edge.shape != EdgeShape.Double) {
                     this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double));
                 }
-                else if (this.active_edge.orientation == EdgeOrientation.Auto || this.active_edge.orientation == EdgeOrientation.Right)
+                else if (this.active_edge.orientation == EdgeOrientation.Right)
                     this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Left));
+                else if (this.active_edge.orientation == EdgeOrientation.Left)
+                    this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Center));
                 else
                     this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Right));
                 break;

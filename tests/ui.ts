@@ -93,9 +93,16 @@ test("Draw cyclopentene, flip double bond", () => {
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Left);
     fire(edge_center, "mouseover");
     fire_key("2");
-    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Right);
+    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Center);
     fire_key("z", {ctrlKey: true});
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Left);
+    fire_key("z", {ctrlKey: true, shiftKey: true});
+    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Center);
+    fire(edge_center, "mouseover");
+    fire_key("2");
+    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Right);
+    fire_key("z", {ctrlKey: true});
+    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Center);
     fire_key("z", {ctrlKey: true, shiftKey: true});
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Right);
 });

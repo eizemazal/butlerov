@@ -13,9 +13,9 @@ enum EdgeShape {
 }
 
 enum EdgeOrientation {
-    Auto,
     Left,
-    Right
+    Right,
+    Center
 }
 
 // this is taken from Mol file specifiction, and parsing mol files relies on this
@@ -74,7 +74,7 @@ class Edge {
         this.is_active = false;
         this.topology = EdgeTopology.Undefined;
         this.id = "";
-        this.orientation = EdgeOrientation.Auto;
+        this.orientation = EdgeOrientation.Left;
     }
 
     copy(v1: Vertex, v2: Vertex) {
@@ -286,15 +286,24 @@ class Edge {
             hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
             id: "bond_line2",
         });
-        if (this.orientation == EdgeOrientation.Left) {
+        if (this.orientation == EdgeOrientation.Center) {
+            line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa)/2 - 0*stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
+            line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa)/2 + 0*stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
+            const centerline = this.group?.findOne("#bond_line");
+            centerline?.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa)/2 - 0*stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
+            centerline?.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa)/2 + 0*stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
+            line2.setAttr("points", [ 0, 0, -this.screen_length*Math.sin(this.alfa), this.screen_length*Math.cos(this.alfa) ]);
+        }
+        else if (this.orientation == EdgeOrientation.Left) {
             line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
             line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa) + stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
+            line2.setAttr("points", [ 0, 0, -this.screen_length*(1-stylesheet.double_bond_shortening)*Math.sin(this.alfa), this.screen_length*(1-stylesheet.double_bond_shortening)*Math.cos(this.alfa) ]);
         }
         else {
             line2.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
             line2.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa) + stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
+            line2.setAttr("points", [ 0, 0, -this.screen_length*(1-stylesheet.double_bond_shortening)*Math.sin(this.alfa), this.screen_length*(1-stylesheet.double_bond_shortening)*Math.cos(this.alfa) ]);
         }
-        line2.setAttr("points", [ 0, 0, -this.screen_length*(1-stylesheet.double_bond_shortening)*Math.sin(this.alfa), this.screen_length*(1-stylesheet.double_bond_shortening)*Math.cos(this.alfa) ]);
         this.group?.add(<Konva.Line>line2);
     }
 
