@@ -130,11 +130,17 @@ class Edge {
         switch( bond_type ) {
         case BondType.Double:
             this._shape = EdgeShape.Double;
+            this.v1.change_neighbor_bond(this.v2, 2);
+            this.v2.change_neighbor_bond(this.v1, 2);
             return;
         case BondType.Triple:
+            this.v1.change_neighbor_bond(this.v2, 3);
+            this.v2.change_neighbor_bond(this.v1, 3);
             this._shape = EdgeShape.Triple;
             return;
         }
+        this.v1.change_neighbor_bond(this.v2, 1);
+        this.v2.change_neighbor_bond(this.v1, 1);
         this._shape = EdgeShape.Single;
     }
 
@@ -214,6 +220,7 @@ class Edge {
     }
 
     calculate_coordinates() {
+        const stylesheet = this.controller?.stylesheet;
         this.point1 = { ...this.v1.screen_coords };
         this.point2 = { ...this.v2.screen_coords };
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
@@ -221,8 +228,8 @@ class Edge {
         if (!this.screen_length)
             return;
         this.alfa = Math.atan2(this.point2.y-this.point1.y, this.point2.x-this.point1.x) - Math.PI/2;
-        this.point1 = this.v1.get_label_boundary(this.alfa+Math.PI);
-        this.point2 = this.v2.get_label_boundary(this.alfa);
+        this.point1 = this.v1.get_label_boundary(this.alfa+Math.PI, stylesheet?.atom_label_horizontal_clearance_px, stylesheet?.atom_label_vertical_clearance_px);
+        this.point2 = this.v2.get_label_boundary(this.alfa, stylesheet?.atom_label_horizontal_clearance_px, stylesheet?.atom_label_vertical_clearance_px);
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
     }
 

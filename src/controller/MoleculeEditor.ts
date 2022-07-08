@@ -57,7 +57,7 @@ class MoleculeEditor {
         this.background_layer.add(this.welcome_message);
         this.background_layer.on("click", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_click(evt); } );
         this.background_layer.on("contextmenu", (evt:KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(); } );
-        this.background_layer.on("mouseover", () => {this.active_vertex = null; this.active_edge = null; } );
+        this.background_layer.on("mouseover", () => { this.on_background_mouseover(); } );
         this.drawing_layer = new Konva.Layer();
         this.drawing_layer.add(this.graph.as_group());
         this.drawing_layer.draw();
@@ -197,6 +197,8 @@ class MoleculeEditor {
         const element_labels = Object.keys(ChemicalElements).filter(e => e.toLowerCase()[0] == key.toLowerCase()).sort((a,b) => a < b ? -1 : 1);
         if (element_labels.length == 0)
             return "";
+        if (label == "")
+            label = "C";
         const index = element_labels.indexOf(label);
         if (index == -1 || index == element_labels.length - 1)
             return element_labels[0];
@@ -469,6 +471,17 @@ class MoleculeEditor {
 
     on_background_mouseup() {
         this.downed_vertex = null;
+    }
+
+    on_background_mouseover() {
+        if (this.active_edge) {
+            this.active_edge.active = false;
+            this.active_edge = null;
+        }
+        if (this.active_vertex) {
+            this.active_vertex.active = false;
+            this.active_vertex = null;
+        }
     }
 
     public set onchange(handler: () => void) {

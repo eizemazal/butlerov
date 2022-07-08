@@ -136,7 +136,7 @@ class Vertex {
         }
         else
             this._label = label;
-        this.calculate_h_count();
+        this.compute_h_count();
         this.update();
     }
 
@@ -213,7 +213,7 @@ class Vertex {
 
     public set charge(charge: number) {
         this._charge = charge;
-        this.calculate_h_count();
+        this.compute_h_count();
         this.update();
     }
 
@@ -254,36 +254,38 @@ class Vertex {
         return (angle1 + 2*Math.PI) % (2*Math.PI);
     }
 
-    public get_label_boundary(alfa: number): ScreenCoords {
+    public get_label_boundary(alfa: number, clearance_h = 0, clearance_v = 0): ScreenCoords {
         const text = this.group?.findOne("#text");
         if (!text)
             return this.screen_coords;
-        const label_width = text.width();
-        const label_height = text.height();
+        const label_width = text.width() + 2 * clearance_h;
+        const label_height = text.height() + 2 * clearance_v;
+        const offset_x = this._label_offset.x - clearance_h;
+        const offset_y = this._label_offset.y - clearance_v;
         const x = this.group?.getAttr("x");
         const y = this.group?.getAttr("y");
         alfa = (alfa + 2*Math.PI) % (2*Math.PI);
         if (alfa == Math.PI/2) {
-            return { x: x + label_width + this._label_offset.x, y: y };
+            return { x: x + label_width + offset_x, y: y };
         }
-        if ( 2*Math.PI - alfa <= Math.atan(this._label_offset.x / this._label_offset.y) || alfa <= Math.atan((label_width+this._label_offset.x) / -this._label_offset.y) ) {
-            return {x: x-this._label_offset.y*Math.tan(alfa) , y: y+this._label_offset.y };
+        if ( 2*Math.PI - alfa <= Math.atan(offset_x / offset_y) || alfa <= Math.atan((label_width+offset_x) / -offset_y) ) {
+            return {x: x-offset_y*Math.tan(alfa) , y: y+offset_y };
         }
-        if (alfa >= Math.atan((label_width+this._label_offset.x) / -this._label_offset.y)
-        && alfa - Math.PI/2 <= Math.atan((label_height + this._label_offset.y) / (label_width + this._label_offset.x))
+        if (alfa >= Math.atan((label_width+offset_x) / -offset_y)
+        && alfa - Math.PI/2 <= Math.atan((label_height + offset_y) / (label_width + offset_x))
         )
         {
-            return {x: x + label_width + this._label_offset.x, y: y + Math.tan(alfa - Math.PI/2)*(label_width + this._label_offset.x) };
+            return {x: x + label_width + offset_x, y: y + Math.tan(alfa - Math.PI/2)*(label_width + offset_x) };
         }
-        if (alfa - Math.PI/2 >= Math.atan((label_height + this._label_offset.y) / (label_width + this._label_offset.x))
-            && 3*Math.PI/2 - alfa >= Math.atan((label_height + this._label_offset.y) / -this._label_offset.x)
+        if (alfa - Math.PI/2 >= Math.atan((label_height + offset_y) / (label_width + offset_x))
+            && 3*Math.PI/2 - alfa >= Math.atan((label_height + offset_y) / -offset_x)
         ) {
-            return { x: x + (label_height + this._label_offset.y)/Math.tan(alfa - Math.PI/2), y: y + label_height+this._label_offset.y};
+            return { x: x + (label_height + offset_y)/Math.tan(alfa - Math.PI/2), y: y + label_height + offset_y};
         }
-        if (3*Math.PI/2 - alfa <= Math.atan((label_height + this._label_offset.y) / -this._label_offset.x)
-            && 2*Math.PI - alfa >= Math.atan(this._label_offset.x / this._label_offset.y)
+        if (3*Math.PI/2 - alfa <= Math.atan((label_height + offset_y) / -offset_x)
+            && 2*Math.PI - alfa >= Math.atan(offset_x / offset_y)
         ) {
-            return { x: x + this._label_offset.x, y: y + this._label_offset.x*Math.tan(alfa - 3*Math.PI/2) };
+            return { x: x + offset_x, y: y + offset_x*Math.tan(alfa - 3*Math.PI/2) };
         }
         return {x: x, y: y};
 
@@ -296,33 +298,9 @@ class Vertex {
         let x;
         let y;
         if (this.group?.findOne("#text")) {
-            const w = this.width/2 + charge_group_w/2;
-            const h = this.height/2 + charge_group_h/2;
-            const beta = Math.atan(h/w);
-            if (alfa == Math.PI) {
-                x = -w;
-                y = 0;
-            }
-            else if (alfa == 3*Math.PI * 4) {
-                x = 0;
-                y = -h;
-            }
-            else if (alfa > 2*Math.PI - beta || alfa <= beta) {
-                x = w;
-                y = w * Math.tan(alfa);
-            }
-            else if (alfa > beta && alfa <= Math.PI - beta ) {
-                x = h / Math.tan(alfa);
-                y = h;
-            }
-            else if (alfa > Math.PI - beta && alfa <= Math.PI + beta) {
-                x = -w;
-                y = -w*Math.tan(alfa);
-            }
-            else {
-                x = -h / Math.tan(alfa);
-                y = -h;
-            }
+            const coords = this.get_label_boundary(alfa + Math.PI / 2, charge_group_w/2 + stylesheet.atom_label_horizontal_clearance_px, charge_group_h/2 + stylesheet.atom_label_vertical_clearance_px);
+            x = coords.x - this.group.x();
+            y = coords.y - this.group.y();
         }
         else {
             x = stylesheet.atom_charge_distance * Math.cos(alfa);
@@ -486,7 +464,7 @@ class Vertex {
         return text ? text.height() + this.controller.stylesheet.atom_label_vertical_clearance_px : 0;
     }
 
-    private calculate_h_count() {
+    private compute_h_count() {
         if (this.element) {
             const n_valent_bonds = this.neighbors.reduce( (p, e) => p + e.bond_order, 0);
             for (const valency of this.element.valences) {
@@ -507,13 +485,13 @@ class Vertex {
         if (this._neighbors.findIndex( e=> e.vertex == vertex) != -1)
             return;
         this._neighbors.push({vertex: vertex, bond_order: bond_order} );
-        this.calculate_h_count();
+        this.compute_h_count();
         this.update();
     }
 
     public remove_neighbor(vertex: Vertex) {
         this._neighbors = this._neighbors.filter(e => e.vertex != vertex);
-        this.calculate_h_count();
+        this.compute_h_count();
         this.update();
     }
 
@@ -522,7 +500,7 @@ class Vertex {
         if (!neighbor)
             return;
         neighbor.bond_order = bond_order;
-        this.calculate_h_count();
+        this.compute_h_count();
         this.update();
     }
 

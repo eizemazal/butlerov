@@ -163,8 +163,8 @@ class Stylesheet {
     constructor() {
         this.atom_font_size_px = 12;
         this.atom_font_family = "Arial";
-        this.atom_label_horizontal_clearance_px = 4;
-        this.atom_label_vertical_clearance_px = 4;
+        this.atom_label_horizontal_clearance_px = 2;
+        this.atom_label_vertical_clearance_px = 2;
         this.atom_charge_font_size = 9;
         this.atom_charge_frame_enabled = true;
         this.atom_charge_frame_corner_radius_single = 5;

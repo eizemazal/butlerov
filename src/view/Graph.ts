@@ -92,9 +92,9 @@ class Graph {
             const atom_index1 = parseInt(match_object[2])-1;
             const bond_type = parseInt(match_object[3]);
             const stereo = parseInt(match_object[4]);
-            const bond = this.bind_vertices(this.vertices[atom_index2], this.vertices[atom_index1], EdgeShape.Single, false);
-            bond.bond_type = bond_type;
-            bond.bond_stereo = stereo;
+            const edge = this.bind_vertices(this.vertices[atom_index2], this.vertices[atom_index1], EdgeShape.Single, false);
+            edge.bond_type = bond_type;
+            edge.bond_stereo = stereo;
         }
         if (this.controller != null) {
             const c = this.controller;
@@ -124,7 +124,7 @@ class Graph {
             const v2index = `${this.vertices.findIndex(v => v == e.v2)+1}`.padStart(3, " ");
             const bondtype = `${e.bond_type}`.padStart(3, " ");
             const stereo = `${e.bond_stereo}`.padStart(3, " ");
-            r += `${v2index}${v1index}${bondtype}${stereo}  0  0  0\n`;
+            r += `${v1index}${v2index}${bondtype}${stereo}  0  0  0\n`;
         });
         r += "M  END";
         return r;
