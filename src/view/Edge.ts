@@ -221,10 +221,8 @@ class Edge {
         if (!this.screen_length)
             return;
         this.alfa = Math.atan2(this.point2.y-this.point1.y, this.point2.x-this.point1.x) - Math.PI/2;
-        this.point1.x += Math.sign(this.point2.x-this.point1.x) * Math.min(this.v1.width/2, Math.abs(Math.sin(this.alfa)*this.v1.width/2));
-        this.point2.x += Math.sign(this.point1.x-this.point2.x) * Math.min(this.v2.width/2, Math.abs(Math.sin(this.alfa)*this.v2.width/2));
-        this.point1.y += Math.sign(this.point2.y-this.point1.y) * Math.min(this.v1.height/2, Math.abs(Math.cos(this.alfa)*this.v1.height/2));
-        this.point2.y += Math.sign(this.point1.y-this.point2.y) * Math.min(this.v2.height/2, Math.abs(Math.cos(this.alfa)*this.v2.height/2));
+        this.point1 = this.v1.get_label_boundary(this.alfa+Math.PI);
+        this.point2 = this.v2.get_label_boundary(this.alfa);
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
     }
 

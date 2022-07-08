@@ -149,6 +149,16 @@ class Stylesheet {
      * @defaultValue `white`
      */
     background_fill_color: string;
+    /**
+     * Enable debugging dots for atom centers. For performance reasons, changing this on the fly is not supported.
+     * * @defaultValue `false`
+     */
+    debug_enable_atom_center_dots: boolean;
+    /**
+     * Enable debugging rects around atom labels. For performance reasons, changing this on the fly is not supported.
+     * * @defaultValue `false`
+     */
+    debug_enable_label_rects: boolean;
 
     constructor() {
         this.atom_font_size_px = 12;
@@ -176,6 +186,8 @@ class Stylesheet {
         this.offset_x = 0;
         this.offset_y = 0;
         this.background_fill_color = "white";
+        this.debug_enable_atom_center_dots = false;
+        this.debug_enable_label_rects = false;
     }
 }
 

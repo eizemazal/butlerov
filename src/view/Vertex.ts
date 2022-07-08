@@ -26,6 +26,13 @@ enum VertexTopology {
     Ring,
 }
 
+enum LabelAlignment {
+    Left,
+    Right,
+    Top,
+    Bottom
+}
+
 class Vertex {
     protected group: Konva.Group | null;
     protected controller: MoleculeEditor | null;
@@ -34,14 +41,22 @@ class Vertex {
     protected _atomic_coords: AtomicCoords;
     protected _charge : number;
     protected _label : string;
+    protected _computed_label: string;
     protected _element: ChemicalElement | null;
     protected _h_count: number;
+    protected _label_alignment: LabelAlignment;
+    /**
+     * Offset of label text element origin to atom center. For example, SO3H group is to have it in the middle of S letter,
+     * and LiOOC in the middle of C
+     */
+    protected _label_offset: ScreenCoords;
     public topology: VertexTopology;
     public id: string;
 
     constructor() {
         this._atomic_coords = { x: 0, y: 0};
         this._label = "";
+        this._computed_label = "";
         this._charge = 0;
         this.controller = null;
         this._element = ChemicalElements["C"];
@@ -50,7 +65,9 @@ class Vertex {
         this.is_active = false;
         this._neighbors = [];
         this.id = "";
+        this._label_alignment = LabelAlignment.Left;
         this.topology = VertexTopology.Undefined;
+        this._label_offset = { x: 0, y: 0 };
     }
 
     copy(): Vertex {
@@ -123,12 +140,80 @@ class Vertex {
         this.update();
     }
 
+    private draw_label(stylesheet: Stylesheet) : void {
+        const text = this.group?.findOne("#text");
+        if (!text)
+            return;
+        text.setAttr("fill", this.active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color);
+        if (!this._h_count) {
+            this._computed_label = this._label;
+            this._label_alignment = LabelAlignment.Left;
+            text.setAttr("text", this._label);
+            this._label_offset = {x : -text.getAttr("width") / 2, y: -text.getAttr("height") / 2};
+        }
+        else {
+            const alfa = this.least_crowded_angle();
+            text.setAttr("text", this._label);
+            const atom_label_w = text.width();
+            const atom_label_h = text.height();
+            // -COOH
+            if (alfa > 7*Math.PI/4 || alfa <= Math.PI / 4) {
+                this._computed_label = this._label + "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
+                this._label_alignment = LabelAlignment.Left;
+                text.setAttr("text", this._computed_label);
+                this._label_offset = {x : -atom_label_w / 2, y: -atom_label_h / 2};
+            }
+            //   \   /
+            //     N
+            //     H
+            else if (alfa > Math.PI / 4 && alfa <= 3*Math.PI/4) {
+                this._computed_label = this._label + "\nH" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
+                this._label_alignment = LabelAlignment.Top;
+                text.setAttr("text", this._computed_label);
+                this._label_offset = {x : -text.getAttr("width") / 2, y: -atom_label_h / 2};
+            }
+            // HOOC-
+            else if (alfa > 3*Math.PI/4 && alfa <= 5*Math.PI/4) {
+                this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + this._label;
+                this._label_alignment = LabelAlignment.Right;
+                text.setAttr("text", this._computed_label);
+                this._label_offset = {x : -text.getAttr("width")+atom_label_w / 2, y: -atom_label_h / 2};
+            }
+            //     H
+            //     N
+            //   /   \
+            else {
+                this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + "\n" + this._label;
+                this._label_alignment = LabelAlignment.Bottom;
+                text.setAttr("text", this._computed_label);
+                this._label_offset = {x : -text.getAttr("width") / 2, y: -text.getAttr("height")  + atom_label_h / 2};
+            }
+        }
+
+        text.x(this._label_offset.x);
+        text.y(this._label_offset.y);
+
+        if (stylesheet.debug_enable_label_rects) {
+            const rect = <Konva.Rect>this.group?.findOne("#label_rect") || new Konva.Rect({
+                strokeWidth: 1,
+                stroke: "red",
+                id: "label_rect",
+            });
+            rect.setAttr("x", text.x());
+            rect.setAttr("y", text.y());
+            rect.setAttr("width", text.width());
+            rect.setAttr("height", text.height());
+            this.group?.add(rect);
+        }
+    }
+
     public get charge(): number {
         return this._charge;
     }
 
     public set charge(charge: number) {
         this._charge = charge;
+        this.calculate_h_count();
         this.update();
     }
 
@@ -167,6 +252,41 @@ class Vertex {
         }
         angle1 = angle1 + largest_diff/2;
         return (angle1 + 2*Math.PI) % (2*Math.PI);
+    }
+
+    public get_label_boundary(alfa: number): ScreenCoords {
+        const text = this.group?.findOne("#text");
+        if (!text)
+            return this.screen_coords;
+        const label_width = text.width();
+        const label_height = text.height();
+        const x = this.group?.getAttr("x");
+        const y = this.group?.getAttr("y");
+        alfa = (alfa + 2*Math.PI) % (2*Math.PI);
+        if (alfa == Math.PI/2) {
+            return { x: x + label_width + this._label_offset.x, y: y };
+        }
+        if ( 2*Math.PI - alfa <= Math.atan(this._label_offset.x / this._label_offset.y) || alfa <= Math.atan((label_width+this._label_offset.x) / -this._label_offset.y) ) {
+            return {x: x-this._label_offset.y*Math.tan(alfa) , y: y+this._label_offset.y };
+        }
+        if (alfa >= Math.atan((label_width+this._label_offset.x) / -this._label_offset.y)
+        && alfa - Math.PI/2 <= Math.atan((label_height + this._label_offset.y) / (label_width + this._label_offset.x))
+        )
+        {
+            return {x: x + label_width + this._label_offset.x, y: y + Math.tan(alfa - Math.PI/2)*(label_width + this._label_offset.x) };
+        }
+        if (alfa - Math.PI/2 >= Math.atan((label_height + this._label_offset.y) / (label_width + this._label_offset.x))
+            && 3*Math.PI/2 - alfa >= Math.atan((label_height + this._label_offset.y) / -this._label_offset.x)
+        ) {
+            return { x: x + (label_height + this._label_offset.y)/Math.tan(alfa - Math.PI/2), y: y + label_height+this._label_offset.y};
+        }
+        if (3*Math.PI/2 - alfa <= Math.atan((label_height + this._label_offset.y) / -this._label_offset.x)
+            && 2*Math.PI - alfa >= Math.atan(this._label_offset.x / this._label_offset.y)
+        ) {
+            return { x: x + this._label_offset.x, y: y + this._label_offset.x*Math.tan(alfa - 3*Math.PI/2) };
+        }
+        return {x: x, y: y};
+
     }
 
     private _reposition_charge_group(stylesheet: Stylesheet, charge_group: Konva.Group) {
@@ -272,11 +392,13 @@ class Vertex {
         const stylesheet = this.controller.stylesheet;
         this.group.setAttr("x", this._atomic_coords.x*stylesheet.scale + stylesheet.offset_x);
         this.group.setAttr("y", this._atomic_coords.y*stylesheet.scale + stylesheet.offset_y);
-        /*const debug_circle = <Konva.Circle>this.group.findOne("#debug_circle") || new Konva.Circle({
-            radius: 2,
-            fill: "red",
-        });
-        this.group.add(debug_circle);*/
+        if (stylesheet.debug_enable_atom_center_dots) {
+            const debug_circle = <Konva.Circle>this.group.findOne("#debug_circle") || new Konva.Circle({
+                radius: 2,
+                fill: "red",
+            });
+            this.group.add(debug_circle);
+        }
         if (this._label) {
             this.group.findOne("#circle")?.destroy();
             this.group.findOne("#active_box")?.destroy();
@@ -284,17 +406,10 @@ class Vertex {
                 fontFamily: stylesheet.atom_font_family,
                 fontSize: stylesheet.atom_font_size_px,
                 id: "text",
+                align: "center",
+                verticalAlign: "top",
             });
-            let label_to_display = this.label;
-            if (this._h_count) {
-                label_to_display += "H";
-                if (this._h_count > 1)
-                    label_to_display += int_to_subscript(this._h_count);
-            }
-            text.setAttr("text", label_to_display);
-            text.setAttr("fill", this.is_active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color);
-            text.setAttr("x", -text.width() / 2);
-            text.setAttr("y", -text.height() / 2);
+            this.draw_label(stylesheet);
             this.group.add(text);
         }
         else {
@@ -375,8 +490,8 @@ class Vertex {
         if (this.element) {
             const n_valent_bonds = this.neighbors.reduce( (p, e) => p + e.bond_order, 0);
             for (const valency of this.element.valences) {
-                if (valency >= n_valent_bonds) {
-                    this._h_count = valency - n_valent_bonds;
+                if (valency >= n_valent_bonds + Math.abs(this._charge)) {
+                    this._h_count = valency - n_valent_bonds - Math.abs(this._charge);
                     return;
                 }
             }
