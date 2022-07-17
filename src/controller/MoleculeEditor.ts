@@ -189,8 +189,19 @@ class MoleculeEditor {
         return this.graph.get_mol_string();
     }
 
-    clear() {
-        this.commit_action(new ClearGraphAction(this.graph));
+    /**
+     * Clears the control.
+     * @param from_userspace Specify whether the action is invoked from userspace. In this case, add clear event to history.
+     * If false, revert the control to default state. @default false.
+     */
+
+    clear(from_userspace = false) {
+        if (from_userspace)
+            this.commit_action(new ClearGraphAction(this.graph));
+        else {
+            this.clear_actions();
+            this.graph.clear();
+        }
         this.active_edge = null;
         this.active_vertex = null;
     }
@@ -333,7 +344,7 @@ class MoleculeEditor {
 
     menu_confirm_clear() {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("Y", "Really clear?", () => { this.clear(); } ));
+        this.menu.add_button( new MenuButton("Y", "Really clear?", () => { this.clear(true); } ));
         //eslint-disable-next-line
         this.menu.add_button( new MenuButton("N", "Cancel", () => {} ));
         this.menu.visible = true;
@@ -499,6 +510,10 @@ class MoleculeEditor {
     public set readonly(value: boolean) {
         this._readonly = value;
         this.stage.listening(!value);
+    }
+
+    public get empty(): boolean {
+        return this.graph.vertices.length == 0 && this.graph.edges.length == 0;
     }
 }
 

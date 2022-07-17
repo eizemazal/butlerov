@@ -20,10 +20,14 @@ test("Create and toggle menu", () => {
     expect(editor.menu.visible).toBe(false);
 });
 
-test("Add default fragment", () => {
+test("Add default fragment and clear it", () => {
+    expect(editor.empty).toBe(true);
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(2);
     expect(editor.graph.edges.length).toBe(1);
+    expect(editor.empty).toBe(false);
+    editor.clear();
+    expect(editor.empty).toBe(true);
 });
 
 test("Clear menu", () => {
