@@ -21,6 +21,11 @@
             function readMol() {
                 d.load_mol_from_string(document.getElementById("moltxt").value);
             }
+            //eslint-disable-next-line
+            function readonlyChange() {
+                d.readonly = document.getElementById("readonly-chkbx").checked;
+                console.log(d.readonly);
+            }
         </script>
         <style type="text/css">
             .wrapper {
@@ -43,6 +48,7 @@
         <button onclick="clearDrawing()">Clear</button>
         <button onclick="getMol()">Get mol</button>
         <button onclick="readMol()">Read mol</button>
+        <input type="checkbox" onchange="readonlyChange()" id="readonly-chkbx" name="readonly"/><label for="readonly">Read only</label>
         <div class="wrapper">
             <div id="chemical" />
         </div>

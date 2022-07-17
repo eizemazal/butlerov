@@ -39,6 +39,7 @@ class MoleculeEditor {
     downed_vertex: Vertex | null;
     action_stack: Array<Action>;
     actions_rolled_back: number;
+    _readonly: boolean;
     _onchange: (() => void) | null;
     constructor(stage: Konva.Stage) {
         this.stage = stage;
@@ -79,6 +80,7 @@ class MoleculeEditor {
         this._onchange = null;
         this.action_stack = [];
         this.actions_rolled_back = 0;
+        this._readonly = false;
     }
 
     static from_html_element(el: HTMLDivElement) {
@@ -338,6 +340,8 @@ class MoleculeEditor {
     }
 
     on_keydown(evt: KeyboardEvent) {
+        if (this._readonly)
+            return;
         if (evt.key == " ") {
             this.toggle_menu();
             return;
@@ -486,6 +490,15 @@ class MoleculeEditor {
 
     public set onchange(handler: () => void) {
         this._onchange = handler;
+    }
+
+    public get readonly(): boolean {
+        return this._readonly;
+    }
+
+    public set readonly(value: boolean) {
+        this._readonly = value;
+        this.stage.listening(!value);
     }
 }
 
