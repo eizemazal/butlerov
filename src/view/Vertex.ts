@@ -237,7 +237,7 @@ class Vertex {
     least_crowded_angle() {
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         let angles: Array<number> = [];
-        angles = this.neighbors.map(e => Math.atan2(e.vertex.screen_coords.y-this.screen_coords.y, e.vertex.screen_coords.x-this.screen_coords.x));
+        angles = this.neighbors.map(e => Math.atan2(e.vertex.atomic_coords.y-this.atomic_coords.y, e.vertex.atomic_coords.x-this.atomic_coords.x));
         angles.sort( (a,b) => a > b ? 1 : -1);
         let largest_diff = 0;
         let angle1 = 0;

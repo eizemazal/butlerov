@@ -42,6 +42,7 @@ class MoleculeEditor {
     actions_rolled_back: number;
     _readonly: boolean;
     _onchange: (() => void) | null;
+    panning: boolean;
     constructor(stage: Konva.Stage) {
         this.stage = stage;
         this.stylesheet = new Stylesheet();
@@ -59,7 +60,8 @@ class MoleculeEditor {
         this.background_layer.add(this.welcome_message);
         this.background_layer.on("click", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_click(evt); } );
         this.background_layer.on("contextmenu", (evt:KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(); } );
-        this.background_layer.on("mouseover", () => { this.on_background_mouseover(); } );
+        this.background_layer.on("mousemove", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_mousemove(evt); } );
+        this.stage.on("mouseleave", () => { this.on_stage_mouseleave(); } );
         this.drawing_layer = new Konva.Layer();
         this.drawing_layer.add(this.graph.as_group());
         this.drawing_layer.draw();
@@ -72,6 +74,7 @@ class MoleculeEditor {
         this.downed_vertex = null;
         const container = this.stage.container();
         container.addEventListener("keydown", (e) => { e.preventDefault(); this.on_keydown(e); });
+        container.addEventListener("keyup", (e) => { e.preventDefault(); this.on_keyup(e); });
         container.tabIndex = 1;
         container.focus();
         this.stage.add(this.background_layer);
@@ -82,6 +85,7 @@ class MoleculeEditor {
         this.action_stack = [];
         this.actions_rolled_back = 0;
         this._readonly = false;
+        this.panning = false;
     }
 
     static from_html_element(el: HTMLDivElement) {
@@ -156,9 +160,6 @@ class MoleculeEditor {
         this.welcome_message.visible(true);
         const txt = this.welcome_message.findOne("#welcome_text") || new Konva.Text({
             id: "welcome_text",
-            x: this.stage.width() / 2,
-            y: this.stage.height() / 2,
-            fontSize: 14,
             fill: "#bbb",
             align: "center",
             text: `Butlerov - draw chemical structures in your browser. \n
@@ -166,23 +167,42 @@ class MoleculeEditor {
             The hotkeys are shown in the menu.
             `,
         });
-        txt.setAttr("x", (this.stage.width() - txt.width()) / 2);
-        txt.setAttr("y", (this.stage.height() - txt.height()) / 2);
+        txt.setAttr("fontSize", 14/this.zoom);
+        txt.setAttr("x", this.stage.width() / (2*this.zoom) - txt.width()/2 );
+        txt.setAttr("y", this.stage.height() / (2*this.zoom) - txt.height()/2 );
         this.welcome_message.add(<Konva.Text>txt);
     }
 
-    autoscale_view() {
+    center_view() {
         const rect = this.graph.get_molecule_rect();
         this.stylesheet.scale = this.stylesheet.bond_length_px / this.graph.get_average_bond_distance();
-        this.stylesheet.offset_x = (this.stage.width() - this.stylesheet.scale*(rect.x2-rect.x1)) / 2 - this.stylesheet.scale*rect.x1;
-        this.stylesheet.offset_y = (this.stage.height() - this.stylesheet.scale*(rect.y2-rect.y1)) / 2 - this.stylesheet.scale*rect.y1;
+        this.stylesheet.offset_x = this.stage.width() / (2*this.zoom) - this.stylesheet.scale*(rect.x1 + rect.x2) / 2;
+        this.stylesheet.offset_y = this.stage.height() / (2*this.zoom) -this.stylesheet.scale*(rect.y1 + rect.y2) / 2;
         this.graph.update();
+    }
+
+    /**
+     * Zooms and centers the molecule in editor.
+     * @param overzoom Whether use zoom greater than 1. @default false
+     * @param margins Minimal size of margins at the edges of the control.
+     * The margins will remain blank. Specified as a proportion to width and height of the control. @default 0.05
+     */
+
+    zoom_to_fit(overzoom = false, margins=0.05) {
+        const rect = this.graph.get_molecule_rect();
+        this.stylesheet.scale = this.stylesheet.bond_length_px / this.graph.get_average_bond_distance();
+        const screen_w = (1+margins)*this.stylesheet.scale * (rect.x2 - rect.x1);
+        const screen_h = (1+margins)*this.stylesheet.scale * (rect.y2 - rect.y1);
+        let zoom = Math.min(this.stage.width() / screen_w, this.stage.height() / screen_h);
+        if (zoom > 1 && !overzoom )
+            zoom = 1;
+        this.zoom = zoom;
     }
 
     load_mol_from_string(mol_string: string) {
         this.clear_actions();
         this.graph.load_mol_string(mol_string);
-        this.autoscale_view();
+        this.center_view();
         this.update_background();
     }
 
@@ -243,13 +263,47 @@ class MoleculeEditor {
         }
     }
 
+    on_edge_keydown(evt: KeyboardEvent) {
+        if (!this.active_edge)
+            return;
+        switch (evt.key) {
+        case "1":
+            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Single));
+            break;
+        case "2":
+            if (this.active_edge.shape != EdgeShape.Double) {
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double));
+            }
+            else if (this.active_edge.orientation == EdgeOrientation.Right)
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Left));
+            else if (this.active_edge.orientation == EdgeOrientation.Left)
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Center));
+            else
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Right));
+            break;
+        case "3":
+            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Triple));
+            break;
+        case "w":
+            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleUp));
+            break;
+        case "q":
+            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleDown));
+            break;
+        case "Backspace":
+        case "Delete":
+            this.commit_action(new DeleteEdgeAction(this.graph, this.active_edge));
+            this.active_edge = null;
+        }
+    }
+
     toggle_menu() {
         if (this.menu.visible) {
             this.menu.visible = false;
             return;
         }
-        this.menu.x = this.stage.pointerPos?.x || this.stage.width() / 2;
-        this.menu.y = this.stage.pointerPos?.y || this.stage.height() / 2;
+        this.menu.x = this.stage.pointerPos ? this.stage.pointerPos.x / this.stage.scaleX() : this.stage.width() / 2;
+        this.menu.y = this.stage.pointerPos ? this.stage.pointerPos.y / this.stage.scaleY() : this.stage.height() / 2;
 
         if (this.active_edge) {
             this.menu.clear_buttons();
@@ -294,8 +348,31 @@ class MoleculeEditor {
         }
         else {
             this.menu.clear_buttons();
+            this.menu.add_button( new MenuButton("c", "Center view", () => { this.center_view(); } ));
+            this.menu.add_button( new MenuButton("z", "Zoom", () => { this.menu_zoom(); } ));
+            this.menu.add_button( new MenuButton("f", "Zoom to fit", () => { this.zoom_to_fit(); } ));
             this.menu.add_button( new MenuButton("x", "Clear drawing", () => { this.menu_confirm_clear(); } ));
         }
+        this.menu.visible = true;
+    }
+
+    public get zoom(): number {
+        return this.stage.scaleX();
+    }
+
+    public set zoom(zoom: number) {
+        this.stage.scaleX(zoom);
+        this.stage.scaleY(zoom);
+        this.center_view();
+        this.update_background();
+    }
+
+    menu_zoom() {
+        this.menu.clear_buttons();
+        this.menu.add_button( new MenuButton("a", "50%", () => { this.zoom = 0.5;  } ));
+        this.menu.add_button( new MenuButton("q", "75%", () => { this.zoom = 0.75;  } ));
+        this.menu.add_button( new MenuButton("1", "100%", () => { this.zoom = 1; } ));
+        this.menu.add_button( new MenuButton("2", "200%", () => { this.zoom = 2;  } ));
         this.menu.visible = true;
     }
 
@@ -351,7 +428,38 @@ class MoleculeEditor {
         this.menu.visible = true;
     }
 
-    on_keydown(evt: KeyboardEvent) {
+    on_keyup(evt: KeyboardEvent) {
+        if (evt.key == "Shift")
+            this.stage.container().style.cursor = "default";
+    }
+
+    private offset_viewport(x = 0, y = 0): void {
+        this.stylesheet.offset_x += x;
+        this.stylesheet.offset_y += y;
+        this.graph.update();
+    }
+
+    on_keydown(evt: KeyboardEvent): void {
+        if (evt.key == "Shift") {
+            this.stage.container().style.cursor = "move";
+            return;
+        }
+        if (evt.key == "ArrowUp") {
+            this.offset_viewport(0, this.stage.height() / 20);
+            return;
+        }
+        if (evt.key == "ArrowDown") {
+            this.offset_viewport(0, -this.stage.height() / 20);
+            return;
+        }
+        if (evt.key == "ArrowLeft") {
+            this.offset_viewport(this.stage.width() / 20, 0);
+            return;
+        }
+        if (evt.key == "ArrowRight") {
+            this.offset_viewport(-this.stage.width() / 20, 0);
+            return;
+        }
         if (this._readonly)
             return;
         if (evt.key == " ") {
@@ -375,35 +483,8 @@ class MoleculeEditor {
             return;
         }
         if (this.active_edge) {
-            switch (evt.key) {
-            case "1":
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Single));
-                break;
-            case "2":
-                if (this.active_edge.shape != EdgeShape.Double) {
-                    this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double));
-                }
-                else if (this.active_edge.orientation == EdgeOrientation.Right)
-                    this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Left));
-                else if (this.active_edge.orientation == EdgeOrientation.Left)
-                    this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Center));
-                else
-                    this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Right));
-                break;
-            case "3":
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Triple));
-                break;
-            case "w":
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleUp));
-                break;
-            case "q":
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleDown));
-                break;
-            case "Backspace":
-            case "Delete":
-                this.commit_action(new DeleteEdgeAction(this.graph, this.active_edge));
-                this.active_edge = null;
-            }
+            this.on_edge_keydown(evt);
+            return;
         }
     }
 
@@ -475,8 +556,13 @@ class MoleculeEditor {
 
     on_background_click(evt: KonvaEventObject<MouseEvent>) {
         // disable right click processing
-        if (evt.evt.button == 2)
+        if (evt.evt.button == 2 || evt.evt.shiftKey)
             return;
+        // when user was panning, a click event is generated in the end
+        if (this.panning) {
+            this.panning = false;
+            return;
+        }
         if (this.menu.visible) {
             this.menu.visible = false;
             return;
@@ -492,15 +578,18 @@ class MoleculeEditor {
         this.downed_vertex = null;
     }
 
-    on_background_mouseover() {
-        if (this.active_edge) {
-            this.active_edge.active = false;
-            this.active_edge = null;
-        }
-        if (this.active_vertex) {
-            this.active_vertex.active = false;
-            this.active_vertex = null;
-        }
+    on_background_mousemove(evt: KonvaEventObject<MouseEvent>) {
+        if (!evt.evt.shiftKey || evt.evt.button != 0 || evt.evt.buttons != 1)
+            return;
+        this.panning = true;
+        this.offset_viewport(evt.evt.movementX, evt.evt.movementY);
+    }
+
+    on_stage_mouseleave() {
+        this.panning = false;
+        this.active_edge = null;
+        this.active_vertex = null;
+        this.stage.container().style.cursor = "default";
     }
 
     public set onchange(handler: () => void) {

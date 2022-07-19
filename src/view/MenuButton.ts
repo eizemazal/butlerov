@@ -25,7 +25,6 @@ class MenuButton {
         this.group.on("click", () => { this.fire(); } );
         this.group.on("mouseover", () => { this.active = true; } );
         this.group.on("mouseout", () => { this.active = false; } );
-        this.update();
     }
 
     update() {
@@ -33,45 +32,45 @@ class MenuButton {
             id: "btn",
             fill: "#eee",
             stroke: "#777",
-            strokeWidth: 1,
             opacity: 0.7,
-            width: BTN_WIDTH,
-            height: BTN_HEIGHT,
-            cornerRadius: 3,
         });
+        btn.width(BTN_WIDTH / this.zoom);
+        btn.height(BTN_HEIGHT / this.zoom);
         btn.setAttr("stroke", this._active ? "#000" : "#777");
         btn.setAttr("fill", this._active ? "#ddd" : "#eee");
+        btn.setAttr("cornerRadius", 3 / this.zoom);
+        btn.setAttr("strokeWidth", 1 / this.zoom);
         const key_caption = this.group.findOne("#key_caption") || new Konva.Text({
             "id": "key_caption",
             fill: "#444",
-            fontSize: KEY_FONT_SIZE,
             fontStyle: "bold",
             text: this.key,
         });
+        key_caption.setAttr("fontSize", KEY_FONT_SIZE / this.zoom);
         key_caption.setAttr("fill", this._active ? "#333" : "#444");
         key_caption.setAttr("text", this.key);
-        key_caption.setAttr("x", btn.getAttr("width") - key_caption.width() - VPADDING);
-        key_caption.setAttr("y", VPADDING);
+        key_caption.setAttr("x", btn.getAttr("width") - key_caption.width() - VPADDING/this.zoom);
+        key_caption.setAttr("y", VPADDING/this.zoom);
         const label = this.group.findOne("#label") || new Konva.Text({
             "id": "label",
             fill: "#444",
-            fontSize: LABEL_FONT_SIZE,
-            x: HPADDING,
         });
+        label.setAttr("x", HPADDING/this.zoom);
+        label.setAttr("fontSize", LABEL_FONT_SIZE / this.zoom);
         label.setAttr("text", this.label);
         label.setAttr("fill", this._active ? "#333" : "#444");
-        label.setAttr("x", HPADDING);
-        label.setAttr("y", (BTN_HEIGHT - label.height())/2 );
+        label.setAttr("x", HPADDING/this.zoom);
+        label.setAttr("y", (BTN_HEIGHT/this.zoom - label.height())/2 );
         this.group.add(<Konva.Rect>btn);
         this.group.add(<Konva.Text>key_caption);
         this.group.add(<Konva.Text>label);
     }
 
     public get height(): number {
-        return BTN_HEIGHT;
+        return BTN_HEIGHT / this.zoom;
     }
     public get width(): number {
-        return BTN_WIDTH;
+        return BTN_WIDTH / this.zoom;
     }
 
     public get active() {
@@ -85,6 +84,11 @@ class MenuButton {
 
     public set menu(menu: Menu) {
         this._menu = menu;
+        this.update();
+    }
+
+    public get zoom(): number {
+        return this._menu ? this._menu.zoom : 1;
     }
 
     as_group() {

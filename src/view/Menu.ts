@@ -7,10 +7,12 @@ const BTN_SPACING = 5;
 class Menu {
     _buttons: Array<MenuButton>;
     group: Konva.Group;
+    last_zoom: number;
     constructor() {
         this._buttons = [];
         this.group = new Konva.Group({"x": 0, "y": 0});
         this.update();
+        this.last_zoom = 1;
     }
     update() {
         this.group.findOne("#background")?.destroy();
@@ -20,20 +22,20 @@ class Menu {
         const background = new Konva.Rect({
             fill: "#eee",
             stroke: "#ddd",
-            strokeWidth: 1,
             opacity: 0.7,
-            cornerRadius: 3,
         });
+        background.setAttr("cornerRadius", 3 / this.zoom);
+        background.setAttr("strokeWidth", 1 / this.zoom);
         this.group.add(background);
-        let y = BTN_SPACING;
+        let y = BTN_SPACING / this.zoom;
         for (const button of this._buttons) {
             const button_group = button.as_group();
-            button_group.setAttr("x", HPADDING);
+            button_group.setAttr("x", HPADDING/this.zoom);
             button_group.setAttr("y", y);
-            y += button.height + BTN_SPACING;
+            y += button.height + BTN_SPACING/this.zoom;
             this.group.add(button_group);
         }
-        background.setAttr("width", this._buttons[0].width+2*HPADDING);
+        background.setAttr("width", this._buttons[0].width+2*HPADDING/this.zoom);
         background.setAttr("height", y);
     }
     public get x(): number {
@@ -76,11 +78,25 @@ class Menu {
             this.group.visible(false);
             return;
         }
+        if (visible) {
+            // scale changed since opening menu for the last time
+            if (this.zoom != this.last_zoom) {
+                this.last_zoom = this.zoom;
+                this._buttons.forEach(e => e.update());
+                this.update();
+            }
+        }
         this.group.visible(visible);
     }
     public get visible() {
         return this.group.visible();
     }
+
+    public get zoom(): number {
+        const stage = this.group.getStage();
+        return stage ? stage.scaleX() : 1;
+    }
+
     handle_key(key: string) {
         if (key == "Escape") {
             this.visible = false;

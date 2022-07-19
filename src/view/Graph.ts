@@ -96,6 +96,26 @@ class Graph {
             edge.bond_type = bond_type;
             edge.bond_stereo = stereo;
         }
+        offset += bond_count;
+        for (let i = offset; i < lines.length; i++) {
+            if (lines[i].match(/\s*M\s+END\s*$/))
+                break;
+            if (lines[i].match(/\s*M\s+CHG\s+.+/)) {
+                match_object = lines[i].match(/\s*M\s+CHG\s+(\d+)(.+)$/);
+                if (!match_object)
+                    throw Error("Charge line inconsistent.");
+                const count = parseInt(match_object[1]);
+                const atom_charges = match_object[2].trim().split(/\s+/);
+                if (count*2 != atom_charges.length)
+                    throw Error("Charge line inconsistent - count does not match data.");
+                for (let j = 0; j < count; j++) {
+                    const v_index = parseInt(atom_charges[j*2]) - 1;
+                    const charge = parseInt(atom_charges[j*2 + 1]);
+                    this.vertices[v_index].charge = charge;
+                }
+            }
+        }
+
         if (this.controller != null) {
             const c = this.controller;
             this.vertices.forEach( e=> { this.group?.add(e.attach(c)); });
@@ -112,12 +132,15 @@ class Graph {
         const natoms = `${this.vertices.length}`.padStart(3, " ");
         const nbonds = `${this.edges.length}`.padStart(3, " ");
         r += `${natoms}${nbonds}  0  0  0  0  0  0  0  0  1 V2000\n`;
-        this.vertices.forEach(e => {
+        const charges:Array<string> = [];
+        this.vertices.forEach((e,idx) => {
             const x = `${e.atomic_coords.x.toFixed(4)}`.padStart(10, " ");
             const y = `${(-e.atomic_coords.y).toFixed(4)}`.padStart(10, " ");
             const z = "    0.0000";
             const element = `${e.label ? e.label : "C"}`.padEnd(3, " ");
             r += `${x}${y}${z} ${element} 0  0  0  0  0  0  0  0  0  0  0  0\n`;
+            if (e.charge)
+                charges.push(`${idx+1}`, `${e.charge}`);
         });
         this.edges.forEach( e => {
             const v1index = `${this.vertices.findIndex(v => v == e.v1)+1}`.padStart(3, " ");
@@ -126,6 +149,10 @@ class Graph {
             const stereo = `${e.bond_stereo}`.padStart(3, " ");
             r += `${v1index}${v2index}${bondtype}${stereo}  0  0  0\n`;
         });
+        if (charges.length) {
+            r += "M  CHG" + `${charges.length/2}`.padStart(3, " ");
+            r += charges.reduce((a, e) => a + e.padStart(4, " "), "") + "\n";
+        }
         r += "M  END";
         return r;
     }
