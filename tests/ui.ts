@@ -26,8 +26,24 @@ test("Add default fragment and clear it", () => {
     expect(editor.graph.vertices.length).toBe(2);
     expect(editor.graph.edges.length).toBe(1);
     expect(editor.empty).toBe(false);
-    editor.clear();
+    fire_key("z", {ctrlKey: true});
     expect(editor.empty).toBe(true);
+    fire_key("y", {ctrlKey: true});
+    expect(editor.graph.vertices.length).toBe(2);
+    expect(editor.graph.edges.length).toBe(1);
+});
+
+test("Add single atom and clear it", () => {
+    expect(editor.empty).toBe(true);
+    fire({x: 100, y: 100}, "click", {evt: {button: 1, ctrlKey: true}});
+    expect(editor.graph.vertices.length).toBe(1);
+    expect(editor.graph.edges.length).toBe(0);
+    expect(editor.empty).toBe(false);
+    fire_key("z", {ctrlKey: true});
+    expect(editor.empty).toBe(true);
+    fire_key("y", {ctrlKey: true});
+    expect(editor.graph.vertices.length).toBe(1);
+    expect(editor.graph.edges.length).toBe(0);
 });
 
 test("Clear menu", () => {

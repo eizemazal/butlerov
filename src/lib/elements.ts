@@ -12,6 +12,23 @@ class ChemicalElement {
         this.atomic_mass = atomic_mass;
         this.valences = valences;
     }
+    /**
+     * Suggest default implicit hydrogen count for atom of this element having specified number of valent bonds and charge
+     * @param n_valent_bonds number of valent bonds
+     * @param charge charge on atom
+     */
+    get_h_count(n_valent_bonds: number, charge: number): number {
+        if (["B", "Al", "Ga", "In"].indexOf(this.symbol) != -1 && charge == -1)
+            return n_valent_bonds <= 4 ? 4 - n_valent_bonds : 0;
+        if (["N", "P", "As"].indexOf(this.symbol) != -1 && charge == 1)
+            return n_valent_bonds <= 4 ? 4 - n_valent_bonds : 0;
+        for (const valency of this.valences) {
+            if (valency >= n_valent_bonds + Math.abs(charge)) {
+                return valency - n_valent_bonds - Math.abs(charge);
+            }
+        }
+        return 0;
+    }
 }
 
 const ChemicalElements: { [key: string] :  ChemicalElement } = {

@@ -465,16 +465,12 @@ class Vertex {
     }
 
     private compute_h_count() {
-        if (this.element) {
+        if (this._element) {
             const n_valent_bonds = this.neighbors.reduce( (p, e) => p + e.bond_order, 0);
-            for (const valency of this.element.valences) {
-                if (valency >= n_valent_bonds + Math.abs(this._charge)) {
-                    this._h_count = valency - n_valent_bonds - Math.abs(this._charge);
-                    return;
-                }
-            }
+            this._h_count = this._element.get_h_count(n_valent_bonds, this._charge);
         }
-        this._h_count = 0;
+        else
+            this._h_count = 0;
     }
 
     public get neighbors() {

@@ -160,7 +160,14 @@ class Graph {
         }
     }
 
-    add_vertex_by_screen_coords(coords: ScreenCoords, label = "C"): Vertex {
+    add_single_vertex(coords: ScreenCoords, label="C"): Graph {
+        const graph = new Graph();
+        graph.vertices = [this.add_vertex_by_screen_coords(coords, label)];
+        this.update();
+        return graph;
+    }
+
+    private add_vertex_by_screen_coords(coords: ScreenCoords, label = "C"): Vertex {
         if (!this.controller)
             throw("Graph not attached to controller");
         const vertex = new Vertex();
@@ -498,7 +505,13 @@ class Graph {
         return nsubgraphs == nsubgraphs2 ? EdgeTopology.Ring : EdgeTopology.Chain;
     }
 
-    update_edge_orientation(edge: Edge) : void {
+    /**
+     * Re-calculate orientation of bond (left, right, symmetrical) for the specified edge in the graph.
+     * @param edge Edge whose orientation to be updated.
+     * @param update_view Whether to call edge.update() to update view. @default true
+     * @returns void
+     */
+    update_edge_orientation(edge: Edge, update_view = true) : void {
         if (!edge.is_asymmetric)
             return;
         for (const ringsystem of this.ringsystems) {
@@ -512,22 +525,24 @@ class Graph {
                     edge.orientation = EdgeOrientation.Right;
                 else
                     edge.orientation = EdgeOrientation.Left;
-                edge.update();
+                update_view && edge.update();
                 return;
             }
         }
         // non-cyclic bond with heteroatoms - symmetrical
         if (edge.v1.label || edge.v2.label) {
             edge.orientation = EdgeOrientation.Center;
-            edge.update();
+            update_view && edge.update();
             return;
         }
         // exocyclic double bond - draw symmetrical
         if (edge.v1.topology == VertexTopology.Ring || edge.v2.topology == VertexTopology.Ring) {
             edge.orientation = EdgeOrientation.Center;
-            edge.update();
+            update_view && edge.update();
             return;
         }
+        edge.orientation = EdgeOrientation.Left;
+        update_view && edge.update();
     }
 
     update_topology() : void {

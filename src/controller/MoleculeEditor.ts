@@ -12,9 +12,10 @@ import {
     AddBoundVertexAction,
     AddChainAction,
     AddDefaultFragmentAction,
+    AddSingleVertexAction,
     AttachRingAction,
     BindVerticesAction,
-    ChangeAtomLabelAction,
+    ChangeVertexLabelAction,
     ClearGraphAction,
     DeleteEdgeAction,
     DeleteVertexAction,
@@ -230,7 +231,7 @@ class MoleculeEditor {
             const new_label = this.get_next_element_label(this.active_vertex.label, evt.key);
             if (new_label == "")
                 return;
-            this.commit_action(new ChangeAtomLabelAction(this.graph, this.active_vertex, new_label));
+            this.commit_action(new ChangeVertexLabelAction(this.graph, this.active_vertex, new_label));
         }
         if (evt.key == "+") {
             this.commit_action(new IncrementAtomChargeAction(this.active_vertex, 1));
@@ -481,7 +482,10 @@ class MoleculeEditor {
             return;
         }
         const pos = this.background_layer.getRelativePointerPosition();
-        this.commit_action(new AddDefaultFragmentAction(this.graph, pos.x, pos.y));
+        if (evt.evt.ctrlKey || evt.evt.metaKey)
+            this.commit_action(new AddSingleVertexAction(this.graph, pos.x, pos.y));
+        else
+            this.commit_action(new AddDefaultFragmentAction(this.graph, pos.x, pos.y));
     }
 
     on_background_mouseup() {

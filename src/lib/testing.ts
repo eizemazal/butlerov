@@ -13,6 +13,9 @@ type EventMockObject = {
         target?: HTMLDivElement | null,
         screenX?: number,
         screenY?: number,
+        shiftKey?: boolean,
+        ctrlKey?: boolean,
+        metaKey?: boolean,
     }
 }
 

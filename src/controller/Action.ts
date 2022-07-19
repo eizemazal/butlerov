@@ -167,6 +167,36 @@ class AddDefaultFragmentAction extends Action {
 
 }
 
+class AddSingleVertexAction extends Action {
+    graph: Graph;
+    x: number;
+    y: number;
+    added: Graph | null;
+
+    constructor(graph: Graph, x: number, y: number ) {
+        super();
+        this.graph = graph;
+        this.x = x;
+        this.y = y;
+        this.added = null;
+    }
+
+    commit() {
+        if (this.added)
+            this.graph.add(this.added);
+        else
+            this.added = this.graph.add_single_vertex({x: this.x, y: this.y});
+    }
+
+    rollback() {
+        if (!this.added)
+            return;
+        this.graph.remove(this.added);
+    }
+
+}
+
+
 class BindVerticesAction extends Action {
     graph: Graph;
     v1: Vertex;
@@ -280,7 +310,7 @@ class FuseRingAction extends Action {
     }
 }
 
-class ChangeAtomLabelAction extends UpdatableAction {
+class ChangeVertexLabelAction extends UpdatableAction {
     graph: Graph;
     vertex: Vertex;
     old_label: string;
@@ -295,7 +325,7 @@ class ChangeAtomLabelAction extends UpdatableAction {
     _set_label(label: string) {
         this.vertex.label = label;
         this.vertex.update();
-        this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
+        this.graph.find_edges_by_vertex(this.vertex).forEach(e => { this.graph.update_edge_orientation(e, false); e.update(); });
     }
     commit() {
         this._set_label(this.new_label);
@@ -388,11 +418,12 @@ export {
     Action,
     UpdatableAction,
     AddBoundVertexAction,
+    AddSingleVertexAction,
     AddChainAction,
     AddDefaultFragmentAction,
     AttachRingAction,
     BindVerticesAction,
-    ChangeAtomLabelAction,
+    ChangeVertexLabelAction,
     ClearGraphAction,
     DeleteEdgeAction,
     DeleteVertexAction,
