@@ -22,6 +22,7 @@ import {
     FuseRingAction,
     IncrementAtomChargeAction,
     MoveVertexAction,
+    StripHAction,
     UpdatableAction,
     UpdateEdgeShapeAction
 } from "./Action";
@@ -351,6 +352,7 @@ class MoleculeEditor {
             this.menu.add_button( new MenuButton("c", "Center view", () => { this.center_view(); } ));
             this.menu.add_button( new MenuButton("z", "Zoom", () => { this.menu_zoom(); } ));
             this.menu.add_button( new MenuButton("f", "Zoom to fit", () => { this.zoom_to_fit(); } ));
+            this.menu.add_button( new MenuButton("h", "Strip hydrogens", () => { this.commit_action(new StripHAction(this.graph)); } ));
             this.menu.add_button( new MenuButton("x", "Clear drawing", () => { this.menu_confirm_clear(); } ));
         }
         this.menu.visible = true;

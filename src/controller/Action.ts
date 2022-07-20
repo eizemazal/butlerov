@@ -310,6 +310,30 @@ class FuseRingAction extends Action {
     }
 }
 
+class StripHAction extends Action {
+    graph: Graph;
+    removed: Graph | null;
+
+    constructor(graph: Graph) {
+        super();
+        this.graph = graph;
+        this.removed = null;
+    }
+
+    commit() {
+        if (this.removed)
+            this.graph.remove(this.removed);
+        else
+            this.removed = this.graph.strip_hydrogens();
+    }
+
+    rollback() {
+        if (!this.removed)
+            return;
+        this.graph.add(this.removed);
+    }
+}
+
 class ChangeVertexLabelAction extends UpdatableAction {
     graph: Graph;
     vertex: Vertex;
@@ -429,6 +453,7 @@ export {
     DeleteVertexAction,
     IncrementAtomChargeAction,
     FuseRingAction,
+    StripHAction,
     MoveVertexAction,
     UpdateEdgeShapeAction,
 };

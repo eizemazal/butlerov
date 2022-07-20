@@ -62,18 +62,21 @@ class Graph {
         }
         // discard lines 0,1,2
         let offset = 3;
-        let match_object = lines[offset].match(/^\s*(\d+)\s*(\d+)/);
-        if (!match_object) {
+        let atom_count;
+        let bond_count;
+        try {
+            atom_count = parseInt(lines[offset].substring(0,3));
+            bond_count = parseInt(lines[offset].substring(3,6));
+        }
+        catch {
             throw Error("String header block counts line does not match molfile specification");
         }
-        const atom_count = parseInt(match_object[1]);
-        const bond_count = parseInt(match_object[2]);
         if (lines.length < atom_count + bond_count + 5) {
             throw Error("Unexpected length of mol string");
         }
         offset += 1;
         for (let i = offset; i < offset+atom_count; i++) {
-            match_object = lines[i].match(/^\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+(\w{1,2})/);
+            const match_object = lines[i].match(/^\s*(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+(-?\d+(\.\d+)?)\s+(\w{1,2})/);
             if (!match_object)
                 throw Error(`Error in line ${i}, unable to parse atom declaration`);
             const x = parseFloat(match_object[1]);
@@ -83,15 +86,20 @@ class Graph {
         }
         offset += atom_count;
         for (let i = offset; i < offset+bond_count; i++) {
-            match_object = lines[i].match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/);
-            if (!match_object)
+            let atom_index1: number;
+            let atom_index2: number;
+            let bond_type: number;
+            let stereo: number;
+            try {
+                // mol files use base-1 unlike arrays that are base-0
+                atom_index2 = parseInt(lines[i].substring(0,3)) - 1;
+                atom_index1 = parseInt(lines[i].substring(3,6)) - 1;
+                bond_type = parseInt(lines[i].substring(6,9));
+                stereo = parseInt(lines[i].substring(9,12));
+            }
+            catch {
                 throw Error(`Error in line ${i}, unable to parse bond declaration`);
-
-            // mol files use base-1 unlike arrays that are base-0
-            const atom_index2 = parseInt(match_object[1])-1;
-            const atom_index1 = parseInt(match_object[2])-1;
-            const bond_type = parseInt(match_object[3]);
-            const stereo = parseInt(match_object[4]);
+            }
             const edge = this.bind_vertices(this.vertices[atom_index2], this.vertices[atom_index1], EdgeShape.Single, false);
             edge.bond_type = bond_type;
             edge.bond_stereo = stereo;
@@ -101,7 +109,7 @@ class Graph {
             if (lines[i].match(/\s*M\s+END\s*$/))
                 break;
             if (lines[i].match(/\s*M\s+CHG\s+.+/)) {
-                match_object = lines[i].match(/\s*M\s+CHG\s+(\d+)(.+)$/);
+                const match_object = lines[i].match(/\s*M\s+CHG\s+(\d+)(.+)$/);
                 if (!match_object)
                     throw Error("Charge line inconsistent.");
                 const count = parseInt(match_object[1]);
@@ -614,6 +622,14 @@ class Graph {
             }
             this.ringsystems.push(ringsystem);
         }
+    }
+
+    strip_hydrogens(): Graph {
+        const hs = new Graph();
+        hs.vertices = this.vertices.filter(e => e.element?.symbol == "H");
+        hs.vertices.forEach(e => hs.edges.push(...this.find_edges_by_vertex(e)));
+        this.remove(hs);
+        return hs;
     }
 }
 
