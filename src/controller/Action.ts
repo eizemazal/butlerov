@@ -117,24 +117,37 @@ class AddBoundVertexAction extends Action {
     graph: Graph;
     vertex: Vertex;
     added: Graph | null;
+    old_neighbor_screen_coords: Array<ScreenCoords>;
+    new_neighbor_screen_coords: Array<ScreenCoords>;
 
     constructor(graph: Graph, vertex: Vertex) {
         super();
         this.graph = graph;
         this.vertex = vertex;
         this.added = null;
+        // in this action, some neigboring vertices may change coordinates. We need to save and restore them.
+        this.old_neighbor_screen_coords = [];
+        this.new_neighbor_screen_coords = [];
     }
 
     commit() {
-        if (this.added)
+        if (this.added) {
             this.graph.add(this.added);
-        else
+            this.vertex.neighbors.forEach( (e, idx) =>  e.vertex.screen_coords = this.new_neighbor_screen_coords[idx]);
+            this.graph.update();
+        }
+        else {
+            this.old_neighbor_screen_coords = this.vertex.neighbors.map( e => e.vertex.screen_coords );
             this.added = this.graph.add_bound_vertex_to(this.vertex);
+            this.new_neighbor_screen_coords = this.vertex.neighbors.map( e => e.vertex.screen_coords );
+        }
     }
     rollback() {
         if (!this.added)
             return;
         this.graph.remove(this.added);
+        this.vertex.neighbors.forEach( (e, idx) =>  e.vertex.screen_coords = this.old_neighbor_screen_coords[idx]);
+        this.graph.update();
     }
 }
 
