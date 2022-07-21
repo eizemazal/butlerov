@@ -358,19 +358,18 @@ class Graph {
             r.vertices = [new_vertex];
             return r;
         }
-        let neighbor_to_move:Vertex | null = null;
-        // help drawing 4-substituted atoms
-        if (neighbors.length == 3) {
-            for (const neighbor of neighbors) {
-                if (neighbor.neighbors.length == 1) {
-                    neighbor_to_move = neighbor;
-                    break;
-                }
-            }
-        }
+        // help drawing polysubstituted atoms. We can move vertices which have no other neighbors
+        let movable_neighbors = neighbors.filter(e => e.neighbors.length == 1);
+        let fixed_neighbors = neighbors.filter(e => e.neighbors.length != 1);
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
+        if (!fixed_neighbors.length)
+            fixed_neighbors.push(...movable_neighbors.splice(0, 1));
         let angles: Array<number> = [];
-        angles = neighbors.filter(e => e != neighbor_to_move).map(e => Math.atan2(e.screen_coords.y-vertex.screen_coords.y, e.screen_coords.x-vertex.screen_coords.x));
+        if (fixed_neighbors.length > 2 || (fixed_neighbors.length == 2 && movable_neighbors.length > 1)) {
+            fixed_neighbors = neighbors;
+            movable_neighbors = [];
+        }
+        angles = fixed_neighbors.map(e => Math.atan2(e.screen_coords.y-vertex.screen_coords.y, e.screen_coords.x-vertex.screen_coords.x));
         angles.sort( (a,b) => a > b ? 1 : -1);
         let largest_diff = 0;
         let angle1 = 0;
@@ -383,28 +382,25 @@ class Graph {
                 angle1 = angles[prev_idx];
             }
         }
-        let alfa: number;
-        if (neighbor_to_move) {
+
+        const new_vertex = this.add_vertex_by_screen_coords({
+            x: vertex.screen_coords.x + bond_len,
+            y: vertex.screen_coords.y
+        });
+        r.edges = [this.bind_vertices(vertex, new_vertex)];
+        r.vertices = [new_vertex];
+        movable_neighbors.push(new_vertex);
+
+        for (let i = 0; i < movable_neighbors.length; i++) {
+            const neighbor_to_move = movable_neighbors[i];
             // divide the largest angle by half, convert to degress, round the result to 15 deg, and convert back to radians
-            alfa =  Math.PI * Math.round( (angle1 + largest_diff/3)*180/(Math.PI*15) )*15 / 180;
+            const alfa =  Math.PI * Math.round( (angle1 + largest_diff*(i+1)/(movable_neighbors.length + 1))*180/(Math.PI*15) )*15 / 180;
             neighbor_to_move.screen_coords = {
                 x: vertex.screen_coords.x + bond_len * Math.cos(alfa),
                 y: vertex.screen_coords.y + bond_len * Math.sin(alfa)
             };
             this.edges.find(e => e.v1 == neighbor_to_move || e.v2 == neighbor_to_move)?.update();
-            alfa =  Math.PI * Math.round( (angle1 + largest_diff*2/3)*180/(Math.PI*15) )*15 / 180;
         }
-        else {
-            // divide the largest angle by half, convert to degress, round the result to 15 deg, and convert back to radians
-            alfa =  Math.PI * Math.round( (angle1 + largest_diff/2)*180/(Math.PI*15) )*15 / 180;
-        }
-
-        const new_vertex = this.add_vertex_by_screen_coords({
-            x: vertex.screen_coords.x + bond_len * Math.cos(alfa),
-            y: vertex.screen_coords.y + bond_len * Math.sin(alfa)
-        });
-        r.edges = [this.bind_vertices(vertex, new_vertex)];
-        r.vertices = [new_vertex];
         return r;
     }
 
