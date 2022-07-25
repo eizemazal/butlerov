@@ -130,6 +130,7 @@ class Graph {
             this.edges.forEach( e=> { this.group?.add(e.attach(c)); e.z_index = 0; } );
         }
         this.update_topology();
+        this.edges.forEach(e => {this.update_edge_orientation(e);});
     }
 
     get_mol_string(): string {
@@ -548,11 +549,11 @@ class Graph {
         for (const ringsystem of this.ringsystems) {
             if (ringsystem.edges.findIndex(e => e == edge) != -1) {
                 const center = {
-                    x: ringsystem.vertices.reduce( (p, e) => p + e.screen_coords.x, 0)/ringsystem.vertices.length,
-                    y: ringsystem.vertices.reduce( (p, e) => p + e.screen_coords.y, 0)/ringsystem.vertices.length,
+                    x: ringsystem.vertices.reduce( (p, e) => p + e.atomic_coords.x, 0)/ringsystem.vertices.length,
+                    y: ringsystem.vertices.reduce( (p, e) => p + e.atomic_coords.y, 0)/ringsystem.vertices.length,
                 };
-                if ( (edge.v2.screen_coords.x - edge.v1.screen_coords.x) * (center.y - edge.v1.screen_coords.y) -
-                            (edge.v2.screen_coords.y - edge.v1.screen_coords.y) * (center.x - edge.v1.screen_coords.x) > 0)
+                if ( (edge.v2.atomic_coords.x - edge.v1.atomic_coords.x) * (center.y - edge.v1.atomic_coords.y) -
+                            (edge.v2.atomic_coords.y - edge.v1.atomic_coords.y) * (center.x - edge.v1.atomic_coords.x) > 0)
                     edge.orientation = EdgeOrientation.Right;
                 else
                     edge.orientation = EdgeOrientation.Left;
