@@ -427,8 +427,20 @@ class Vertex {
             return;
         const n_vertex = this._neighbors[0].vertex;
         let alfa = Math.atan2(this.screen_coords.y - n_vertex.screen_coords.y, this.screen_coords.x - n_vertex.screen_coords.x);
-        if (snap_to_angle)
-            alfa = Math.round((alfa * 180 / Math.PI) / stylesheet.bond_snap_degrees)*stylesheet.bond_snap_degrees * Math.PI/180;
+        if (snap_to_angle) {
+            const alfa_rounded = Math.round((alfa * 180 / Math.PI) / stylesheet.bond_snap_degrees)*stylesheet.bond_snap_degrees * Math.PI/180;
+            // if the pivot vertex has exactly two adjacents (one we are moving), allow to create 180 deg angle with the rest adjacent
+            if (n_vertex._neighbors.length == 2) {
+                const n2_vertex:Vertex = n_vertex._neighbors[0].vertex == this ? n_vertex._neighbors[1].vertex : n_vertex._neighbors[0].vertex;
+                const beta = Math.atan2(n_vertex.screen_coords.y - n2_vertex.screen_coords.y, n_vertex.screen_coords.x - n2_vertex.screen_coords.x);
+                if (Math.abs(alfa - beta)*180/Math.PI < stylesheet.bond_snap_degrees && Math.abs(alfa_rounded - alfa) > Math.abs(alfa - beta))
+                    alfa = beta;
+                else
+                    alfa = alfa_rounded;
+            }
+            else
+                alfa = alfa_rounded;
+        }
         this.screen_coords = {
             x : n_vertex.screen_coords.x + Math.cos(alfa) * stylesheet.bond_length_px,
             y: n_vertex.screen_coords.y + Math.sin(alfa) * stylesheet.bond_length_px

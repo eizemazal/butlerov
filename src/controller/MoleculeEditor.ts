@@ -604,6 +604,8 @@ class MoleculeEditor {
 
     public set readonly(value: boolean) {
         this._readonly = value;
+        if (!value)
+            this.stage.container().blur();
         this.stage.listening(!value);
     }
 
