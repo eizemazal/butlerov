@@ -8,6 +8,14 @@
             //eslint-disable-next-line
             function init() {
                 d = window.butlerov.MoleculeEditor.from_html_element(document.getElementById("chemical"));
+                for (const el of document.querySelectorAll("[id^=\"style-\"]")) {
+                    const prop_name = el.id.substring("style-".length).replaceAll("-", "_");
+                    const prop_type = typeof(d.stylesheet[prop_name]);
+                    if (prop_type == "boolean")
+                        el.checked = d.stylesheet[prop_name];
+                    else
+                        el.value = d.stylesheet[prop_name];
+                }
             }
             //eslint-disable-next-line
             function clearDrawing() {
@@ -25,11 +33,31 @@
             function readonlyChange() {
                 d.readonly = document.getElementById("readonly-chkbx").checked;
             }
+            //eslint-disable-next-line
+            function stylesheetChange(el) {
+                const prop_name = el.id.substring("style-".length).replaceAll("-", "_");
+                const prop_type = typeof(d.stylesheet[prop_name]);
+                if (prop_type == "boolean") {
+                    d.stylesheet[prop_name] = el.checked;
+                }
+                else if (prop_type == "number") {
+                    const value_n = parseFloat(el.value);
+                    if (! isNaN(value_n) )
+                        d.stylesheet[prop_name] = value_n;
+                }
+                else
+                    d.stylesheet[prop_name] = el.value;
+                d.graph.update();
+            }
         </script>
         <style type="text/css">
             .wrapper {
                 width: 600px;
-                margin: 50px auto;
+                margin: 50px 5px;
+            }
+            p {
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 11pt;
             }
             #chemical {
                 width: 600px;
@@ -38,19 +66,116 @@
             }
             #moltxt {
                 width: 600px;
-                margin: 20px 0;
+                margin: 20px 5px;
                 min-height: 300px;
+            }
+            .page-wrapper {
+                display: flex;
+            }
+            .column-left {
+                flex: 70%;
+                padding: 20px 5px 20px 15px;
+            }
+            .column-right {
+                flex: 30%;
+                padding: 20px 5px 20px 15px;
+                border-left: solid 4px #555;
+            }
+            .column-right ul {
+                padding: 0;
+                list-style-type: none;
+            }
+            .column-right ul li.section {
+                font: 12pt "Arial";
+                padding-left: 0;
+            }
+            .column-right ul li {
+                padding: 3px 0 3px 12px;
+            }
+
+            h2 {
+                font: small-caps 12pt "Arial";
+            }
+            label {
+                display: inline-block;
+                font: 10pt "Arial";
+                color: #555;
+                width: 130px;
+            }
+            input.small {
+                width: 40px;
+            }
+            input.large {
+                width: 140px;
             }
         </style>
     </head>
     <body onload="init()">
-        <button onclick="clearDrawing()">Clear</button>
-        <button onclick="getMol()">Get mol</button>
-        <button onclick="readMol()">Read mol</button>
-        <input type="checkbox" onchange="readonlyChange()" id="readonly-chkbx" name="readonly"/><label for="readonly">Read only</label>
-        <div class="wrapper">
-            <div id="chemical" />
+        <div class="page-wrapper">
+            <div class="column-left">
+                <h2>Draw molecule</h2>
+                <p>Use mouse. Hover over the atoms, bonds, or empty space, and press spacebar - context menu will open.</p>
+                <button onclick="clearDrawing()">Clear</button>
+                <input type="checkbox" onchange="readonlyChange()" id="readonly-chkbx" name="readonly"/><label for="readonly">Read only</label>
+                <div class="wrapper">
+                    <div id="chemical"></div>
+                </div>
+                <h2>Read/write .mol format (ctab)</h2>
+                <div>
+                <button onclick="getMol()">Get as text</button>
+                <button onclick="readMol()">Read from text</button>
+                </div>
+                <textarea id="moltxt"></textarea>
+            </div>
+            <div class="column-right">
+                <h2>Drawing settings</h2>
+                <ul>
+                    <li class="section">Atom labels</li>
+                    <li>
+                        <label for="style-atom-font-size-px">Font size, px</label>
+                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-atom-font-size-px" name="style-atom-font-size-px" />
+                    </li>
+                    <li>
+                        <label for="style-atom-font-family">Font family</label>
+                        <input type="text" class="large" oninput="stylesheetChange(this)" id="style-atom-font-family" name="style-atom-font-family" />
+                    </li>
+                    <li>
+                        <label for="style-atom-label-color">Font color</label>
+                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-atom-label-color" name="style-atom-label-color" />
+                    </li>
+                    <li>
+                        <label for="style-atom-active-label-color">Color when active</label>
+                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-atom-active-label-color" name="style-atom-active-label-color" />
+                    </li>
+                    <li class="section">Charges</li>
+                    <li>
+                        <label for="style-atom-charge-font-size">Font size, px</label>
+                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-atom-charge-font-size" name="style-atom-charge-font-size" />
+                    </li>
+                    <li>
+                        <label for="style-atom-charge-frame-enabled">Frame around charge</label>
+                        <input type="checkbox" oninput="stylesheetChange(this)" id="style-atom-charge-frame-enabled" name="style-atom-charge-frame-enabled" />
+                    </li>
+                    <li class="section">Bonds</li>
+                    <li>
+                        <label for="style-bond-length-px">Bond length, px</label>
+                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-bond-length-px" name="style-bond-length-px" />
+                    </li>
+                    <li>
+                        <label for="style-bond-thickness-px">Bond thickness, px</label>
+                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-bond-thickness-px" name="style-bond-thickness-px" />
+                    </li>
+                    <li>
+                        <label for="style-bond-spacing-px">Bond spacing, px</label>
+                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-bond-spacing-px" name="style-bond-spacing-px" />
+                    </li>
+                    <li>
+                        <label for="style-double-bond-shortening">Double shortening</label>
+                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-double-bond-shortening" name="style-double-bond-shortening" />
+                    </li>
+                </ul>
+            </div>
+            <div style="clear:both"></div>
         </div>
-        <textarea id="moltxt"></textarea>
     </body>
 </html>

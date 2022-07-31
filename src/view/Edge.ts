@@ -239,13 +239,13 @@ class Edge {
             new Konva.Line({
                 stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
                 fill: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
-                strokeWidth: stylesheet.bond_thickness_px,
-                hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
                 id: "bond_line",
                 closed: true,
             });
         line.setAttr("x", this.point1.x);
         line.setAttr("y", this.point1.y);
+        line.setAttr("strokeWidth", stylesheet.bond_thickness_px);
+        line.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
         if ([EdgeShape.Single, EdgeShape.Double, EdgeShape.Triple].indexOf(this._shape) != -1) {
             line.setAttr("points", [ 0, 0, -this.screen_length*Math.sin(this.alfa), this.screen_length*Math.cos(this.alfa) ]);
             line.setAttr("lineJoin", "miter");
@@ -287,10 +287,10 @@ class Edge {
         const line2 = this.group?.findOne("#bond_line2") ||
         new Konva.Line({
             stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
-            strokeWidth: stylesheet.bond_thickness_px,
-            hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
             id: "bond_line2",
         });
+        line2.setAttr("strokeWidth", stylesheet.bond_thickness_px);
+        line2.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
         if (this.orientation == EdgeOrientation.Center) {
             line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa)/2 - 0*stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
             line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa)/2 + 0*stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
@@ -317,10 +317,10 @@ class Edge {
         const line2 = this.group?.findOne("#bond_line2") ||
         new Konva.Line({
             stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
-            strokeWidth: stylesheet.bond_thickness_px,
-            hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
             id: "bond_line2",
         });
+        line2.setAttr("strokeWidth", stylesheet.bond_thickness_px);
+        line2.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
         line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
         line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa) + stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
         line2.setAttr("points", [ 0, 0, -this.screen_length*(1-stylesheet.double_bond_shortening)*Math.sin(this.alfa), this.screen_length*(1-stylesheet.double_bond_shortening)*Math.cos(this.alfa) ]);
@@ -329,10 +329,10 @@ class Edge {
         const line3 = this.group?.findOne("#bond_line3") ||
         new Konva.Line({
             stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
-            strokeWidth: stylesheet.bond_thickness_px,
-            hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
             id: "bond_line3",
         });
+        line3.setAttr("strokeWidth", stylesheet.bond_thickness_px);
+        line3.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
         line3.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
         line3.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa) + stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
         line3.setAttr("points", [ 0, 0, -this.screen_length*(1-stylesheet.double_bond_shortening)*Math.sin(this.alfa), this.screen_length*(1-stylesheet.double_bond_shortening)*Math.cos(this.alfa) ]);

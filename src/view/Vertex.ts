@@ -292,8 +292,9 @@ class Vertex {
     }
 
     private _reposition_charge_group(stylesheet: Stylesheet, charge_group: Konva.Group) {
-        const charge_group_w = stylesheet.atom_charge_frame_enabled ? charge_group.findOne("#charge_frame").width() : charge_group.findOne("#charge_text").width();
-        const charge_group_h = stylesheet.atom_charge_frame_enabled ?charge_group.findOne("#charge_frame").height() : charge_group.findOne("#charge_text").height();
+        const frame = charge_group.findOne("#charge_frame");
+        const charge_group_w = frame ? frame.width() : charge_group.findOne("#charge_text").width();
+        const charge_group_h = frame ? frame.height() : charge_group.findOne("#charge_text").height();
         const alfa = this.neighbors.length ? this.least_crowded_angle() : 1.75*Math.PI;
         let x;
         let y;
@@ -330,8 +331,6 @@ class Vertex {
             id: "charge_group",
         });
         const charge_text = <Konva.Text>this.group?.findOne("#charge_text") || new Konva.Text({
-            fontFamily: stylesheet.atom_font_family,
-            fontSize: stylesheet.atom_charge_font_size,
             id: "charge_text",
             align: "center",
         });
@@ -339,6 +338,8 @@ class Vertex {
         charge_text.setAttr("y", stylesheet.atom_charge_frame_enabled ? vpadding / 2 : 0);
         charge_text.setAttr("text", this.charge == -1 ? "－" : this.charge == 1 ? "+" : this.charge > 1 ? `${this._charge}+` : `${Math.abs(this._charge)}-`);
         charge_text.setAttr("fill", this.is_active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color);
+        charge_text.setAttr("fontFamily", stylesheet.atom_font_family);
+        charge_text.setAttr("fontSize", stylesheet.atom_charge_font_size);
         charge_group.add(charge_text);
         if (stylesheet.atom_charge_frame_enabled) {
             const charge_frame = <Konva.Rect>this.group?.findOne("#charge_frame") || new Konva.Rect({
@@ -354,7 +355,6 @@ class Vertex {
             charge_group.add(charge_frame);
         }
         else {
-            this.group?.findOne("#charge_text")?.destroy();
             this.group?.findOne("#charge_frame")?.destroy();
         }
         this._reposition_charge_group(stylesheet, charge_group);
@@ -381,12 +381,12 @@ class Vertex {
             this.group.findOne("#circle")?.destroy();
             this.group.findOne("#active_box")?.destroy();
             const text = <Konva.Text>this.group.findOne("#text") || new Konva.Text({
-                fontFamily: stylesheet.atom_font_family,
-                fontSize: stylesheet.atom_font_size_px,
                 id: "text",
                 align: "center",
                 verticalAlign: "top",
             });
+            text.setAttr("fontFamily", stylesheet.atom_font_family);
+            text.setAttr("fontSize", stylesheet.atom_font_size_px);
             this.draw_label(stylesheet);
             this.group.add(text);
         }
