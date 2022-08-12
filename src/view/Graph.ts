@@ -214,6 +214,16 @@ class Graph {
         return vertex;
     }
 
+    private add_vertex_by_atomic_coords(coords: AtomicCoords, label = "C"): Vertex {
+        const vertex = new Vertex();
+        this.vertices.push(vertex);
+        if (this.controller)
+            this.group?.add(vertex.attach(this.controller));
+        vertex.atomic_coords = coords;
+        vertex.label = label;
+        return vertex;
+    }
+
     add_vertex( coords: AtomicCoords, label = "C"): Vertex {
         const vertex = new Vertex();
         vertex.label = label;
@@ -303,19 +313,46 @@ class Graph {
         return r;
     }
 
+    /**
+     * For any point in space, calculate metric to measure "crowding" around this point. This is proportional to sum of
+     * squared distances to proximate vertices
+     * @param point a point in atomic coordinates which we probe against the graph
+     * @param filtering_factor vertices that are farther than filtering_factor * average bond distance will not be considered.
+     * @default 3. A value of 0 means that all vertices are considered (computationally intense)
+     * @param coalesence_factor vertices that are closer to point will not be considered. This is for cases
+     * of algorithms that will cause coalescence of new vertices with existing ones. @default 0.1. A value of 0 disables coalescence filtering.
+     * @returns "repulsion potential" which is a sum of square distances to neighboring vertices
+     */
+    private crowding_potential(point: AtomicCoords, filtering_factor = 3, coalesence_factor = 0.1): number {
+        const avg_bond_distance = this.get_average_bond_distance();
+        // exclude distance calculation to remove vertices
+        const proximate_vertices =
+        this.vertices.filter( e =>
+            filtering_factor == 0 || (
+                Math.abs(e.atomic_coords.x - point.x) < filtering_factor * avg_bond_distance
+                && Math.abs(e.atomic_coords.y - point.y) < filtering_factor * avg_bond_distance
+            )
+        );
+        return proximate_vertices.reduce( (acc, e) => {
+            const distance = Math.sqrt((e.atomic_coords.x-point.x)*(e.atomic_coords.x-point.x) + (e.atomic_coords.y-point.y)*(e.atomic_coords.y-point.y));
+            return distance > coalesence_factor*avg_bond_distance ? acc + 1 / Math.pow(distance, 2) : acc;
+        },
+        0 );
+    }
+
     // for a given set of points, get the one that is farthest all the atoms
     // this is using r2 metric, but this is not perfect sometimes
     // this is computationally intense, use caching to assess only atoms that are near
-    least_crowded_point(points: Array<ScreenCoords>): ScreenCoords {
+    least_crowded_point(points: Array<AtomicCoords>): AtomicCoords {
         // garbage in garbage out
         if (!points.length)
             return {x: 0, y: 0};
-        let best_distance: number | null = null;
-        let best_point: ScreenCoords = points[0];
+        let best_potential: number | null = null;
+        let best_point: AtomicCoords = points[0];
         for (const point of points) {
-            const distance = this.vertices.reduce( (d, e) => d + (e.screen_coords.x-point.x)*(e.screen_coords.x-point.x) + (e.screen_coords.y-point.y)*(e.screen_coords.y-point.y), 0 );
-            if (best_distance === null || distance > best_distance) {
-                best_distance = distance;
+            const potential = this.crowding_potential(point);
+            if (best_potential === null || potential < best_potential) {
+                best_potential = potential;
                 best_point = point;
             }
         }
@@ -340,21 +377,21 @@ class Graph {
         }
         // for atoms with only one neighbor, add atom and bond at 120 deg to existing bond with the same distance
         if (neighbors.length == 1) {
-            const delta_x = neighbors[0].screen_coords.x - vertex.screen_coords.x;
-            const delta_y = neighbors[0].screen_coords.y - vertex.screen_coords.y;
+            const delta_x = neighbors[0].atomic_coords.x - vertex.atomic_coords.x;
+            const delta_y = neighbors[0].atomic_coords.y - vertex.atomic_coords.y;
             const alfa = Math.atan2(delta_y, delta_x);
             const bond_len = Math.sqrt(delta_x * delta_x + delta_y * delta_y);
-            const coordinates: ScreenCoords = this.least_crowded_point([
+            const coordinates: AtomicCoords = this.least_crowded_point([
                 {
-                    x: vertex.screen_coords.x + bond_len * Math.cos(alfa+Math.PI/1.5),
-                    y: vertex.screen_coords.y + bond_len * Math.sin(alfa+Math.PI/1.5)
+                    x: vertex.atomic_coords.x + bond_len * Math.cos(alfa+Math.PI/1.5),
+                    y: vertex.atomic_coords.y + bond_len * Math.sin(alfa+Math.PI/1.5)
                 },
                 {
-                    x: vertex.screen_coords.x + bond_len * Math.cos(alfa-Math.PI/1.5),
-                    y: vertex.screen_coords.y + bond_len * Math.sin(alfa-Math.PI/1.5)
+                    x: vertex.atomic_coords.x + bond_len * Math.cos(alfa-Math.PI/1.5),
+                    y: vertex.atomic_coords.y + bond_len * Math.sin(alfa-Math.PI/1.5)
                 },
             ]);
-            const new_vertex = this.add_vertex_by_screen_coords(coordinates);
+            const new_vertex = this.add_vertex_by_atomic_coords(coordinates);
             r.edges = [this.bind_vertices(vertex, new_vertex)];
             r.vertices = [new_vertex];
             return r;
@@ -443,17 +480,19 @@ class Graph {
     }
 
     fuse_ring(edge: Edge, natoms: number): Graph {
-        const alfa = Math.atan2(edge.v2.screen_coords.y-edge.v1.screen_coords.y, edge.v2.screen_coords.x-edge.v1.screen_coords.x);
+        const alfa = Math.atan2(edge.v2.atomic_coords.y-edge.v1.atomic_coords.y, edge.v2.atomic_coords.x-edge.v1.atomic_coords.x);
         const beta = (natoms-2) * Math.PI / natoms;
-        const h = edge.center_length * Math.tan(beta/2) / 2;
-        const l = edge.center_length / (2* Math.cos(beta / 2));
-        const center_x1 = h * Math.sin(Math.PI - alfa) + (edge.v1.screen_coords.x + edge.v2.screen_coords.x) / 2;
-        const center_y1 = h * Math.cos(Math.PI - alfa) + (edge.v1.screen_coords.y + edge.v2.screen_coords.y) / 2;
-        const center_x2 = -h * Math.sin(Math.PI - alfa) + (edge.v1.screen_coords.x + edge.v2.screen_coords.x) / 2;
-        const center_y2 = -h * Math.cos(Math.PI - alfa) + (edge.v1.screen_coords.y + edge.v2.screen_coords.y) / 2;
+        const edge_len = Math.sqrt( Math.pow(edge.v1.atomic_coords.x - edge.v2.atomic_coords.x, 2) + Math.pow(edge.v1.atomic_coords.y - edge.v2.atomic_coords.y, 2));
+        const h = edge_len * Math.tan(beta/2) / 2;
+        const l = edge_len / (2* Math.cos(beta / 2));
+        const center_x1 = h * Math.sin(Math.PI - alfa) + (edge.v1.atomic_coords.x + edge.v2.atomic_coords.x) / 2;
+        const center_y1 = h * Math.cos(Math.PI - alfa) + (edge.v1.atomic_coords.y + edge.v2.atomic_coords.y) / 2;
+        const center_x2 = -h * Math.sin(Math.PI - alfa) + (edge.v1.atomic_coords.x + edge.v2.atomic_coords.x) / 2;
+        const center_y2 = -h * Math.cos(Math.PI - alfa) + (edge.v1.atomic_coords.y + edge.v2.atomic_coords.y) / 2;
         const coordinates: Array<[number, number]> = [];
         let direction = true;
-        const least_crowded_center:ScreenCoords = this.least_crowded_point([{x:center_x1, y:center_y1}, {x:center_x2, y:center_y2}]);
+
+        const least_crowded_center:AtomicCoords = this.least_crowded_point([{x:center_x1, y:center_y1}, {x:center_x2, y:center_y2}]);
         if (least_crowded_center.x == center_x1 && least_crowded_center.y == center_y1) {
             direction = true;
             for (let i = 1; i <= natoms - 2; i++) {
@@ -475,7 +514,7 @@ class Graph {
         let last_vertex = direction ? edge.v1 : edge.v2;
         const r = new Graph();
         for (const coordinate of coordinates) {
-            const vertex = this.add_vertex_by_screen_coords({x: coordinate[0], y:coordinate[1]}, "C");
+            const vertex = this.add_vertex_by_atomic_coords({x: coordinate[0], y:coordinate[1]}, "C");
             r.vertices.push(vertex);
             r.edges.push(this.bind_vertices(vertex, last_vertex));
             last_vertex = vertex;
