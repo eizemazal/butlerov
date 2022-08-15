@@ -5,12 +5,7 @@ import { Stylesheet } from "./Stylesheet";
 import { MoleculeEditor } from "../main";
 import { int_to_subscript } from "../lib/indices";
 
-type AtomicCoords = {
-    x: number;
-    y: number;
-}
-
-type ScreenCoords = {
+type Coords = {
     x: number;
     y: number;
 }
@@ -38,7 +33,7 @@ class Vertex {
     protected controller: MoleculeEditor | null;
     protected _neighbors: Array<Neighbor>;
     protected is_active: boolean;
-    protected _atomic_coords: AtomicCoords;
+    protected _coords: Coords;
     protected _charge : number;
     protected _label : string;
     protected _computed_label: string;
@@ -49,12 +44,12 @@ class Vertex {
      * Offset of label text element origin to atom center. For example, SO3H group is to have it in the middle of S letter,
      * and LiOOC in the middle of C
      */
-    protected _label_offset: ScreenCoords;
+    protected _label_offset: Coords;
     public topology: VertexTopology;
     public id: string;
 
     constructor() {
-        this._atomic_coords = { x: 0, y: 0};
+        this._coords = { x: 0, y: 0};
         this._label = "";
         this._computed_label = "";
         this._charge = 0;
@@ -72,7 +67,7 @@ class Vertex {
 
     copy(): Vertex {
         const v = new Vertex();
-        v._atomic_coords = { ...this._atomic_coords };
+        v._coords = { ...this._coords };
         v._label = this.label;
         v._element = this._element;
         v._charge = this._charge;
@@ -86,9 +81,6 @@ class Vertex {
         this.controller = controller;
         if (!this.group)
             this.group = new Konva.Group();
-        const stylesheet = controller.stylesheet;
-        this.group.setAttr("x", this._atomic_coords.x*stylesheet.scale + stylesheet.offset_x);
-        this.group.setAttr("y", this._atomic_coords.y*stylesheet.scale + stylesheet.offset_y);
         this.on("dragmove", (vertex: Vertex, evt: KonvaEventObject<MouseEvent>) => controller.on_vertex_dragmove(vertex, evt));
         this.on("mouseover", (vertex: Vertex) => controller.on_vertex_mouseover(vertex));
         this.on("mouseout", (vertex: Vertex) => controller.on_vertex_mouseout(vertex));
@@ -102,7 +94,6 @@ class Vertex {
 
     detach() {
         this.group?.destroyChildren();
-        this.group = null;
         this.controller = null;
     }
 
@@ -217,17 +208,18 @@ class Vertex {
         this.update();
     }
 
-    public get atomic_coords(): AtomicCoords {
-        return this._atomic_coords;
+    public get coords(): Coords {
+        if (this.group) {
+            this._coords.x = this.group.x();
+            this._coords.y = this.group.y();
+        }
+        return this._coords;
     }
 
-    public set atomic_coords(coords: AtomicCoords) {
-        this._atomic_coords = coords;
-        if (this.controller) {
-            const stylesheet = this.controller.stylesheet;
-            this.group?.setAttr("x", this._atomic_coords.x*stylesheet.scale + stylesheet.offset_x);
-            this.group?.setAttr("y", this._atomic_coords.y*stylesheet.scale + stylesheet.offset_y);
-        }
+    public set coords(coords: Coords) {
+        this._coords = coords;
+        this.group?.x(coords.x);
+        this.group?.y(coords.y);
     }
 
     public get element(): ChemicalElement|null {
@@ -237,7 +229,7 @@ class Vertex {
     least_crowded_angle() {
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         let angles: Array<number> = [];
-        angles = this.neighbors.map(e => Math.atan2(e.vertex.atomic_coords.y-this.atomic_coords.y, e.vertex.atomic_coords.x-this.atomic_coords.x));
+        angles = this.neighbors.map(e => Math.atan2(e.vertex.coords.y-this.coords.y, e.vertex.coords.x-this.coords.x));
         angles.sort( (a,b) => a > b ? 1 : -1);
         let largest_diff = 0;
         let angle1 = 0;
@@ -254,10 +246,10 @@ class Vertex {
         return (angle1 + 2*Math.PI) % (2*Math.PI);
     }
 
-    public get_label_boundary(alfa: number, clearance_h = 0, clearance_v = 0): ScreenCoords {
+    public get_label_boundary(alfa: number, clearance_h = 0, clearance_v = 0): Coords {
         const text = this.group?.findOne("#text");
         if (!text)
-            return this.screen_coords;
+            return this.coords;
         const label_width = text.width() + 2 * clearance_h;
         const label_height = text.height() + 2 * clearance_v;
         const offset_x = this._label_offset.x - clearance_h;
@@ -368,8 +360,8 @@ class Vertex {
             return;
         this.group.draggable(this._neighbors.length <= 1);
         const stylesheet = this.controller.stylesheet;
-        this.group.setAttr("x", this._atomic_coords.x*stylesheet.scale + stylesheet.offset_x);
-        this.group.setAttr("y", this._atomic_coords.y*stylesheet.scale + stylesheet.offset_y);
+        this.group.x(this._coords.x);
+        this.group.y(this._coords.y);
         if (stylesheet.debug_enable_atom_center_dots) {
             const debug_circle = <Konva.Circle>this.group.findOne("#debug_circle") || new Konva.Circle({
                 radius: 2,
@@ -426,13 +418,13 @@ class Vertex {
         if (this._neighbors.length != 1)
             return;
         const n_vertex = this._neighbors[0].vertex;
-        let alfa = Math.atan2(this.screen_coords.y - n_vertex.screen_coords.y, this.screen_coords.x - n_vertex.screen_coords.x);
+        let alfa = Math.atan2(this.coords.y - n_vertex.coords.y, this.coords.x - n_vertex.coords.x);
         if (snap_to_angle) {
             const alfa_rounded = Math.round((alfa * 180 / Math.PI) / stylesheet.bond_snap_degrees)*stylesheet.bond_snap_degrees * Math.PI/180;
             // if the pivot vertex has exactly two adjacents (one we are moving), allow to create 180 deg angle with the rest adjacent
             if (n_vertex._neighbors.length == 2) {
                 const n2_vertex:Vertex = n_vertex._neighbors[0].vertex == this ? n_vertex._neighbors[1].vertex : n_vertex._neighbors[0].vertex;
-                const beta = Math.atan2(n_vertex.screen_coords.y - n2_vertex.screen_coords.y, n_vertex.screen_coords.x - n2_vertex.screen_coords.x);
+                const beta = Math.atan2(n_vertex.coords.y - n2_vertex.coords.y, n_vertex.coords.x - n2_vertex.coords.x);
                 if (Math.abs(alfa - beta)*180/Math.PI < stylesheet.bond_snap_degrees && Math.abs(alfa_rounded - alfa) > Math.abs(alfa - beta))
                     alfa = beta;
                 else
@@ -441,25 +433,10 @@ class Vertex {
             else
                 alfa = alfa_rounded;
         }
-        this.screen_coords = {
-            x : n_vertex.screen_coords.x + Math.cos(alfa) * stylesheet.bond_length_px,
-            y: n_vertex.screen_coords.y + Math.sin(alfa) * stylesheet.bond_length_px
+        this.coords = {
+            x : n_vertex.coords.x + Math.cos(alfa) * stylesheet.bond_length_px,
+            y: n_vertex.coords.y + Math.sin(alfa) * stylesheet.bond_length_px
         };
-    }
-
-    public get screen_coords(): ScreenCoords {
-        if (!this.controller)
-            throw Error("Vertex not attached to controller");
-        return { x: this.group?.getAttr("x"), y: this.group?.getAttr("y") };
-    }
-
-    public set screen_coords(coords: ScreenCoords) {
-        if (!this.controller)
-            throw Error("Vertex not attached to controller");
-        this.group?.setAttr("x", coords.x);
-        this.group?.setAttr("y", coords.y);
-        this._atomic_coords.x = (coords.x - this.controller.stylesheet.offset_x) / this.controller.stylesheet.scale;
-        this._atomic_coords.y = (coords.y - this.controller.stylesheet.offset_y) / this.controller.stylesheet.scale;
     }
 
     public get width() {
@@ -517,4 +494,4 @@ class Vertex {
     }
 }
 
-export { Vertex, AtomicCoords, ScreenCoords, VertexTopology };
+export { Vertex, Coords, VertexTopology };

@@ -3,7 +3,7 @@ import { KonvaEventObject } from "konva/lib/Node";
 import { Edge, EdgeShape, BondType, EdgeOrientation } from "../view/Edge";
 import { Graph } from "../view/Graph";
 import { Stylesheet } from "../view/Stylesheet";
-import { Vertex } from "../view/Vertex";
+import { Coords, Vertex } from "../view/Vertex";
 import { ChemicalElements } from "../lib/elements";
 import { Menu } from "../view/Menu";
 import { MenuButton } from "../view/MenuButton";
@@ -44,6 +44,8 @@ class MoleculeEditor {
     _readonly: boolean;
     _onchange: (() => void) | null;
     panning: boolean;
+    _viewport_offset: Coords;
+    graph_group: Konva.Group;
     constructor(stage: Konva.Stage) {
         this.stage = stage;
         this.stylesheet = new Stylesheet();
@@ -51,6 +53,7 @@ class MoleculeEditor {
         this.graph.attach(this);
         this.background_layer = new Konva.Layer();
         this.background_layer.add(new Konva.Rect({
+            id: "background_rect",
             x: 0,
             y: 0,
             width: this.stage.getAttr("width"),
@@ -64,7 +67,8 @@ class MoleculeEditor {
         this.background_layer.on("mousemove", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_mousemove(evt); } );
         this.stage.on("mouseleave", () => { this.on_stage_mouseleave(); } );
         this.drawing_layer = new Konva.Layer();
-        this.drawing_layer.add(this.graph.as_group());
+        this.graph_group = this.graph.as_group();
+        this.drawing_layer.add(this.graph_group);
         this.drawing_layer.draw();
         this.menu = new Menu();
         this.menu.visible = false;
@@ -87,6 +91,7 @@ class MoleculeEditor {
         this.actions_rolled_back = 0;
         this._readonly = false;
         this.panning = false;
+        this._viewport_offset = {x: 0, y: 0};
     }
 
     static from_html_element(el: HTMLDivElement) {
@@ -154,6 +159,9 @@ class MoleculeEditor {
     }
 
     update_background() {
+        const rect = this.background_layer.findOne("#background_rect");
+        rect.setAttr("width", this.stage.getAttr("width") / this.zoom);
+        rect.setAttr("height", this.stage.getAttr("height") / this.zoom);
         if (this.graph.vertices.length || this.graph.edges.length) {
             this.welcome_message.visible(false);
             return;
@@ -176,10 +184,10 @@ class MoleculeEditor {
 
     center_view() {
         const rect = this.graph.get_molecule_rect();
-        this.stylesheet.scale = this.stylesheet.bond_length_px / this.graph.get_average_bond_distance();
-        this.stylesheet.offset_x = this.stage.width() / (2*this.zoom) - this.stylesheet.scale*(rect.x1 + rect.x2) / 2;
-        this.stylesheet.offset_y = this.stage.height() / (2*this.zoom) -this.stylesheet.scale*(rect.y1 + rect.y2) / 2;
-        this.graph.update();
+        this.viewport_offset = {
+            x : this.stage.width() / (2*this.zoom) - (rect.x1 + rect.x2) / 2,
+            y : this.stage.height() / (2*this.zoom) - (rect.y1 + rect.y2) / 2,
+        };
     }
 
     /**
@@ -191,9 +199,8 @@ class MoleculeEditor {
 
     zoom_to_fit(overzoom = false, margins=0.05) {
         const rect = this.graph.get_molecule_rect();
-        this.stylesheet.scale = this.stylesheet.bond_length_px / this.graph.get_average_bond_distance();
-        const screen_w = (1+margins)*this.stylesheet.scale * (rect.x2 - rect.x1);
-        const screen_h = (1+margins)*this.stylesheet.scale * (rect.y2 - rect.y1);
+        const screen_w = (1+margins)*(rect.x2 - rect.x1);
+        const screen_h = (1+margins)*(rect.y2 - rect.y1);
         let zoom = Math.min(this.stage.width() / screen_w, this.stage.height() / screen_h);
         if (zoom > 1 && !overzoom )
             zoom = 1;
@@ -204,6 +211,7 @@ class MoleculeEditor {
         this.clear_actions();
         this.graph.load_mol_string(mol_string);
         this.center_view();
+        this.graph.update();
         this.update_background();
     }
 
@@ -224,6 +232,9 @@ class MoleculeEditor {
             this.clear_actions();
             this.graph.clear();
         }
+        this.viewport_offset = {x: 0, y: 0};
+        this.graph_group.x(0);
+        this.graph_group.y(0);
         this.active_edge = null;
         this.active_vertex = null;
     }
@@ -435,10 +446,14 @@ class MoleculeEditor {
             this.stage.container().style.cursor = "default";
     }
 
-    private offset_viewport(x = 0, y = 0): void {
-        this.stylesheet.offset_x += x;
-        this.stylesheet.offset_y += y;
-        this.graph.update();
+    public get viewport_offset(): Coords {
+        return this._viewport_offset;
+    }
+
+    public set viewport_offset(offset: Coords) {
+        this._viewport_offset = offset;
+        this.graph_group.x(offset.x);
+        this.graph_group.y(offset.y);
     }
 
     on_keydown(evt: KeyboardEvent): void {
@@ -447,19 +462,19 @@ class MoleculeEditor {
             return;
         }
         if (evt.key == "ArrowUp") {
-            this.offset_viewport(0, this.stage.height() / 20);
+            this.viewport_offset = { x: this.viewport_offset.x, y: this.viewport_offset.y + this.stage.height() / 20 };
             return;
         }
         if (evt.key == "ArrowDown") {
-            this.offset_viewport(0, -this.stage.height() / 20);
+            this.viewport_offset = { x: this.viewport_offset.x, y: this.viewport_offset.y - this.stage.height() / 20 };
             return;
         }
         if (evt.key == "ArrowLeft") {
-            this.offset_viewport(this.stage.width() / 20, 0);
+            this.viewport_offset = { x: this.viewport_offset.x + this.stage.width() / 20, y: this.viewport_offset.y };
             return;
         }
         if (evt.key == "ArrowRight") {
-            this.offset_viewport(-this.stage.width() / 20, 0);
+            this.viewport_offset = { x: this.viewport_offset.x - this.stage.width() / 20, y: this.viewport_offset.y };
             return;
         }
         if (this._readonly)
@@ -550,7 +565,7 @@ class MoleculeEditor {
     on_vertex_mouseup(vertex: Vertex) {
         if (!this.downed_vertex)
             return;
-        if (vertex != this.downed_vertex && !this.graph.vertices_are_bound(vertex, this.downed_vertex)) {
+        if (vertex != this.downed_vertex && !this.graph.vertices_are_connected(vertex, this.downed_vertex)) {
             this.commit_action(new BindVerticesAction(this.graph, this.downed_vertex, vertex));
         }
         this.downed_vertex = null;
@@ -584,7 +599,10 @@ class MoleculeEditor {
         if (!evt.evt.shiftKey || evt.evt.button != 0 || evt.evt.buttons != 1)
             return;
         this.panning = true;
-        this.offset_viewport(evt.evt.movementX, evt.evt.movementY);
+        this.viewport_offset = {
+            x: this.viewport_offset.x + evt.evt.movementX / this.zoom,
+            y: this.viewport_offset.y + evt.evt.movementY / this.zoom,
+        } ;
     }
 
     on_stage_mouseleave() {

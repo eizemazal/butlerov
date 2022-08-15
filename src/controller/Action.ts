@@ -1,6 +1,6 @@
 import { Edge, EdgeOrientation, EdgeShape } from "../view/Edge";
 import { Graph } from "../view/Graph";
-import { ScreenCoords, Vertex } from "../view/Vertex";
+import { Coords, Vertex } from "../view/Vertex";
 
 abstract class Action {
     abstract commit() : void;
@@ -117,8 +117,8 @@ class AddBoundVertexAction extends Action {
     graph: Graph;
     vertex: Vertex;
     added: Graph | null;
-    old_neighbor_screen_coords: Array<ScreenCoords>;
-    new_neighbor_screen_coords: Array<ScreenCoords>;
+    old_neighbor_coords: Array<Coords>;
+    new_neighbor_coords: Array<Coords>;
 
     constructor(graph: Graph, vertex: Vertex) {
         super();
@@ -126,27 +126,27 @@ class AddBoundVertexAction extends Action {
         this.vertex = vertex;
         this.added = null;
         // in this action, some neigboring vertices may change coordinates. We need to save and restore them.
-        this.old_neighbor_screen_coords = [];
-        this.new_neighbor_screen_coords = [];
+        this.old_neighbor_coords = [];
+        this.new_neighbor_coords = [];
     }
 
     commit() {
         if (this.added) {
             this.graph.add(this.added);
-            this.vertex.neighbors.forEach( (e, idx) =>  e.vertex.screen_coords = this.new_neighbor_screen_coords[idx]);
+            this.vertex.neighbors.forEach( (e, idx) =>  e.vertex.coords = this.new_neighbor_coords[idx]);
             this.graph.update();
         }
         else {
-            this.old_neighbor_screen_coords = this.vertex.neighbors.map( e => e.vertex.screen_coords );
+            this.old_neighbor_coords = this.vertex.neighbors.map( e => e.vertex.coords );
             this.added = this.graph.add_bound_vertex_to(this.vertex);
-            this.new_neighbor_screen_coords = this.vertex.neighbors.map( e => e.vertex.screen_coords );
+            this.new_neighbor_coords = this.vertex.neighbors.map( e => e.vertex.coords );
         }
     }
     rollback() {
         if (!this.added)
             return;
         this.graph.remove(this.added);
-        this.vertex.neighbors.forEach( (e, idx) =>  e.vertex.screen_coords = this.old_neighbor_screen_coords[idx]);
+        this.vertex.neighbors.forEach( (e, idx) =>  e.vertex.coords = this.old_neighbor_coords[idx]);
         this.graph.update();
     }
 }
@@ -382,25 +382,25 @@ class ChangeVertexLabelAction extends UpdatableAction {
 class MoveVertexAction extends UpdatableAction {
     graph: Graph;
     vertex: Vertex;
-    old_coords: ScreenCoords;
-    new_coords: ScreenCoords;
+    old_coords: Coords;
+    new_coords: Coords;
 
     constructor(graph: Graph, vertex: Vertex) {
         super();
         this.graph = graph;
         this.vertex = vertex;
-        this.new_coords = this.old_coords = this.vertex.screen_coords;
+        this.new_coords = this.old_coords = this.vertex.coords;
     }
 
     commit() : void {
-        this.new_coords = this.vertex.screen_coords;
+        this.new_coords = this.vertex.coords;
         this.vertex.update();
         this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
     }
 
     rollback(): void {
-        this.vertex.screen_coords = this.old_coords;
+        this.vertex.coords = this.old_coords;
         this.vertex.update();
         this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
@@ -409,7 +409,7 @@ class MoveVertexAction extends UpdatableAction {
     update(action: this) : boolean {
         if (action.vertex != this.vertex)
             return false;
-        this.new_coords = action.vertex.screen_coords;
+        this.new_coords = action.vertex.coords;
         this.vertex.update();
         this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());

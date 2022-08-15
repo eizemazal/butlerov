@@ -1,7 +1,7 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { MoleculeEditor } from "../main";
-import { ScreenCoords, Vertex } from "./Vertex";
+import { Coords, Vertex } from "./Vertex";
 import { Stylesheet } from "./Stylesheet";
 
 enum EdgeShape {
@@ -48,8 +48,8 @@ class Edge {
     protected group: Konva.Group | null;
     public v1: Vertex;
     public v2: Vertex;
-    protected point1: ScreenCoords;
-    protected point2: ScreenCoords;
+    protected point1: Coords;
+    protected point2: Coords;
     protected _shape: EdgeShape;
     public screen_length: number;
     public center_length: number;
@@ -100,7 +100,6 @@ class Edge {
 
     detach() {
         this.group?.destroyChildren();
-        this.group = null;
         this.controller = null;
     }
 
@@ -221,8 +220,8 @@ class Edge {
 
     calculate_coordinates() {
         const stylesheet = this.controller?.stylesheet;
-        this.point1 = { ...this.v1.screen_coords };
-        this.point2 = { ...this.v2.screen_coords };
+        this.point1 = { ...this.v1.coords };
+        this.point2 = { ...this.v2.coords };
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
         this.center_length = this.screen_length;
         if (!this.screen_length)

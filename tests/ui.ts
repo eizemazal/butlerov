@@ -68,7 +68,7 @@ test("Draw neopentane", () => {
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(2);
     expect(editor.graph.edges.length).toBe(1);
-    expect(editor.graph.vertices[0].screen_coords).toStrictEqual({x: 100, y: 100});
+    expect(editor.graph.vertices[0].coords).toStrictEqual({x: 100, y: 100});
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(3);
     expect(editor.graph.edges.length).toBe(2);
@@ -81,9 +81,9 @@ test("Draw neopentane", () => {
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(4);
     expect(editor.graph.edges.length).toBe(3);
-    fire(editor.graph.vertices[1].screen_coords, "mouseover");
+    fire(editor.graph.vertices[1].coords, "mouseover");
     expect(editor.graph.vertices[1].active).toBe(true);
-    fire(editor.graph.vertices[1].screen_coords, "mouseout");
+    fire(editor.graph.vertices[1].coords, "mouseout");
     expect(editor.graph.vertices[1].active).toBe(false);
 });
 
@@ -91,8 +91,8 @@ test("Draw cyclopentene, flip double bond", () => {
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(2);
     const edge_center = {
-        x: (editor.graph.vertices[0].screen_coords.x + editor.graph.vertices[1].screen_coords.x) / 2,
-        y: (editor.graph.vertices[0].screen_coords.y + editor.graph.vertices[1].screen_coords.y) / 2,
+        x: (editor.graph.vertices[0].coords.x + editor.graph.vertices[1].coords.x) / 2,
+        y: (editor.graph.vertices[0].coords.y + editor.graph.vertices[1].coords.y) / 2,
     };
     fire(edge_center, "mouseover");
     expect(editor.graph.edges[0].active).toBe(true);
@@ -110,13 +110,6 @@ test("Draw cyclopentene, flip double bond", () => {
     expect(editor.graph.edges[0].bond_type).toBe(BondType.Single);
     fire(edge_center, "click");
     expect(editor.graph.edges[0].bond_type).toBe(BondType.Double);
-    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Right);
-    fire(edge_center, "mouseover");
-    fire_key("2");
-    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Left);
-    fire_key("z", {ctrlKey: true});
-    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Right);
-    fire_key("z", {ctrlKey: true, shiftKey: true});
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Left);
     fire(edge_center, "mouseover");
     fire_key("2");
@@ -125,12 +118,19 @@ test("Draw cyclopentene, flip double bond", () => {
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Left);
     fire_key("z", {ctrlKey: true, shiftKey: true});
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Center);
+    fire(edge_center, "mouseover");
+    fire_key("2");
+    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Right);
+    fire_key("z", {ctrlKey: true});
+    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Center);
+    fire_key("z", {ctrlKey: true, shiftKey: true});
+    expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Right);
 });
 
 test("Attach ring", () => {
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(2);
-    fire(editor.graph.vertices[0].screen_coords, "mouseover");
+    fire(editor.graph.vertices[0].coords, "mouseover");
     fire_key(" ");
     fire_key("R");
     fire_key("5");
@@ -148,8 +148,8 @@ test("Draw HCN", () => {
     fire({x: 200, y: 200}, "click");
     expect(editor.graph.vertices.length).toBe(2);
     const edge_center = {
-        x: (editor.graph.vertices[0].screen_coords.x + editor.graph.vertices[1].screen_coords.x) / 2,
-        y: (editor.graph.vertices[0].screen_coords.y + editor.graph.vertices[1].screen_coords.y) / 2,
+        x: (editor.graph.vertices[0].coords.x + editor.graph.vertices[1].coords.x) / 2,
+        y: (editor.graph.vertices[0].coords.y + editor.graph.vertices[1].coords.y) / 2,
     };
     fire(edge_center, "click");
     expect(editor.graph.edges[0].bond_type).toBe(BondType.Double);
@@ -159,7 +159,7 @@ test("Draw HCN", () => {
     expect(editor.graph.edges[0].bond_type).toBe(BondType.Double);
     fire_key("y", {ctrlKey: true});
     expect(editor.graph.edges[0].bond_type).toBe(BondType.Triple);
-    fire(editor.graph.vertices[1].screen_coords, "mouseover");
+    fire(editor.graph.vertices[1].coords, "mouseover");
     fire_key("n");
     expect(editor.graph.vertices[1].label).toBe("N");
 });
@@ -167,7 +167,7 @@ test("Draw HCN", () => {
 test("Draw hexanol, undo, redo", () => {
     fire({x: 124, y: 132}, "click");
     expect(editor.graph.vertices.length).toBe(2);
-    fire(editor.graph.vertices[1].screen_coords, "mouseover");
+    fire(editor.graph.vertices[1].coords, "mouseover");
     expect(editor.active_vertex).toBe(editor.graph.vertices[1]);
     fire_key(" ");
     fire_key("C");
@@ -181,14 +181,14 @@ test("Draw hexanol, undo, redo", () => {
     expect(editor.graph.vertices.length).toBe(7);
     expect(editor.graph.edges.length).toBe(6);
     expect(editor.graph.vertices[0].element).toBe(ChemicalElements["C"]);
-    fire(editor.graph.vertices[0].screen_coords, "mouseover");
+    fire(editor.graph.vertices[0].coords, "mouseover");
     fire_key("O");
     expect(editor.graph.vertices[0].element).toBe(ChemicalElements["O"]);
     fire_key("O");
     expect(editor.graph.vertices[0].element).toBe(ChemicalElements["Os"]);
     fire_key("O");
     expect(editor.graph.vertices[0].element).toBe(ChemicalElements["O"]);
-    fire(editor.graph.vertices[0].screen_coords, "mouseout");
+    fire(editor.graph.vertices[0].coords, "mouseout");
     expect(editor.graph.vertices.length).toBe(7);
     expect(editor.graph.edges.length).toBe(6);
     fire_key("z", {ctrlKey: true});
@@ -216,8 +216,8 @@ test("Draw and delete vertices and edges", () => {
     fire({x: 200, y: 200}, "click");
     expect(editor.graph.vertices.length).toBe(2);
     const edge_center = {
-        x: (editor.graph.vertices[0].screen_coords.x + editor.graph.vertices[1].screen_coords.x) / 2,
-        y: (editor.graph.vertices[0].screen_coords.y + editor.graph.vertices[1].screen_coords.y) / 2,
+        x: (editor.graph.vertices[0].coords.x + editor.graph.vertices[1].coords.x) / 2,
+        y: (editor.graph.vertices[0].coords.y + editor.graph.vertices[1].coords.y) / 2,
     };
     fire(edge_center, "mouseover");
     fire_key(" ");
@@ -225,7 +225,7 @@ test("Draw and delete vertices and edges", () => {
     fire_key("6");
     expect(editor.graph.vertices.length).toBe(6);
     expect(editor.graph.edges.length).toBe(6);
-    fire(editor.graph.vertices[3].screen_coords, "mouseover");
+    fire(editor.graph.vertices[3].coords, "mouseover");
     fire_key("Delete");
     expect(editor.graph.vertices.length).toBe(5);
     expect(editor.graph.edges.length).toBe(4);
@@ -258,8 +258,8 @@ test("Draw and flip stereo bonds", () => {
     expect(editor.graph.vertices.length).toBe(5);
     expect(editor.graph.edges.length).toBe(4);
     const edge_center = {
-        x: (editor.graph.vertices[0].screen_coords.x + editor.graph.vertices[1].screen_coords.x) / 2,
-        y: (editor.graph.vertices[0].screen_coords.y + editor.graph.vertices[1].screen_coords.y) / 2,
+        x: (editor.graph.vertices[0].coords.x + editor.graph.vertices[1].coords.x) / 2,
+        y: (editor.graph.vertices[0].coords.y + editor.graph.vertices[1].coords.y) / 2,
     };
     fire(edge_center, "mouseover");
     fire_key("w");

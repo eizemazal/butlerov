@@ -126,25 +126,6 @@ class Stylesheet {
      */
     bond_snap_degrees: number;
     /**
-     * The coordinates of atoms on the drawing are stored in atomic units that are recomputed to screen coordinates and back.
-     * This parameter provides relationship between atomic coordinates and screen coordinates.
-     * When a mol file is loaded, the scaling is done automatically to fit average bond length to {@link bond_length_px}. However,
-     * when a new drawing is created, there is no reference, and in this case, default value is used - assuming that average bond is
-     * 1.54 A long. Changing this parameter will only affect of atomic coordinates for newly created drawings when exporting them.
-     * @defaultValue {@link bond_length_px} / 1.54
-     */
-    scale: number;
-    /**
-     * @internal
-     * Offset of drawing in screen coordinates. Changing this parameter will have no effect.
-     */
-    offset_x: number;
-    /**
-     * @internal
-     * Offset of drawing in screen coordinates. Changing this parameter will have no effect.
-     */
-    offset_y: number;
-    /**
      * Color of background.
      * @defaultValue `white`
      */
@@ -182,9 +163,6 @@ class Stylesheet {
         this.bond_active_color = "red";
         this.bond_hit_stroke_width = 10;
         this.bond_snap_degrees = 30;
-        this.scale = this.bond_length_px / 1.54;
-        this.offset_x = 0;
-        this.offset_y = 0;
         this.background_fill_color = "white";
         this.debug_enable_atom_center_dots = false;
         this.debug_enable_label_rects = false;
