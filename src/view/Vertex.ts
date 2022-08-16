@@ -147,37 +147,43 @@ class Vertex {
             text.setAttr("text", this._label);
             const atom_label_w = text.width();
             const atom_label_h = text.height();
-            // -COOH
-            if (alfa > 7*Math.PI/4 || alfa <= Math.PI / 4) {
-                this._computed_label = this._label + "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
-                this._label_alignment = LabelAlignment.Left;
-                text.setAttr("text", this._computed_label);
-                this._label_offset = {x : -atom_label_w / 2, y: -atom_label_h / 2};
-            }
             //   \   /
             //     N
             //     H
-            else if (alfa > Math.PI / 4 && alfa <= 3*Math.PI/4) {
+            if (this.neighbors.length > 1 && alfa > Math.PI / 4 && alfa <= 3*Math.PI/4) {
                 this._computed_label = this._label + "\nH" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
                 this._label_alignment = LabelAlignment.Top;
                 text.setAttr("text", this._computed_label);
                 this._label_offset = {x : -text.getAttr("width") / 2, y: -atom_label_h / 2};
             }
-            // HOOC-
-            else if (alfa > 3*Math.PI/4 && alfa <= 5*Math.PI/4) {
-                this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + this._label;
-                this._label_alignment = LabelAlignment.Right;
-                text.setAttr("text", this._computed_label);
-                this._label_offset = {x : -text.getAttr("width")+atom_label_w / 2, y: -atom_label_h / 2};
-            }
             //     H
             //     N
             //   /   \
-            else {
+            else if (this.neighbors.length > 1 && alfa > 5*Math.PI / 4 && alfa <= 7*Math.PI/4) {
                 this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + "\n" + this._label;
                 this._label_alignment = LabelAlignment.Bottom;
                 text.setAttr("text", this._computed_label);
                 this._label_offset = {x : -text.getAttr("width") / 2, y: -text.getAttr("height")  + atom_label_h / 2};
+            }
+            // -COOH
+            else if (
+                (this.neighbors.length > 1 && (alfa > 7*Math.PI/4 || alfa <= Math.PI / 4)) ||
+                (this.neighbors.length == 1 && (alfa < Math.PI/2 || alfa > 3 * Math.PI / 2))
+            ) {
+                this._computed_label = this._label + "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
+                this._label_alignment = LabelAlignment.Left;
+                text.setAttr("text", this._computed_label);
+                this._label_offset = {x : -atom_label_w / 2, y: -atom_label_h / 2};
+            }
+            // HOOC-
+            else if (
+                (this.neighbors.length > 1 && alfa > 3*Math.PI/4 && alfa <= 5*Math.PI/4) ||
+                (this.neighbors.length == 1 && (alfa >= Math.PI/2 && alfa <= 3 * Math.PI / 2))
+            ) {
+                this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + this._label;
+                this._label_alignment = LabelAlignment.Right;
+                text.setAttr("text", this._computed_label);
+                this._label_offset = {x : -text.getAttr("width")+atom_label_w / 2, y: -atom_label_h / 2};
             }
         }
 
@@ -226,6 +232,11 @@ class Vertex {
         return this._element;
     }
 
+    /**
+     * For the current vertex, return angle between x axis and the least crowded direction, i.e. finds two neighbors with
+     * maximum angle between edges to them, and find a bisector. For vertex without neighbors, returns 0.
+     * @returns angle in radians [0; 2*Math.PI), angles are counted clockwise
+     */
     least_crowded_angle() {
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         let angles: Array<number> = [];
