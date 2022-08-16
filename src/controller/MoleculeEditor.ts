@@ -50,7 +50,6 @@ class MoleculeEditor {
         this.stage = stage;
         this.stylesheet = new Stylesheet();
         this.graph = new Graph();
-        this.graph.attach(this);
         this.background_layer = new Konva.Layer();
         this.background_layer.add(new Konva.Rect({
             id: "background_rect",
@@ -67,7 +66,7 @@ class MoleculeEditor {
         this.background_layer.on("mousemove", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_mousemove(evt); } );
         this.stage.on("mouseleave", () => { this.on_stage_mouseleave(); } );
         this.drawing_layer = new Konva.Layer();
-        this.graph_group = this.graph.as_group();
+        this.graph_group = this.graph.attach(this);
         this.drawing_layer.add(this.graph_group);
         this.drawing_layer.draw();
         this.menu = new Menu();

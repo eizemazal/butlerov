@@ -84,8 +84,9 @@ class Graph {
     /**
     * Attach @see Graph to controller.
     * @param controller an object of @see MoleculeEditor class
+    * @returns an object of Konva.Group type depicting Graph
     */
-    attach(controller: MoleculeEditor) {
+    attach(controller: MoleculeEditor): Konva.Group {
         this.controller = controller;
         if (!this.group)
             this.group = new Konva.Group();
@@ -93,6 +94,7 @@ class Graph {
             this.mol_scaling_factor = 1.54 / this.controller.stylesheet.bond_length_px;
         this.vertices.forEach( e => this.group?.add(e.attach(controller)) );
         this.edges.forEach( e => { this.group?.add(e.attach(controller)); e.z_index = 0; } );
+        return this.group;
     }
 
     /**
@@ -140,7 +142,7 @@ class Graph {
             const x = parseFloat(match_object[1]);
             const y = -parseFloat(match_object[3]);
             const element = match_object[7];
-            this.add_vertex({x: x, y: y}, element);
+            this._add_vertex({x: x, y: y}, element);
         }
         offset += atom_count;
         for (let i = offset; i < offset+bond_count; i++) {
@@ -281,14 +283,20 @@ class Graph {
      * @param label Vertex label, @default `C` (carbon atoms are only rendered by default if not connected to other atoms)
      * @returns @see Graph object containing added vertex
      */
-    add_single_vertex(coords: Coords, label="C"): Graph {
+    add_vertex(coords: Coords, label="C"): Graph {
         const graph = new Graph();
-        graph.vertices = [this.add_vertex(coords, label)];
+        graph.vertices = [this._add_vertex(coords, label)];
         this.update();
         return graph;
     }
 
-    public add_vertex(coords: Coords, label = "C"): Vertex {
+    /**
+     * Internal function to add vertex to the graph. Attaches it to controller if the graph is attached.
+     * @param coords Coordinates of the vertex
+     * @param label Label of the vertex
+     * @returns object of @see Vertex class
+     */
+    private _add_vertex(coords: Coords, label = "C"): Vertex {
         const vertex = new Vertex();
         this.vertices.push(vertex);
         vertex.coords = coords;
@@ -348,6 +356,14 @@ class Graph {
         this.update();
     }
 
+    /**
+     * Create an edge between vertices. The method is responsible for the update of neighbor properties of vertices.
+     * If the graph is attached, the edge is also attached to controller, and topology of the graph is updated to recompute edge orientations.
+     * @param v1 first @see Vertex
+     * @param v2 second @see Vertex
+     * @param edge_shape Shape of the edge, @see EdgeShape, @default EdgeShape.Single
+     * @returns newly created @see Edge
+     */
     bind_vertices(v1: Vertex, v2: Vertex, edge_shape: EdgeShape = EdgeShape.Single): Edge {
         const edge = new Edge(v1, v2);
         edge.shape = edge_shape;
@@ -363,6 +379,12 @@ class Graph {
         return edge;
     }
 
+    /**
+     * Delete vertex from graph. Removes all edges that are connected to this vertex. This may cause other vertices
+     * to be removed as well (single dangling vertices will be removed too)
+     * @param vertex @see Vertex to remove
+     * @returns Graph with all removed vertices and edges.
+     */
     delete_vertex(vertex: Vertex): Graph {
         const r: Graph = new Graph();
         const edges = this.find_edges_by_vertex(vertex);
@@ -372,6 +394,12 @@ class Graph {
         return r;
     }
 
+    /**
+     * Removes edge from the graph. The method is responsible for updating neighbors properties of the vertices.
+     * @param edge An @see Edge to remove.
+     * @param drop_dangling_vertices whether it is needed to remove single dangling vertices after the removal of the edge. @default true
+     * @returns Graph containing all removed edges and vertices.
+     */
     delete_edge(edge: Edge, drop_dangling_vertices = true): Graph {
         const r: Graph = new Graph();
         r.edges.push(edge);
@@ -393,6 +421,11 @@ class Graph {
         return r;
     }
 
+    /**
+     * Get a list of all vertices so that edges exist between each of them and the given vertex.
+     * @param vertex a @see Vertex to probe
+     * @returns an array of @see Vertex objects, each of them has an edge connecting it with the given vertex
+     */
     neighboring_vertices(vertex: Vertex): Array<Vertex> {
         const r : Array<Vertex> = [];
         this.edges.filter( e => e.v1 == vertex).forEach(e => r.push(e.v2));
@@ -427,9 +460,12 @@ class Graph {
         0 );
     }
 
-    // for a given set of points, get the one that is farthest all the atoms
-    // this is using r2 metric, but this is not perfect sometimes
-    // this is computationally intense, use caching to assess only atoms that are near
+    /**
+     * For a given set of points, get the one that is farthest all the vertices of the graph.
+     * This @see crowding_potential function to calculate
+     * @param points an array of @see Coords, each one representing 2D point
+     * @returns one point selected from points, that is the most remote from the vertices of the graph
+     */
     least_crowded_point(points: Array<Coords>): Coords {
         // garbage in garbage out
         if (!points.length)
@@ -446,15 +482,21 @@ class Graph {
         return best_point;
     }
 
+    /**
+     * Adds a bound vertex to existing vertex in the graph. The positioning of the vertex is selected to be visually appealing:
+     * - edge length is taken from @see stylesheet.bond_length_px if controller is attached, otherwise from @see get_average_bond_distance
+     * - least crowded, regular angles are selected
+     * - other vertices around given vertex may be moved (only if they have no other neighbors other than the given vertex) to produce a good drawing
+     * @param vertex A vertex to which attach a new edge and a vertex.
+     * @returns A Graph containing newly created @see Edge and @see Vertex.
+     */
     add_bound_vertex_to(vertex: Vertex): Graph {
-        if (!this.controller)
-            throw Error("Graph not attached to controller.");
         const r = new Graph();
         const neighbors = this.neighboring_vertices(vertex);
-        const bond_len = this.controller.stylesheet.bond_length_px;
+        const bond_len = this.controller ? this.controller.stylesheet.bond_length_px : this.get_average_bond_distance();
         if (neighbors.length == 0) {
             // make a new bond to 60 deg up and right
-            const new_vertex = this.add_vertex({
+            const new_vertex = this._add_vertex({
                 x: vertex.coords.x + bond_len * Math.cos(Math.PI/6),
                 y: vertex.coords.y - bond_len * Math.sin(Math.PI/6)
             });
@@ -478,7 +520,7 @@ class Graph {
                     y: vertex.coords.y + bond_len * Math.sin(alfa-Math.PI/1.5)
                 },
             ]);
-            const new_vertex = this.add_vertex(coordinates);
+            const new_vertex = this._add_vertex(coordinates);
             r.edges = [this.bind_vertices(vertex, new_vertex)];
             r.vertices = [new_vertex];
             return r;
@@ -508,7 +550,7 @@ class Graph {
             }
         }
 
-        const new_vertex = this.add_vertex({
+        const new_vertex = this._add_vertex({
             x: vertex.coords.x + bond_len,
             y: vertex.coords.y
         });
@@ -529,20 +571,22 @@ class Graph {
         return r;
     }
 
-    as_group(): Konva.Group {
-        if (!this.group)
-            throw Error("Graph not attached to controller");
-        return this.group;
-    }
-
+    /**
+     * Removes all vertices and edges, and clears the drawing if it exists.
+     */
     clear() : void {
         this.vertices = [];
         this.edges = [];
         this.group?.destroyChildren();
     }
 
+    /**
+     * Add default fragment to the graph, i.e. two vertices bound by an edge. This is used when user clicks on empty space in drawing.
+     * @param coords Coordinates of the first vertex
+     * @returns Graph containing newly created vertices and edge
+     */
     add_default_fragment(coords: Coords): Graph {
-        const vertex1 = this.add_vertex(coords);
+        const vertex1 = this._add_vertex(coords);
         const r = new Graph();
         r.vertices = [vertex1];
         const frag = this.add_bound_vertex_to(vertex1);
@@ -551,10 +595,16 @@ class Graph {
         return r;
     }
 
-    add_chain(vertex: Vertex, natoms: number) : Graph {
+    /**
+     * Attach normal chain of vertices and edges to specified vertex. Orientation of the chain is selected to be visually appealing.
+     * @param vertex an existing vertex pertaining to the Graph
+     * @param nvertices number of vertices to add. Edges are added automatically.
+     * @returns a Graph consisting of newly created @see Edge and @see Vertex objects
+     */
+    add_chain(vertex: Vertex, nvertices: number) : Graph {
         const r = new Graph;
         r.vertices = [vertex];
-        for (let i = 0; i < natoms; i++) {
+        for (let i = 0; i < nvertices; i++) {
             const fragment = this.add_bound_vertex_to(r.vertices[r.vertices.length-1]);
             r.edges.push(fragment.edges[0]);
             r.vertices.push(fragment.vertices[0]);
@@ -566,9 +616,17 @@ class Graph {
         return r;
     }
 
-    fuse_ring(edge: Edge, natoms: number): Graph {
+    /**
+     * Fuse ring of given resulting size to the specified edge. The ring is drawn as a regular polygon of the given size.
+     * Each of the edges has the same length as the specified edge.
+     * There are two sides of edge, and the least crowded side is selected to fuse the ring.
+     * @param edge an @see Edge pertaining to the Graph
+     * @param nvertices number of vertices in the resulting ring
+     * @returns a Graph containing newly created edges and vertices
+     */
+    fuse_ring(edge: Edge, nvertices: number): Graph {
         const alfa = Math.atan2(edge.v2.coords.y-edge.v1.coords.y, edge.v2.coords.x-edge.v1.coords.x);
-        const beta = (natoms-2) * Math.PI / natoms;
+        const beta = (nvertices-2) * Math.PI / nvertices;
         const edge_len = Math.sqrt( Math.pow(edge.v1.coords.x - edge.v2.coords.x, 2) + Math.pow(edge.v1.coords.y - edge.v2.coords.y, 2));
         const h = edge_len * Math.tan(beta/2) / 2;
         const l = edge_len / (2* Math.cos(beta / 2));
@@ -582,8 +640,8 @@ class Graph {
         const least_crowded_center : Coords = this.least_crowded_point([{x:center_x1, y:center_y1}, {x:center_x2, y:center_y2}]);
         if (least_crowded_center.x == center_x1 && least_crowded_center.y == center_y1) {
             direction = true;
-            for (let i = 1; i <= natoms - 2; i++) {
-                const angle = Math.PI - beta/2 + alfa + 2*i*Math.PI / natoms;
+            for (let i = 1; i <= nvertices - 2; i++) {
+                const angle = Math.PI - beta/2 + alfa + 2*i*Math.PI / nvertices;
                 const x = center_x1 + l * Math.cos(angle);
                 const y = center_y1 + l * Math.sin(angle);
                 coordinates.push([x, y]);
@@ -591,8 +649,8 @@ class Graph {
         }
         else {
             direction = false;
-            for (let i = 1; i <= natoms - 2; i++) {
-                const angle = Math.PI - beta/2 + alfa + 2*i*Math.PI / natoms;
+            for (let i = 1; i <= nvertices - 2; i++) {
+                const angle = Math.PI - beta/2 + alfa + 2*i*Math.PI / nvertices;
                 const x = center_x2 - l * Math.cos(angle);
                 const y = center_y2 - l * Math.sin(angle);
                 coordinates.push([x, y]);
@@ -601,7 +659,7 @@ class Graph {
         let last_vertex = direction ? edge.v1 : edge.v2;
         const r = new Graph();
         for (const coordinate of coordinates) {
-            const vertex = this.add_vertex({x: coordinate[0], y:coordinate[1]}, "C");
+            const vertex = this._add_vertex({x: coordinate[0], y:coordinate[1]}, "C");
             r.vertices.push(vertex);
             r.edges.push(this.bind_vertices(vertex, last_vertex));
             last_vertex = vertex;
@@ -612,9 +670,15 @@ class Graph {
         return r;
     }
 
-    attach_ring(vertex: Vertex, natoms: number) : Graph {
+    /**
+     * Attach a ring to the specified vertex. The vertex becomes one of the vertices of the ring.
+     * @param vertex an exising vertex in the Graph
+     * @param nvertices number of vertices in the resulting ring
+     * @returns a Graph containing newly created edges and vertices
+     */
+    attach_ring(vertex: Vertex, nvertices: number) : Graph {
         const r: Graph = this.add_bound_vertex_to(vertex);
-        const frag = this.fuse_ring(r.edges[0], natoms);
+        const frag = this.fuse_ring(r.edges[0], nvertices);
         r.vertices = [...r.vertices, ...frag.vertices];
         r.edges = [...r.edges, ...frag.edges];
         return r;
@@ -625,7 +689,11 @@ class Graph {
         this.edges.forEach( (e,idx) => e.id = `${idx}` );
     }
 
-    // get subgraphs as separate graphs. Subgraphs do not have connected paths between each other.
+    // get subgraphs as separate graphs.
+    /**
+     * Return an array of subgraphs of the graph, i.e. parts of graphs do not have connected paths between each other.
+     * @returns An array of Graphs, each containing subgraph of the current Graph
+     */
     subgraphs(): Array<Graph> {
         const res: Array<Graph> = [];
         const rest_vertices: Set<Vertex> = new Set(this.vertices);
@@ -651,6 +719,11 @@ class Graph {
         return res;
     }
 
+    /**
+     * For the given edge, obtain its topology - does it pertain to a ring or not.
+     * @param edge an @see Edge to probe
+     * @returns @see EdgeTopology, either EdgeTopology.Chain, or EdgeTopology.Ring
+     */
     edge_topology(edge: Edge): EdgeTopology {
         if ( edge.v1.neighbors.length == 1 || edge.v2.neighbors.length == 1)
             return EdgeTopology.Chain;
@@ -665,6 +738,7 @@ class Graph {
 
     /**
      * Re-calculate orientation of bond (left, right, symmetrical) for the specified edge in the graph.
+     * This function is dependent on @see ringsystems property that is calculated in @see update_topology method.
      * @param edge Edge whose orientation to be updated.
      * @param update_view Whether to call edge.update() to update view. @default true
      * @returns void
@@ -673,19 +747,19 @@ class Graph {
         if (!edge.is_asymmetric)
             return;
         for (const ringsystem of this.ringsystems) {
-            if (ringsystem.edges.findIndex(e => e == edge) != -1) {
-                const center = {
-                    x: ringsystem.vertices.reduce( (p, e) => p + e.coords.x, 0)/ringsystem.vertices.length,
-                    y: ringsystem.vertices.reduce( (p, e) => p + e.coords.y, 0)/ringsystem.vertices.length,
-                };
-                if ( (edge.v2.coords.x - edge.v1.coords.x) * (center.y - edge.v1.coords.y) -
+            if ( ringsystem.edges.findIndex(e => e == edge) == -1)
+                continue;
+            const center = {
+                x: ringsystem.vertices.reduce( (p, e) => p + e.coords.x, 0)/ringsystem.vertices.length,
+                y: ringsystem.vertices.reduce( (p, e) => p + e.coords.y, 0)/ringsystem.vertices.length,
+            };
+            if ( (edge.v2.coords.x - edge.v1.coords.x) * (center.y - edge.v1.coords.y) -
                             (edge.v2.coords.y - edge.v1.coords.y) * (center.x - edge.v1.coords.x) > 0)
-                    edge.orientation = EdgeOrientation.Right;
-                else
-                    edge.orientation = EdgeOrientation.Left;
-                update_view && edge.update();
-                return;
-            }
+                edge.orientation = EdgeOrientation.Right;
+            else
+                edge.orientation = EdgeOrientation.Left;
+            update_view && edge.update();
+            return;
         }
         // non-cyclic bond with heteroatoms - symmetrical
         if (edge.v1.label || edge.v2.label) {
@@ -747,6 +821,10 @@ class Graph {
         }
     }
 
+    /**
+     * Removes explicit hydrogens from the graph by removing vertices labeled as `H`, and their edges.
+     * @returns a Graph containing removed vertices and edges.
+     */
     strip_hydrogens(): Graph {
         const hs = new Graph();
         hs.vertices = this.vertices.filter(e => e.element?.symbol == "H");

@@ -198,7 +198,7 @@ class AddSingleVertexAction extends Action {
         if (this.added)
             this.graph.add(this.added);
         else
-            this.added = this.graph.add_single_vertex({x: this.x, y: this.y});
+            this.added = this.graph.add_vertex({x: this.x, y: this.y});
     }
 
     rollback() {
