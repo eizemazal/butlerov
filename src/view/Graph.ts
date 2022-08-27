@@ -435,7 +435,7 @@ class Graph {
 
     /**
      * For any point in space, calculate metric to measure "crowding" around this point. This is proportional to sum of
-     * squared distances to proximate vertices
+     * inversed squared distances to proximate vertices
      * @param point coordinates a point which we probe against the graph
      * @param filtering_factor vertices that are farther than filtering_factor * average bond distance will not be considered.
      * @default 3. A value of 0 means that all vertices are considered (computationally intense)
@@ -630,41 +630,50 @@ class Graph {
         const edge_len = Math.sqrt( Math.pow(edge.v1.coords.x - edge.v2.coords.x, 2) + Math.pow(edge.v1.coords.y - edge.v2.coords.y, 2));
         const h = edge_len * Math.tan(beta/2) / 2;
         const l = edge_len / (2* Math.cos(beta / 2));
-        const center_x1 = h * Math.sin(Math.PI - alfa) + (edge.v1.coords.x + edge.v2.coords.x) / 2;
-        const center_y1 = h * Math.cos(Math.PI - alfa) + (edge.v1.coords.y + edge.v2.coords.y) / 2;
-        const center_x2 = -h * Math.sin(Math.PI - alfa) + (edge.v1.coords.x + edge.v2.coords.x) / 2;
-        const center_y2 = -h * Math.cos(Math.PI - alfa) + (edge.v1.coords.y + edge.v2.coords.y) / 2;
-        const coordinates: Array<[number, number]> = [];
-        let direction = true;
+        type Ring = {
+            center_x: number,
+            center_y: number,
+            coordinates: Array<Coords>,
+            crowding: number,
+            first_vertex: Vertex,
+            last_vertex: Vertex,
+        }
+        const ring1: Ring = {
+            center_x: h * Math.sin(Math.PI - alfa) + (edge.v1.coords.x + edge.v2.coords.x) / 2,
+            center_y: h * Math.cos(Math.PI - alfa) + (edge.v1.coords.y + edge.v2.coords.y) / 2,
+            coordinates: [],
+            crowding: 0,
+            first_vertex: edge.v1,
+            last_vertex: edge.v2,
+        };
+        const ring2: Ring = {
+            center_x: -h * Math.sin(Math.PI - alfa) + (edge.v1.coords.x + edge.v2.coords.x) / 2,
+            center_y: -h * Math.cos(Math.PI - alfa) + (edge.v1.coords.y + edge.v2.coords.y) / 2,
+            coordinates: [],
+            crowding: 0,
+            first_vertex: edge.v2,
+            last_vertex: edge.v1,
+        };
 
-        const least_crowded_center : Coords = this.least_crowded_point([{x:center_x1, y:center_y1}, {x:center_x2, y:center_y2}]);
-        if (least_crowded_center.x == center_x1 && least_crowded_center.y == center_y1) {
-            direction = true;
-            for (let i = 1; i <= nvertices - 2; i++) {
-                const angle = Math.PI - beta/2 + alfa + 2*i*Math.PI / nvertices;
-                const x = center_x1 + l * Math.cos(angle);
-                const y = center_y1 + l * Math.sin(angle);
-                coordinates.push([x, y]);
-            }
+        for (let i = 1; i <= nvertices - 2; i++) {
+            const angle = Math.PI - beta/2 + alfa + 2*i*Math.PI / nvertices;
+            const coords1: Coords = {x: ring1.center_x + l * Math.cos(angle), y: ring1.center_y + l * Math.sin(angle)};
+            ring1.coordinates.push(coords1);
+            ring1.crowding += this.crowding_potential(coords1);
+            const coords2: Coords = {x: ring2.center_x - l * Math.cos(angle), y: ring2.center_y - l * Math.sin(angle)};
+            ring2.coordinates.push(coords2);
+            ring2.crowding += this.crowding_potential(coords2);
         }
-        else {
-            direction = false;
-            for (let i = 1; i <= nvertices - 2; i++) {
-                const angle = Math.PI - beta/2 + alfa + 2*i*Math.PI / nvertices;
-                const x = center_x2 - l * Math.cos(angle);
-                const y = center_y2 - l * Math.sin(angle);
-                coordinates.push([x, y]);
-            }
-        }
-        let last_vertex = direction ? edge.v1 : edge.v2;
         const r = new Graph();
-        for (const coordinate of coordinates) {
-            const vertex = this._add_vertex({x: coordinate[0], y:coordinate[1]}, "C");
+        const selected_ring = ring1.crowding < ring2.crowding ? ring1 : ring2;
+        let last_vertex = selected_ring.first_vertex;
+        for (const coordinate of selected_ring.coordinates) {
+            const vertex = this._add_vertex(coordinate, "C");
             r.vertices.push(vertex);
             r.edges.push(this.bind_vertices(vertex, last_vertex));
             last_vertex = vertex;
         }
-        r.edges.push(this.bind_vertices(last_vertex, direction ? edge.v2 : edge.v1));
+        r.edges.push(this.bind_vertices(last_vertex, selected_ring.last_vertex));
         r.vertices.forEach(e => e.update());
         r.edges.forEach(e => e.update());
         return r;
@@ -677,19 +686,34 @@ class Graph {
      * @returns a Graph containing newly created edges and vertices
      */
     attach_ring(vertex: Vertex, nvertices: number) : Graph {
-        const r: Graph = this.add_bound_vertex_to(vertex);
-        const frag = this.fuse_ring(r.edges[0], nvertices);
-        r.vertices = [...r.vertices, ...frag.vertices];
-        r.edges = [...r.edges, ...frag.edges];
+        if (vertex.neighbors.length < 2) {
+            const r: Graph = this.add_bound_vertex_to(vertex);
+            const frag = this.fuse_ring(r.edges[0], nvertices);
+            r.vertices = [...r.vertices, ...frag.vertices];
+            r.edges = [...r.edges, ...frag.edges];
+            return r;
+        }
+        const bond_len = this.controller ? this.controller.stylesheet.bond_length_px : this.get_average_bond_distance();
+        const least_crowded_angle = vertex.least_crowded_angle();
+        const internal_angle = Math.PI * (nvertices - 2) / nvertices;
+        const alfa = least_crowded_angle + internal_angle / 2;
+        const vertex2 = this._add_vertex({x: vertex.coords.x + bond_len * Math.cos(alfa), y: vertex.coords.y + bond_len * Math.sin(alfa)});
+        const edge = this.bind_vertices(vertex, vertex2);
+        const frag = this.fuse_ring(edge, nvertices);
+        const r = new Graph();
+        r.vertices = [ vertex2, ...frag.vertices];
+        r.edges = [ edge, ...frag.edges ];
         return r;
     }
 
+    /**
+     * Add numbering to the graph edges and vertices to make correlations between the vertices and edges in copy constructed graphs.
+     */
     add_numbering(): void {
         this.vertices.forEach( (e,idx) => e.id = `${idx}` );
         this.edges.forEach( (e,idx) => e.id = `${idx}` );
     }
 
-    // get subgraphs as separate graphs.
     /**
      * Return an array of subgraphs of the graph, i.e. parts of graphs do not have connected paths between each other.
      * @returns An array of Graphs, each containing subgraph of the current Graph
