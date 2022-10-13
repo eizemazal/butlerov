@@ -1,6 +1,6 @@
 import Konva from "konva";
 import { MoleculeEditor } from "../main";
-import { Edge, EdgeOrientation, EdgeShape, EdgeTopology } from "./Edge";
+import { BondType, Edge, EdgeOrientation, EdgeShape, EdgeTopology } from "./Edge";
 import { Coords, Vertex, VertexTopology } from "./Vertex";
 
 /**
@@ -316,6 +316,15 @@ class Graph {
     }
 
     /**
+     * Return array of edges that adjacent to given edge, i.e. edges of the edge.v1 and edge.v2 excluding given edge.
+     * @param edge An edge in graph
+     * @returns Array of @see Edge.
+     */
+    adjacent_edges(edge: Edge): Array<Edge> {
+        return [...this.find_edges_by_vertex(edge.v1), ...this.find_edges_by_vertex(edge.v2)].filter(e => e != edge);
+    }
+
+    /**
      * Check if two vertices in the graph are connected.
      * @param v1 Object of @see Vertex class
      * @param v2 Another object of @see Vertex class
@@ -400,7 +409,7 @@ class Graph {
      * @param drop_dangling_vertices whether it is needed to remove single dangling vertices after the removal of the edge. @default true
      * @returns Graph containing all removed edges and vertices.
      */
-    delete_edge(edge: Edge, drop_dangling_vertices = true): Graph {
+    delete_edge(edge: Edge, drop_dangling_vertices = true, skip_topology_update  = true): Graph {
         const r: Graph = new Graph();
         r.edges.push(edge);
         edge.detach();
@@ -418,6 +427,8 @@ class Graph {
             r.vertices.push(edge.v2);
             this.vertices = this.vertices.filter( e => e != edge.v2);
         }
+        if (!skip_topology_update)
+            this.update_topology();
         return r;
     }
 
@@ -761,6 +772,17 @@ class Graph {
     }
 
     /**
+     * Tell if a point is located to left of the line collinear with the given edge (looking from edge.v1 to edge.v2 as usual)
+     * @param edge An edge
+     * @param point A point to probe
+     * @returns Boolean value
+     */
+    is_to_left(edge: Edge, point: Coords): boolean {
+        return ( (edge.v2.coords.x - edge.v1.coords.x) * (point.y - edge.v1.coords.y) -
+                            (edge.v2.coords.y - edge.v1.coords.y) * (point.x - edge.v1.coords.x) < 0);
+    }
+
+    /**
      * Re-calculate orientation of bond (left, right, symmetrical) for the specified edge in the graph.
      * This function is dependent on @see ringsystems property that is calculated in @see update_topology method.
      * @param edge Edge whose orientation to be updated.
@@ -773,15 +795,26 @@ class Graph {
         for (const ringsystem of this.ringsystems) {
             if ( ringsystem.edges.findIndex(e => e == edge) == -1)
                 continue;
-            const center = {
-                x: ringsystem.vertices.reduce( (p, e) => p + e.coords.x, 0)/ringsystem.vertices.length,
-                y: ringsystem.vertices.reduce( (p, e) => p + e.coords.y, 0)/ringsystem.vertices.length,
-            };
-            if ( (edge.v2.coords.x - edge.v1.coords.x) * (center.y - edge.v1.coords.y) -
-                            (edge.v2.coords.y - edge.v1.coords.y) * (center.x - edge.v1.coords.x) > 0)
-                edge.orientation = EdgeOrientation.Right;
-            else
-                edge.orientation = EdgeOrientation.Left;
+            let v1_neighbors = ringsystem.neighboring_vertices(edge.v1).filter(e => e != edge.v2);
+            let v2_neighbors = ringsystem.neighboring_vertices(edge.v2).filter(e => e != edge.v1);
+            if (v1_neighbors.length == 1 && v2_neighbors.length == 1) {
+                if (this.is_to_left(edge, v1_neighbors[0].coords) && this.is_to_left(edge, v2_neighbors[0].coords)) {
+                    edge.orientation = EdgeOrientation.Left;
+                }
+                else {
+                    edge.orientation = EdgeOrientation.Right;
+                }
+            }
+            else {
+                v1_neighbors = v1_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length ).filter(e => this.is_to_left(edge, e.coords));
+                v2_neighbors = v2_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length ).filter(e => this.is_to_left(edge, e.coords));
+                if (v1_neighbors.length >= 1 && v2_neighbors.length >= 1) {
+                    edge.orientation = EdgeOrientation.Left;
+                }
+                else {
+                    edge.orientation = EdgeOrientation.Right;
+                }
+            }
             update_view && edge.update();
             return;
         }
@@ -822,26 +855,11 @@ class Graph {
             ringsystem.vertices = <Array<Vertex>>ringsystem_copy.vertices.map( ce => this.vertices.find(e => e.id == ce.id)).filter(e => !!e);
             ringsystem.edges = <Array<Edge>>ringsystem_copy.edges.map( ce => this.edges.find(e => e.id == ce.id)).filter(e => !!e);
             // for attached graph instance, recalculate bond orientations
-            if (this.controller) {
-                let center : Coords|null = null;
-                ringsystem.edges.forEach ( e => {
-                    if (e.is_asymmetric) {
-                        // calculate on demand
-                        if (!center)
-                            center = {
-                                x: ringsystem.vertices.reduce( (p, e) => p + e.coords.x, 0)/ringsystem.vertices.length,
-                                y: ringsystem.vertices.reduce( (p, e) => p + e.coords.y, 0)/ringsystem.vertices.length,
-                            };
-                        if ( (e.v2.coords.x - e.v1.coords.x) * (center.y - e.v1.coords.y) -
-                            (e.v2.coords.y - e.v1.coords.y) * (center.x - e.v1.coords.x) > 0)
-                            e.orientation = EdgeOrientation.Right;
-                        else
-                            e.orientation = EdgeOrientation.Left;
-                        e.update();
-                    }
-                });
-            }
             this.ringsystems.push(ringsystem);
+        }
+        if (this.controller) {
+            this.ringsystems.forEach( ringsystem =>
+                ringsystem.edges.forEach ( edge => this.update_edge_orientation(edge)));
         }
     }
 

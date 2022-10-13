@@ -104,7 +104,7 @@ class DeleteEdgeAction extends Action {
 
     commit() {
         this.edge.active = false;
-        this.removed = this.graph.delete_edge(this.edge);
+        this.removed = this.graph.delete_edge(this.edge, true, false);
     }
 
     rollback() {
@@ -234,7 +234,7 @@ class BindVerticesAction extends Action {
     rollback() {
         if (!this.edge)
             return;
-        this.graph.delete_edge(this.edge);
+        this.graph.delete_edge(this.edge, false, false);
         this.edge = null;
     }
 }
