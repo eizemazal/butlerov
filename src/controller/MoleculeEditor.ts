@@ -46,7 +46,7 @@ class MoleculeEditor {
     panning: boolean;
     _viewport_offset: Coords;
     graph_group: Konva.Group;
-    constructor(stage: Konva.Stage) {
+    constructor(stage: Konva.Stage, autofocus: boolean = true) {
         this.stage = stage;
         this.stylesheet = new Stylesheet();
         this.graph = new Graph();
@@ -80,7 +80,7 @@ class MoleculeEditor {
         container.addEventListener("keydown", (e) => { e.preventDefault(); this.on_keydown(e); });
         container.addEventListener("keyup", (e) => { e.preventDefault(); this.on_keyup(e); });
         container.tabIndex = 1;
-        container.focus();
+        autofocus && container.focus();
         this.stage.add(this.background_layer);
         this.stage.add(this.drawing_layer);
         this.stage.add(this.top_layer);
@@ -93,13 +93,13 @@ class MoleculeEditor {
         this._viewport_offset = {x: 0, y: 0};
     }
 
-    static from_html_element(el: HTMLDivElement) {
+    static from_html_element(el: HTMLDivElement, autofocus: boolean = true) {
         const stage = new Konva.Stage({
             container: el,
             width: el.clientWidth,
             height: el.clientHeight
         });
-        return new MoleculeEditor(stage);
+        return new MoleculeEditor(stage, autofocus);
     }
 
     commit_action(action: Action) {
