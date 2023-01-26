@@ -398,6 +398,7 @@ class MoleculeEditor {
 
     menu_attach_ring(vertex: Vertex) {
         this.menu.clear_buttons();
+        this.menu.add_button( new MenuButton("p", "Phenyl", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 6, true)); } ));
         this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 3)); } ));
         this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 4)); } ));
         this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 5)); } ));
@@ -409,6 +410,7 @@ class MoleculeEditor {
 
     menu_fuse_ring(edge: Edge) {
         this.menu.clear_buttons();
+        this.menu.add_button( new MenuButton("p", "Phenyl", () => { this.commit_action(new FuseRingAction(this.graph, edge, 6, true)); } ));
         this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 3)); } ));
         this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 4)); } ));
         this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 5)); } ));

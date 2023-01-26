@@ -291,11 +291,11 @@ class Edge {
         line2.setAttr("strokeWidth", stylesheet.bond_thickness_px);
         line2.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
         if (this.orientation == EdgeOrientation.Center) {
-            line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa)/2 - 0*stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
-            line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa)/2 + 0*stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
+            line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa)/2);
+            line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa)/2);
             const centerline = this.group?.findOne("#bond_line");
-            centerline?.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa)/2 - 0*stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
-            centerline?.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa)/2 + 0*stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
+            centerline?.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa)/2);
+            centerline?.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa)/2);
             line2.setAttr("points", [ 0, 0, -this.screen_length*Math.sin(this.alfa), this.screen_length*Math.cos(this.alfa) ]);
         }
         else if (this.orientation == EdgeOrientation.Left) {
