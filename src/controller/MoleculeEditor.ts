@@ -257,8 +257,9 @@ class MoleculeEditor {
             this.active_vertex = null;
             return;
         }
-        if (evt.key.match(/[A-Za-z]/)) {
-            const new_label = this.get_next_element_label(this.active_vertex.label, evt.key);
+        const translated_key = this.translate_key_event(evt);
+        if (translated_key.match(/[A-Za-z]/)) {
+            const new_label = this.get_next_element_label(this.active_vertex.label, translated_key);
             if (new_label == "")
                 return;
             this.commit_action(new ChangeVertexLabelAction(this.graph, this.active_vertex, new_label));
@@ -276,7 +277,8 @@ class MoleculeEditor {
     on_edge_keydown(evt: KeyboardEvent) {
         if (!this.active_edge)
             return;
-        switch (evt.key) {
+        const translated_key = this.translate_key_event(evt);
+        switch (translated_key) {
         case "1":
             this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Single));
             break;
@@ -484,14 +486,15 @@ class MoleculeEditor {
             return;
         }
         if (this.menu.visible) {
-            this.menu.handle_key(evt.key);
+            this.menu.handle_key(this.translate_key_event(evt));
             return;
         }
-        if (evt.key == "z" && (evt.metaKey || evt.ctrlKey) && !evt.shiftKey) {
+        const translated_key = this.translate_key_event(evt);
+        if (translated_key == "z" && (evt.metaKey || evt.ctrlKey) && !evt.shiftKey) {
             this.rollback_actions(1);
             return;
         }
-        if (evt.key == "y" && (evt.metaKey || evt.ctrlKey) || (evt.key == "z" && (evt.metaKey || evt.ctrlKey) && evt.shiftKey) ) {
+        if (translated_key == "y" && (evt.metaKey || evt.ctrlKey) || (translated_key == "z" && (evt.metaKey || evt.ctrlKey) && evt.shiftKey) ) {
             this.recommit_actions(1);
             return;
         }
@@ -641,6 +644,14 @@ class MoleculeEditor {
             this.active_vertex.active = false;
             this.active_vertex = null;
         }
+    }
+
+    private translate_key_event(evt: KeyboardEvent): string {
+        if (evt.code.match(/Key(.+)/))
+            return evt.code.substring(3).toLowerCase();
+        if (evt.code.match(/Digit(\d+)/))
+            return evt.code.substring(5);
+        return evt.key;
     }
 }
 
