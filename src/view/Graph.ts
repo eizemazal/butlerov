@@ -797,18 +797,22 @@ class Graph {
                 continue;
             let v1_neighbors = ringsystem.neighboring_vertices(edge.v1).filter(e => e != edge.v2);
             let v2_neighbors = ringsystem.neighboring_vertices(edge.v2).filter(e => e != edge.v1);
-            if (v1_neighbors.length == 1 && v2_neighbors.length == 1) {
-                if (this.is_to_left(edge, v1_neighbors[0].coords) && this.is_to_left(edge, v2_neighbors[0].coords)) {
-                    edge.orientation = EdgeOrientation.Left;
-                }
-                else {
-                    edge.orientation = EdgeOrientation.Right;
-                }
+            const left_count = v1_neighbors.filter(e => this.is_to_left(edge, e.coords)).length + v2_neighbors.filter(e => this.is_to_left(edge, e.coords)).length;
+            const neighbor_count = v1_neighbors.length + v2_neighbors.length;
+            if (left_count > neighbor_count - left_count) {
+                edge.orientation = EdgeOrientation.Left;
+            }
+            else if (neighbor_count - left_count > left_count)
+            {
+                edge.orientation = EdgeOrientation.Right;
             }
             else {
-                v1_neighbors = v1_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length ).filter(e => this.is_to_left(edge, e.coords));
-                v2_neighbors = v2_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length ).filter(e => this.is_to_left(edge, e.coords));
-                if (v1_neighbors.length >= 1 && v2_neighbors.length >= 1) {
+                // consider neighbors bound having double bonds
+                v1_neighbors = v1_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length );
+                v2_neighbors = v2_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length );
+                const left_count = v1_neighbors.filter(e => this.is_to_left(edge, e.coords)).length + v2_neighbors.filter(e => this.is_to_left(edge, e.coords)).length;
+                const neighbor_count = v1_neighbors.length + v2_neighbors.length;
+                if (left_count > neighbor_count - left_count) {
                     edge.orientation = EdgeOrientation.Left;
                 }
                 else {
