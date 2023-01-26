@@ -83,7 +83,7 @@ class Vertex {
             this.group = new Konva.Group();
         this.on("dragmove", (vertex: Vertex, evt: KonvaEventObject<MouseEvent>) => controller.on_vertex_dragmove(vertex, evt));
         this.on("mouseover", (vertex: Vertex) => controller.on_vertex_mouseover(vertex));
-        this.on("mouseout", (vertex: Vertex) => controller.on_vertex_mouseout(vertex));
+        this.on("mouseout", () => controller.on_vertex_mouseout());
         this.on("click", (vertex: Vertex, evt: KonvaEventObject<MouseEvent>) => controller.on_vertex_click(vertex, evt));
         this.on("contextmenu", (vertex: Vertex, evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); controller.toggle_menu();} );
         this.on("mousedown", (vertex: Vertex) => controller.on_vertex_mousedown(vertex));

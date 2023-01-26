@@ -91,7 +91,7 @@ class Edge {
             this.group = new Konva.Group();
         this.on("click", (edge: Edge, evt: KonvaEventObject<MouseEvent>) => controller.on_edge_click(edge, evt));
         this.on("mouseover", (edge: Edge) => controller.on_edge_mouseover(edge));
-        this.on("mouseout", (edge: Edge) => controller.on_edge_mouseout(edge));
+        this.on("mouseout", () => controller.on_edge_mouseout());
         this.on("contextmenu", (edge: Edge, evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); controller.toggle_menu();} );
         // edges of bonds are below vertices of atoms, put them back
         this.update();
