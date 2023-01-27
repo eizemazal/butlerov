@@ -10,6 +10,7 @@ enum EdgeShape {
     Triple,
     SingleUp,
     SingleDown,
+    SingleEither,
 }
 
 enum EdgeOrientation {
@@ -91,7 +92,7 @@ class Edge {
             this.group = new Konva.Group();
         this.on("click", (edge: Edge, evt: KonvaEventObject<MouseEvent>) => controller.on_edge_click(edge, evt));
         this.on("mouseover", (edge: Edge) => controller.on_edge_mouseover(edge));
-        this.on("mouseout", (edge: Edge) => controller.on_edge_mouseout(edge));
+        this.on("mouseout", () => controller.on_edge_mouseout());
         this.on("contextmenu", (edge: Edge, evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); controller.toggle_menu();} );
         // edges of bonds are below vertices of atoms, put them back
         this.update();
@@ -149,6 +150,8 @@ class Edge {
             return StereoType.Up;
         case EdgeShape.SingleDown:
             return StereoType.Down;
+        case EdgeShape.SingleEither:
+            return StereoType.Either;
         default:
             return StereoType.Default;
         }
@@ -166,6 +169,9 @@ class Edge {
             case StereoType.Up:
                 this._shape = EdgeShape.SingleUp;
                 return;
+            case StereoType.Either:
+                this._shape = EdgeShape.SingleEither;
+                return;
             }
         }
     }
@@ -177,7 +183,8 @@ class Edge {
     public set shape(shape: EdgeShape) {
         if (this._shape == shape && [
             EdgeShape.SingleDown,
-            EdgeShape.SingleUp
+            EdgeShape.SingleUp,
+            EdgeShape.SingleEither
         ].indexOf(this._shape) != -1) {
             this.swap_vertices();
         }
@@ -259,6 +266,7 @@ class Edge {
             ]);
             line.setAttr("fillEnabled", true);
             line.setAttr("lineJoin", "round");
+            line.setAttr("closed", true);
         }
         else if (this._shape == EdgeShape.SingleDown) {
             line.setAttr("points", [
@@ -269,6 +277,27 @@ class Edge {
                 this.screen_length*Math.cos(this.alfa) - stylesheet.bond_wedge_px*Math.sin( this.alfa)/2,
             ]);
             line.setAttr("fillEnabled", false);
+            line.setAttr("lineJoin", "round");
+            line.setAttr("closed", true);
+        }
+        else if (this._shape == EdgeShape.SingleEither) {
+            const pts : number[] = [];
+            const npts = this.screen_length / stylesheet.bond_either_period_px;
+            for (let i = 0; i <= npts; i++) {
+                if (i % 2) {
+                    pts.push((-this.screen_length*Math.sin(this.alfa) + stylesheet.bond_wedge_px*Math.cos(this.alfa)/2)*i/npts);
+                    pts.push((this.screen_length*Math.cos(this.alfa) + stylesheet.bond_wedge_px*Math.sin( this.alfa)/2)*i/npts);
+                }
+                else {
+                    pts.push((-this.screen_length*Math.sin(this.alfa) - stylesheet.bond_wedge_px*Math.cos(this.alfa)/2)*i/npts);
+                    pts.push((this.screen_length*Math.cos(this.alfa) - stylesheet.bond_wedge_px*Math.sin( this.alfa)/2)*i/npts);
+                }
+            }
+            pts.push(-this.screen_length*Math.sin(this.alfa));
+            pts.push(this.screen_length*Math.cos(this.alfa));
+            line.setAttr("points", pts);
+            line.setAttr("fillEnabled", false);
+            line.setAttr("closed", false);
             line.setAttr("lineJoin", "round");
         }
         this.group?.add(<Konva.Line>line);
@@ -291,11 +320,11 @@ class Edge {
         line2.setAttr("strokeWidth", stylesheet.bond_thickness_px);
         line2.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
         if (this.orientation == EdgeOrientation.Center) {
-            line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa)/2 - 0*stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
-            line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa)/2 + 0*stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
+            line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa)/2);
+            line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa)/2);
             const centerline = this.group?.findOne("#bond_line");
-            centerline?.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa)/2 - 0*stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
-            centerline?.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa)/2 + 0*stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
+            centerline?.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa)/2);
+            centerline?.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa)/2);
             line2.setAttr("points", [ 0, 0, -this.screen_length*Math.sin(this.alfa), this.screen_length*Math.cos(this.alfa) ]);
         }
         else if (this.orientation == EdgeOrientation.Left) {
@@ -351,6 +380,7 @@ class Edge {
         case EdgeShape.Single:
         case EdgeShape.SingleUp:
         case EdgeShape.SingleDown:
+        case EdgeShape.SingleEither:
             this._draw_single(stylesheet);
             break;
         case EdgeShape.Double:

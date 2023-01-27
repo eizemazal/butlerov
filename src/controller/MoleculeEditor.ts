@@ -46,7 +46,7 @@ class MoleculeEditor {
     panning: boolean;
     _viewport_offset: Coords;
     graph_group: Konva.Group;
-    constructor(stage: Konva.Stage, autofocus: boolean = true) {
+    constructor(stage: Konva.Stage, autofocus = true) {
         this.stage = stage;
         this.stylesheet = new Stylesheet();
         this.graph = new Graph();
@@ -64,6 +64,7 @@ class MoleculeEditor {
         this.background_layer.on("click", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_click(evt); } );
         this.background_layer.on("contextmenu", (evt:KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(); } );
         this.background_layer.on("mousemove", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_mousemove(evt); } );
+        this.background_layer.on("mouseover", () => { this.on_background_mouseover(); } );
         this.stage.on("mouseleave", () => { this.on_stage_mouseleave(); } );
         this.drawing_layer = new Konva.Layer();
         this.graph_group = this.graph.attach(this);
@@ -93,7 +94,7 @@ class MoleculeEditor {
         this._viewport_offset = {x: 0, y: 0};
     }
 
-    static from_html_element(el: HTMLDivElement, autofocus: boolean = true) {
+    static from_html_element(el: HTMLDivElement, autofocus = true) {
         const stage = new Konva.Stage({
             container: el,
             width: el.clientWidth,
@@ -132,8 +133,7 @@ class MoleculeEditor {
             this.actions_rolled_back += 1;
             this.action_stack[this.action_stack.length - this.actions_rolled_back].rollback();
         }
-        this.active_edge = null;
-        this.active_vertex = null;
+        this.deactivate_edges_vertices();
         if (this._onchange)
             this._onchange();
         this.update_background();
@@ -145,8 +145,7 @@ class MoleculeEditor {
             this.action_stack[this.action_stack.length - this.actions_rolled_back].commit();
             this.actions_rolled_back -= 1;
         }
-        this.active_edge = null;
-        this.active_vertex = null;
+        this.deactivate_edges_vertices();
         if (this._onchange)
             this._onchange();
         this.update_background();
@@ -258,8 +257,9 @@ class MoleculeEditor {
             this.active_vertex = null;
             return;
         }
-        if (evt.key.match(/[A-Za-z]/)) {
-            const new_label = this.get_next_element_label(this.active_vertex.label, evt.key);
+        const translated_key = this.translate_key_event(evt);
+        if (translated_key.match(/[A-Za-z]/)) {
+            const new_label = this.get_next_element_label(this.active_vertex.label, translated_key);
             if (new_label == "")
                 return;
             this.commit_action(new ChangeVertexLabelAction(this.graph, this.active_vertex, new_label));
@@ -277,7 +277,8 @@ class MoleculeEditor {
     on_edge_keydown(evt: KeyboardEvent) {
         if (!this.active_edge)
             return;
-        switch (evt.key) {
+        const translated_key = this.translate_key_event(evt);
+        switch (translated_key) {
         case "1":
             this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Single));
             break;
@@ -301,10 +302,13 @@ class MoleculeEditor {
         case "q":
             this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleDown));
             break;
+        case "e":
+            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleEither));
+            break;
         case "Backspace":
         case "Delete":
             this.commit_action(new DeleteEdgeAction(this.graph, this.active_edge));
-            this.active_edge = null;
+            this.deactivate_edges_vertices();
         }
     }
 
@@ -341,6 +345,9 @@ class MoleculeEditor {
             } ));
             this.menu.add_button( new MenuButton("q", "Wedged down", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleDown));
+            } ));
+            this.menu.add_button( new MenuButton("e", "Either stereo", () => {
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleEither));
             } ));
             this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () =>  {
@@ -399,6 +406,7 @@ class MoleculeEditor {
 
     menu_attach_ring(vertex: Vertex) {
         this.menu.clear_buttons();
+        this.menu.add_button( new MenuButton("p", "Phenyl", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 6, true)); } ));
         this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 3)); } ));
         this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 4)); } ));
         this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 5)); } ));
@@ -410,6 +418,7 @@ class MoleculeEditor {
 
     menu_fuse_ring(edge: Edge) {
         this.menu.clear_buttons();
+        this.menu.add_button( new MenuButton("p", "Phenyl", () => { this.commit_action(new FuseRingAction(this.graph, edge, 6, true)); } ));
         this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 3)); } ));
         this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 4)); } ));
         this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 5)); } ));
@@ -483,14 +492,15 @@ class MoleculeEditor {
             return;
         }
         if (this.menu.visible) {
-            this.menu.handle_key(evt.key);
+            this.menu.handle_key(this.translate_key_event(evt));
             return;
         }
-        if (evt.key == "z" && (evt.metaKey || evt.ctrlKey) && !evt.shiftKey) {
+        const translated_key = this.translate_key_event(evt);
+        if (translated_key == "z" && (evt.metaKey || evt.ctrlKey) && !evt.shiftKey) {
             this.rollback_actions(1);
             return;
         }
-        if (evt.key == "y" && (evt.metaKey || evt.ctrlKey) || (evt.key == "z" && (evt.metaKey || evt.ctrlKey) && evt.shiftKey) ) {
+        if (translated_key == "y" && (evt.metaKey || evt.ctrlKey) || (translated_key == "z" && (evt.metaKey || evt.ctrlKey) && evt.shiftKey) ) {
             this.recommit_actions(1);
             return;
         }
@@ -524,13 +534,12 @@ class MoleculeEditor {
 
     on_edge_mouseover(edge: Edge) {
         this.stage.container().focus();
+        this.deactivate_edges_vertices();
         this.active_edge = edge;
-        this.active_vertex = null;
         edge.active = true;
     }
-    on_edge_mouseout(edge: Edge) {
-        this.active_edge = null;
-        edge.active = false;
+    on_edge_mouseout() {
+        this.deactivate_edges_vertices();
     }
 
     on_vertex_dragmove(vertex: Vertex, evt: KonvaEventObject<MouseEvent>) {
@@ -540,14 +549,13 @@ class MoleculeEditor {
 
     on_vertex_mouseover(vertex: Vertex) {
         this.stage.container().focus();
+        this.deactivate_edges_vertices();
         vertex.active = true;
-        this.active_edge = null;
         this.active_vertex = vertex;
     }
 
-    on_vertex_mouseout(vertex: Vertex) {
-        vertex.active = false;
-        this.active_vertex = null;
+    on_vertex_mouseout() {
+        this.deactivate_edges_vertices();
     }
 
     on_vertex_click(vertex: Vertex, evt: KonvaEventObject<MouseEvent>) {
@@ -604,10 +612,13 @@ class MoleculeEditor {
         } ;
     }
 
+    on_background_mouseover() {
+        this.deactivate_edges_vertices();
+    }
+
     on_stage_mouseleave() {
         this.panning = false;
-        this.active_edge = null;
-        this.active_vertex = null;
+        this.deactivate_edges_vertices();
         this.stage.container().style.cursor = "default";
     }
 
@@ -628,6 +639,25 @@ class MoleculeEditor {
 
     public get empty(): boolean {
         return this.graph.vertices.length == 0 && this.graph.edges.length == 0;
+    }
+
+    deactivate_edges_vertices() {
+        if (this.active_edge) {
+            this.active_edge.active = false;
+            this.active_edge = null;
+        }
+        if (this.active_vertex) {
+            this.active_vertex.active = false;
+            this.active_vertex = null;
+        }
+    }
+
+    private translate_key_event(evt: KeyboardEvent): string {
+        if (evt.code.match(/Key(.+)/))
+            return evt.code.substring(3).toLowerCase();
+        if (evt.code.match(/Digit(\d+)/))
+            return evt.code.substring(5);
+        return evt.key;
     }
 }
 

@@ -635,7 +635,7 @@ class Graph {
      * @param nvertices number of vertices in the resulting ring
      * @returns a Graph containing newly created edges and vertices
      */
-    fuse_ring(edge: Edge, nvertices: number): Graph {
+    fuse_ring(edge: Edge, nvertices: number, desaturate = false): Graph {
         const alfa = Math.atan2(edge.v2.coords.y-edge.v1.coords.y, edge.v2.coords.x-edge.v1.coords.x);
         const beta = (nvertices-2) * Math.PI / nvertices;
         const edge_len = Math.sqrt( Math.pow(edge.v1.coords.x - edge.v2.coords.x, 2) + Math.pow(edge.v1.coords.y - edge.v2.coords.y, 2));
@@ -678,13 +678,18 @@ class Graph {
         const r = new Graph();
         const selected_ring = ring1.crowding < ring2.crowding ? ring1 : ring2;
         let last_vertex = selected_ring.first_vertex;
+        let saturated = true;
+        if (desaturate && edge.shape == EdgeShape.Single && edge.v1.h_count > 1)
+            saturated = false;
         for (const coordinate of selected_ring.coordinates) {
             const vertex = this._add_vertex(coordinate, "C");
             r.vertices.push(vertex);
-            r.edges.push(this.bind_vertices(vertex, last_vertex));
+            r.edges.push(this.bind_vertices(vertex, last_vertex, saturated ? EdgeShape.Single : EdgeShape.Double));
+            if (desaturate)
+                saturated = !saturated;
             last_vertex = vertex;
         }
-        r.edges.push(this.bind_vertices(last_vertex, selected_ring.last_vertex));
+        r.edges.push(this.bind_vertices(last_vertex, selected_ring.last_vertex, saturated ? EdgeShape.Single : EdgeShape.Double));
         r.vertices.forEach(e => e.update());
         r.edges.forEach(e => e.update());
         return r;
@@ -696,10 +701,10 @@ class Graph {
      * @param nvertices number of vertices in the resulting ring
      * @returns a Graph containing newly created edges and vertices
      */
-    attach_ring(vertex: Vertex, nvertices: number) : Graph {
+    attach_ring(vertex: Vertex, nvertices: number, desaturate = false) : Graph {
         if (vertex.neighbors.length < 2) {
             const r: Graph = this.add_bound_vertex_to(vertex);
-            const frag = this.fuse_ring(r.edges[0], nvertices);
+            const frag = this.fuse_ring(r.edges[0], nvertices, desaturate);
             r.vertices = [...r.vertices, ...frag.vertices];
             r.edges = [...r.edges, ...frag.edges];
             return r;
@@ -710,7 +715,7 @@ class Graph {
         const alfa = least_crowded_angle + internal_angle / 2;
         const vertex2 = this._add_vertex({x: vertex.coords.x + bond_len * Math.cos(alfa), y: vertex.coords.y + bond_len * Math.sin(alfa)});
         const edge = this.bind_vertices(vertex, vertex2);
-        const frag = this.fuse_ring(edge, nvertices);
+        const frag = this.fuse_ring(edge, nvertices, desaturate);
         const r = new Graph();
         r.vertices = [ vertex2, ...frag.vertices];
         r.edges = [ edge, ...frag.edges ];
@@ -797,18 +802,22 @@ class Graph {
                 continue;
             let v1_neighbors = ringsystem.neighboring_vertices(edge.v1).filter(e => e != edge.v2);
             let v2_neighbors = ringsystem.neighboring_vertices(edge.v2).filter(e => e != edge.v1);
-            if (v1_neighbors.length == 1 && v2_neighbors.length == 1) {
-                if (this.is_to_left(edge, v1_neighbors[0].coords) && this.is_to_left(edge, v2_neighbors[0].coords)) {
-                    edge.orientation = EdgeOrientation.Left;
-                }
-                else {
-                    edge.orientation = EdgeOrientation.Right;
-                }
+            const left_count = v1_neighbors.filter(e => this.is_to_left(edge, e.coords)).length + v2_neighbors.filter(e => this.is_to_left(edge, e.coords)).length;
+            const neighbor_count = v1_neighbors.length + v2_neighbors.length;
+            if (left_count > neighbor_count - left_count) {
+                edge.orientation = EdgeOrientation.Left;
+            }
+            else if (neighbor_count - left_count > left_count)
+            {
+                edge.orientation = EdgeOrientation.Right;
             }
             else {
-                v1_neighbors = v1_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length ).filter(e => this.is_to_left(edge, e.coords));
-                v2_neighbors = v2_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length ).filter(e => this.is_to_left(edge, e.coords));
-                if (v1_neighbors.length >= 1 && v2_neighbors.length >= 1) {
+                // consider neighbors bound having double bonds
+                v1_neighbors = v1_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length );
+                v2_neighbors = v2_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length );
+                const left_count = v1_neighbors.filter(e => this.is_to_left(edge, e.coords)).length + v2_neighbors.filter(e => this.is_to_left(edge, e.coords)).length;
+                const neighbor_count = v1_neighbors.length + v2_neighbors.length;
+                if (left_count > neighbor_count - left_count) {
                     edge.orientation = EdgeOrientation.Left;
                 }
                 else {

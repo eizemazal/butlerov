@@ -272,12 +272,14 @@ class AttachRingAction extends Action {
     vertex: Vertex;
     added: Graph | null;
     natoms: number;
+    desaturate: boolean;
 
-    constructor(graph: Graph, vertex: Vertex, natoms: number) {
+    constructor(graph: Graph, vertex: Vertex, natoms: number, desaturate = false) {
         super();
         this.graph = graph;
         this.vertex = vertex;
         this.natoms = natoms;
+        this.desaturate = desaturate;
         this.added = null;
     }
 
@@ -285,7 +287,7 @@ class AttachRingAction extends Action {
         if (this.added)
             this.graph.add(this.added);
         else
-            this.added = this.graph.attach_ring(this.vertex, this.natoms);
+            this.added = this.graph.attach_ring(this.vertex, this.natoms, this.desaturate);
     }
 
     rollback() {
@@ -300,12 +302,14 @@ class FuseRingAction extends Action {
     edge: Edge;
     added: Graph | null;
     natoms: number;
+    desaturate: boolean;
 
-    constructor(graph: Graph, edge: Edge, natoms: number) {
+    constructor(graph: Graph, edge: Edge, natoms: number, desaturate = false) {
         super();
         this.graph = graph;
         this.edge = edge;
         this.natoms = natoms;
+        this.desaturate = desaturate;
         this.added = null;
     }
 
@@ -313,7 +317,7 @@ class FuseRingAction extends Action {
         if (this.added)
             this.graph.add(this.added);
         else
-            this.added = this.graph.fuse_ring(this.edge, this.natoms);
+            this.added = this.graph.fuse_ring(this.edge, this.natoms, this.desaturate);
     }
 
     rollback() {
