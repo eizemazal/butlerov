@@ -104,6 +104,12 @@ class Stylesheet {
      */
     double_bond_shortening: number;
     /**
+     * Stereo either bond is drawn as a zigzag fitted into triangle whose width is equal to bond_wedge_px.
+     * The period of the zigzag in direction of axis connecting vertices is equal to this parameter.
+     * @defaultValue 2.5
+     */
+    bond_either_period_px: number;
+    /**
      * Color of bond stroke, in HTML notation (fixed colors like `red` or hex like `#555` are accepted).
      * @defaultValue `#555`
      */
@@ -159,6 +165,7 @@ class Stylesheet {
         this.bond_wedge_px = 6;
         this.bond_spacing_px = 6;
         this.double_bond_shortening = 0.2;
+        this.bond_either_period_px = 2.5;
         this.bond_stroke_color = "#555";
         this.bond_active_color = "red";
         this.bond_hit_stroke_width = 10;

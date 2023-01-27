@@ -302,6 +302,9 @@ class MoleculeEditor {
         case "q":
             this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleDown));
             break;
+        case "e":
+            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleEither));
+            break;
         case "Backspace":
         case "Delete":
             this.commit_action(new DeleteEdgeAction(this.graph, this.active_edge));
@@ -342,6 +345,9 @@ class MoleculeEditor {
             } ));
             this.menu.add_button( new MenuButton("q", "Wedged down", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleDown));
+            } ));
+            this.menu.add_button( new MenuButton("e", "Either stereo", () => {
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleEither));
             } ));
             this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () =>  {
