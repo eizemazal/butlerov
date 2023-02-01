@@ -521,16 +521,25 @@ class Graph {
             const delta_y = neighbors[0].coords.y - vertex.coords.y;
             const alfa = Math.atan2(delta_y, delta_x);
             const bond_len = Math.sqrt(delta_x * delta_x + delta_y * delta_y);
-            const coordinates: Coords = this.least_crowded_point([
-                {
-                    x: vertex.coords.x + bond_len * Math.cos(alfa+Math.PI/1.5),
-                    y: vertex.coords.y + bond_len * Math.sin(alfa+Math.PI/1.5)
-                },
-                {
-                    x: vertex.coords.x + bond_len * Math.cos(alfa-Math.PI/1.5),
-                    y: vertex.coords.y + bond_len * Math.sin(alfa-Math.PI/1.5)
-                },
-            ]);
+            let coordinates: Coords;
+            if (this.find_edges_by_vertex(vertex)[0].bond_order == 3) {
+                coordinates = {
+                    x: vertex.coords.x + bond_len * Math.cos(alfa+Math.PI),
+                    y: vertex.coords.y + bond_len * Math.sin(alfa+Math.PI)
+                };
+            }
+            else {
+                coordinates = this.least_crowded_point([
+                    {
+                        x: vertex.coords.x + bond_len * Math.cos(alfa+Math.PI/1.5),
+                        y: vertex.coords.y + bond_len * Math.sin(alfa+Math.PI/1.5)
+                    },
+                    {
+                        x: vertex.coords.x + bond_len * Math.cos(alfa-Math.PI/1.5),
+                        y: vertex.coords.y + bond_len * Math.sin(alfa-Math.PI/1.5)
+                    },
+                ]);
+            }
             const new_vertex = this._add_vertex(coordinates);
             r.edges = [this.bind_vertices(vertex, new_vertex)];
             r.vertices = [new_vertex];
@@ -759,6 +768,11 @@ class Graph {
         return res;
     }
 
+    subgraph_with(vertex: Vertex): Graph {
+        const subgraphs = this.subgraphs();
+        return subgraphs.find(g => g.vertices.find(v => v == vertex)) || new Graph();
+    }
+
     /**
      * For the given edge, obtain its topology - does it pertain to a ring or not.
      * @param edge an @see Edge to probe
@@ -882,6 +896,35 @@ class Graph {
         hs.vertices.forEach(e => hs.edges.push(...this.find_edges_by_vertex(e)));
         this.remove(hs);
         return hs;
+    }
+
+    symmetrize_along_edge(edge: Edge): Graph {
+        if ( (edge.v1.neighbors.length == 1) == (edge.v2.neighbors.length == 1) )
+            return new Graph();
+        const center : Coords = {
+            x: (edge.v1.coords.x + edge.v2.coords.x) / 2,
+            y: (edge.v1.coords.y + edge.v2.coords.y) / 2,
+        };
+        this.add_numbering();
+        const free_vertex = edge.v1.neighbors.length == 1 ? edge.v1 : edge.v2;
+        const bound_vertex = free_vertex == edge.v1 ? edge.v2 : edge.v1;
+        const r = this.subgraph_with(edge.v1).copy();
+        r.edges = r.edges.filter( e => e.id != edge.id);
+        r.edges.forEach(e => {
+            if (e.v1.id == bound_vertex.id)
+                e.v1 = free_vertex;
+            if (e.v2.id == bound_vertex.id)
+                e.v2 = free_vertex;
+        });
+        r.vertices = r.vertices.filter( e => e.id != edge.v1.id && e.id != edge.v2.id );
+        // invert coords around center
+        r.vertices.forEach( e => {
+            e.coords.x = 2*center.x - e.coords.x;
+            e.coords.y = 2*center.y - e.coords.y;
+        });
+        this.add(r);
+        this.update_topology();
+        return r;
     }
 }
 

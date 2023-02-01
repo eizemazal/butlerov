@@ -453,6 +453,33 @@ class IncrementAtomChargeAction extends UpdatableAction {
     }
 }
 
+class SymmetrizeAlongEdgeAction extends Action {
+    graph: Graph;
+    edge: Edge;
+    added: Graph | null;
+
+    constructor(graph: Graph, edge: Edge) {
+        super();
+        this.graph = graph;
+        this.edge = edge;
+        this.added = null;
+    }
+
+    commit() {
+        if (this.added)
+            this.graph.add(this.added);
+        else
+            this.added = this.graph.symmetrize_along_edge(this.edge);
+    }
+
+    rollback() {
+        if (!this.added)
+            return;
+        this.graph.remove(this.added);
+    }
+}
+
+
 
 
 export {
@@ -473,4 +500,5 @@ export {
     StripHAction,
     MoveVertexAction,
     UpdateEdgeShapeAction,
+    SymmetrizeAlongEdgeAction
 };

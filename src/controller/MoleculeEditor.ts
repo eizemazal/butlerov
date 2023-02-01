@@ -23,6 +23,7 @@ import {
     IncrementAtomChargeAction,
     MoveVertexAction,
     StripHAction,
+    SymmetrizeAlongEdgeAction,
     UpdatableAction,
     UpdateEdgeShapeAction
 } from "./Action";
@@ -350,6 +351,8 @@ class MoleculeEditor {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleEither));
             } ));
             this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
+            if ( (edge.v1.neighbors.length == 1) != (edge.v2.neighbors.length == 1) )
+                this.menu.add_button( new MenuButton("S", "Symmetrize along", () => { this.commit_action(new SymmetrizeAlongEdgeAction(this.graph, edge)); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () =>  {
                 this.commit_action(new DeleteEdgeAction(this.graph, edge));
             } ));
