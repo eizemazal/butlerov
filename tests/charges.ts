@@ -7,7 +7,7 @@ beforeEach( () => {
 test("Charges", () => {
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(2);
-    fire(editor.graph.vertices[0].coords, "mouseover");
+    fire(editor.graph.vertices[0].coords, "mousemove");
     fire_key("+");
     expect(editor.graph.vertices[0].charge).toBe(1);
     fire_key("+");
@@ -26,7 +26,7 @@ test("Charges", () => {
 test("Implicit H test", () => {
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(2);
-    fire(editor.graph.vertices[0].coords, "mouseover");
+    fire(editor.graph.vertices[0].coords, "mousemove");
     fire_key("N");
     expect(editor.graph.vertices[0].element?.symbol).toBe("N");
     expect(editor.graph.vertices[0].charge).toBe(0);

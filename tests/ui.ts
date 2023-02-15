@@ -35,7 +35,7 @@ test("Add default fragment and clear it", () => {
 
 test("Add single atom and clear it", () => {
     expect(editor.empty).toBe(true);
-    fire({x: 100, y: 100}, "click", {evt: {button: 1, ctrlKey: true}});
+    fire({x: 100, y: 100}, "click", {button: 1, ctrlKey: true});
     expect(editor.graph.vertices.length).toBe(1);
     expect(editor.graph.edges.length).toBe(0);
     expect(editor.empty).toBe(false);
@@ -81,9 +81,9 @@ test("Draw neopentane", () => {
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(4);
     expect(editor.graph.edges.length).toBe(3);
-    fire(editor.graph.vertices[1].coords, "mouseover");
+    fire(editor.graph.vertices[1].coords, "mousemove");
     expect(editor.graph.vertices[1].active).toBe(true);
-    fire(editor.graph.vertices[1].coords, "mouseout");
+    fire({x: 0, y: 0 }, "mousemove");
     expect(editor.graph.vertices[1].active).toBe(false);
 });
 
@@ -94,7 +94,7 @@ test("Draw cyclopentene, flip double bond", () => {
         x: (editor.graph.vertices[0].coords.x + editor.graph.vertices[1].coords.x) / 2,
         y: (editor.graph.vertices[0].coords.y + editor.graph.vertices[1].coords.y) / 2,
     };
-    fire(edge_center, "mouseover");
+    fire(edge_center, "mousemove");
     expect(editor.graph.edges[0].active).toBe(true);
     fire_key(" ");
     fire_key("R");
@@ -111,14 +111,15 @@ test("Draw cyclopentene, flip double bond", () => {
     fire(edge_center, "click");
     expect(editor.graph.edges[0].bond_type).toBe(BondType.Double);
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Left);
-    fire(edge_center, "mouseover");
+    fire({x: 0, y: 0}, "mousemove");
+    fire(edge_center, "mousemove");
     fire_key("2");
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Center);
     fire_key("z", {ctrlKey: true});
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Left);
     fire_key("z", {ctrlKey: true, shiftKey: true});
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Center);
-    fire(edge_center, "mouseover");
+    fire(edge_center, "mousemove");
     fire_key("2");
     expect(editor.graph.edges[0].orientation).toBe(EdgeOrientation.Right);
     fire_key("z", {ctrlKey: true});
@@ -130,7 +131,7 @@ test("Draw cyclopentene, flip double bond", () => {
 test("Attach ring", () => {
     fire({x: 100, y: 100}, "click");
     expect(editor.graph.vertices.length).toBe(2);
-    fire(editor.graph.vertices[0].coords, "mouseover");
+    fire(editor.graph.vertices[0].coords, "mousemove");
     fire_key(" ");
     fire_key("R");
     fire_key("5");
@@ -159,7 +160,7 @@ test("Draw HCN", () => {
     expect(editor.graph.edges[0].bond_type).toBe(BondType.Double);
     fire_key("y", {ctrlKey: true});
     expect(editor.graph.edges[0].bond_type).toBe(BondType.Triple);
-    fire(editor.graph.vertices[1].coords, "mouseover");
+    fire(editor.graph.vertices[1].coords, "mousemove");
     fire_key("n");
     expect(editor.graph.vertices[1].label).toBe("N");
 });
@@ -167,7 +168,7 @@ test("Draw HCN", () => {
 test("Draw hexanol, undo, redo", () => {
     fire({x: 124, y: 132}, "click");
     expect(editor.graph.vertices.length).toBe(2);
-    fire(editor.graph.vertices[1].coords, "mouseover");
+    fire(editor.graph.vertices[1].coords, "mousemove");
     expect(editor.active_vertex).toBe(editor.graph.vertices[1]);
     fire_key(" ");
     fire_key("C");
@@ -181,14 +182,14 @@ test("Draw hexanol, undo, redo", () => {
     expect(editor.graph.vertices.length).toBe(7);
     expect(editor.graph.edges.length).toBe(6);
     expect(editor.graph.vertices[0].element).toBe(ChemicalElements["C"]);
-    fire(editor.graph.vertices[0].coords, "mouseover");
+    fire(editor.graph.vertices[0].coords, "mousemove");
     fire_key("O");
     expect(editor.graph.vertices[0].element).toBe(ChemicalElements["O"]);
     fire_key("O");
     expect(editor.graph.vertices[0].element).toBe(ChemicalElements["Os"]);
     fire_key("O");
     expect(editor.graph.vertices[0].element).toBe(ChemicalElements["O"]);
-    fire(editor.graph.vertices[0].coords, "mouseout");
+    fire({x: 1, y: 1}, "mousemove");
     expect(editor.graph.vertices.length).toBe(7);
     expect(editor.graph.edges.length).toBe(6);
     fire_key("z", {ctrlKey: true});
@@ -219,13 +220,13 @@ test("Draw and delete vertices and edges", () => {
         x: (editor.graph.vertices[0].coords.x + editor.graph.vertices[1].coords.x) / 2,
         y: (editor.graph.vertices[0].coords.y + editor.graph.vertices[1].coords.y) / 2,
     };
-    fire(edge_center, "mouseover");
+    fire(edge_center, "mousemove");
     fire_key(" ");
     fire_key("R");
     fire_key("6");
     expect(editor.graph.vertices.length).toBe(6);
     expect(editor.graph.edges.length).toBe(6);
-    fire(editor.graph.vertices[3].coords, "mouseover");
+    fire(editor.graph.vertices[3].coords, "mousemove");
     fire_key("Delete");
     expect(editor.graph.vertices.length).toBe(5);
     expect(editor.graph.edges.length).toBe(4);
@@ -238,7 +239,7 @@ test("Draw and delete vertices and edges", () => {
     fire_key("z", {metaKey: true});
     expect(editor.graph.vertices.length).toBe(6);
     expect(editor.graph.edges.length).toBe(6);
-    fire(edge_center, "mouseover");
+    fire(edge_center, "mousemove");
     fire_key("Delete");
     expect(editor.graph.vertices.length).toBe(6);
     expect(editor.graph.edges.length).toBe(5);
@@ -261,7 +262,7 @@ test("Draw and flip stereo bonds", () => {
         x: (editor.graph.vertices[0].coords.x + editor.graph.vertices[1].coords.x) / 2,
         y: (editor.graph.vertices[0].coords.y + editor.graph.vertices[1].coords.y) / 2,
     };
-    fire(edge_center, "mouseover");
+    fire(edge_center, "mousemove");
     fire_key("w");
     expect(editor.graph.edges.filter(e => e.shape == EdgeShape.SingleUp).length).toBe(1);
     const edge = editor.graph.edges.find(e => e.shape == EdgeShape.SingleUp);
@@ -273,7 +274,8 @@ test("Draw and flip stereo bonds", () => {
     fire_key("z", {ctrlKey: true});
     expect(edge?.v1).toBe(v1);
     expect(edge?.v2).toBe(v2);
-    fire(edge_center, "mouseover");
+    fire({x: 0, y: 0}, "mousemove");
+    fire(edge_center, "mousemove");
     fire_key(" ");
     fire_key("q");
     expect(editor.graph.edges.filter(e => e.shape == EdgeShape.SingleDown).length).toBe(1);

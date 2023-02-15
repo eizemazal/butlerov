@@ -217,6 +217,7 @@ class Edge {
             this.group?.children?.forEach(e => e.setAttr("stroke", stylesheet.bond_stroke_color));
             this.group?.children?.forEach(e => e.setAttr("fill", stylesheet.bond_stroke_color));
         }
+        this.group?.draw();
     }
 
     swap_vertices() {
@@ -390,6 +391,8 @@ class Edge {
             this._draw_triple(stylesheet);
             break;
         }
+        if (this.group?.getStage())
+            this.group.draw();
     }
 }
 

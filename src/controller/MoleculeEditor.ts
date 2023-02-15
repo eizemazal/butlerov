@@ -70,7 +70,6 @@ class MoleculeEditor {
         this.drawing_layer = new Konva.Layer();
         this.graph_group = this.graph.attach(this);
         this.drawing_layer.add(this.graph_group);
-        this.drawing_layer.draw();
         this.menu = new Menu();
         this.menu.visible = false;
         this.top_layer = new Konva.Layer();
@@ -163,6 +162,7 @@ class MoleculeEditor {
         rect.setAttr("height", this.stage.getAttr("height") / this.zoom);
         if (this.graph.vertices.length || this.graph.edges.length) {
             this.welcome_message.visible(false);
+            this.graph.group?.draw();
             return;
         }
         this.welcome_message.visible(true);
