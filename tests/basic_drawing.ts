@@ -176,4 +176,28 @@ test("Drag vertex", () => {
     fire_key("y", { ctrlKey: true } );
     expect(editor.graph.vertices[1].coords.x).toBeCloseTo(editor.graph.vertices[0].coords.x);
     expect(editor.graph.edges[0].screen_length).toBeCloseTo(edge_len);
+    fire(editor.graph.vertices[1].coords, "mousemove");
+    fire(editor.graph.vertices[1].coords, "mousedown");
+    fire({x: 250, y: editor.graph.vertices[0].coords.y}, "mousemove");
+    fire({x: 250, y: editor.graph.vertices[0].coords.y}, "mouseup");
+    expect(editor.graph.vertices[1].coords.y).toBeCloseTo(editor.graph.vertices[0].coords.y);
+    expect(editor.graph.edges[0].screen_length).toBeCloseTo(edge_len);
+});
+
+test("Bind vertices, undo, redo", () => {
+    fire({x: 100, y: 100}, "click");
+    fire({x: 200, y: 200}, "click");
+    expect(editor.graph.vertices.length).toBe(4);
+    expect(editor.graph.edges.length).toBe(2);
+    fire({x: 100, y: 100}, "mousemove");
+    fire({x: 100, y: 100}, "mousedown");
+    fire({x: 150, y: 150}, "mousemove");
+    fire({x: 203, y: 198}, "mousemove");
+    fire({x: 204, y: 197}, "mouseup");
+    expect(editor.graph.edges.length).toBe(3);
+    expect(editor.graph.vertices.length).toBe(4);
+    fire_key("z", { ctrlKey: true } );
+    expect(editor.graph.edges.length).toBe(2);
+    fire_key("y", { ctrlKey: true } );
+    expect(editor.graph.edges.length).toBe(3);
 });

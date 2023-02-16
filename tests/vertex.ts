@@ -86,3 +86,20 @@ test("Change elements back and forth", () => {
     fire_key("C", { shiftKey: true });
     expect(editor.graph.vertices[0].element?.symbol).toBe("Cm");
 });
+
+test("Strip hydrogens", () => {
+    fire({x: 100, y: 100}, "click");
+    fire({x: 100, y: 100}, "click");
+    expect(editor.graph.vertices.length).toBe(3);
+    fire(editor.graph.vertices[2].coords, "mousemove");
+    fire_key("H");
+    fire({x: 200, y: 200}, "mousemove");
+    fire_key(" ");
+    fire_key("h");
+    expect(editor.graph.vertices.length).toBe(2);
+    fire_key("z", {ctrlKey: true});
+    expect(editor.graph.vertices.length).toBe(3);
+    fire_key("z", {ctrlKey: true, shiftKey: true});
+    expect(editor.graph.vertices.length).toBe(2);
+});
+
