@@ -389,15 +389,16 @@ class MoveVertexAction extends UpdatableAction {
     old_coords: Coords;
     new_coords: Coords;
 
-    constructor(graph: Graph, vertex: Vertex) {
+    constructor(graph: Graph, vertex: Vertex, original_coords: Coords | null) {
         super();
         this.graph = graph;
         this.vertex = vertex;
-        this.new_coords = this.old_coords = this.vertex.coords;
+        this.old_coords = original_coords || this.vertex.coords;
+        this.new_coords = this.vertex.coords;
     }
 
     commit() : void {
-        this.new_coords = this.vertex.coords;
+        this.vertex.coords = this.new_coords;
         this.vertex.update();
         this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());

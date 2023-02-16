@@ -40,6 +40,7 @@ class MoleculeEditor {
     active_edge: Edge | null;
     active_vertex: Vertex | null;
     downed_vertex: Vertex | null;
+    downed_vertex_coords: Coords | null;
     action_stack: Array<Action>;
     actions_rolled_back: number;
     _readonly: boolean;
@@ -77,6 +78,7 @@ class MoleculeEditor {
         this.active_edge = null;
         this.active_vertex = null;
         this.downed_vertex = null;
+        this.downed_vertex_coords = null;
         const container = this.stage.container();
         container.addEventListener("keydown", (e) => { e.preventDefault(); this.on_keydown(e); });
         container.addEventListener("keyup", (e) => { e.preventDefault(); this.on_keyup(e); });
@@ -238,16 +240,26 @@ class MoleculeEditor {
         this.active_vertex = null;
     }
 
-    get_next_element_label(label: string, key: string): string {
-        const element_labels = Object.keys(ChemicalElements).filter(e => e.toLowerCase()[0] == key.toLowerCase()).sort((a,b) => a < b ? -1 : 1);
+    get_next_element_label(label: string, key: string, reverse = false): string {
+        const element_labels = Object.keys(ChemicalElements)
+            .filter(e => e.toLowerCase()[0] == key.toLowerCase())
+            .sort((a,b) => {
+                if (ChemicalElements[a].abundance != ChemicalElements[b].abundance)
+                    return ChemicalElements[a].abundance < ChemicalElements[b].abundance ? -1 : 1;
+                return a < b ? -1 : 1;
+            });
         if (element_labels.length == 0)
             return "";
         if (label == "")
             label = "C";
         const index = element_labels.indexOf(label);
-        if (index == -1 || index == element_labels.length - 1)
+        if (index == -1)
+            return reverse ? element_labels[element_labels.length - 1] : element_labels[0];
+        if (!reverse && index == element_labels.length - 1 )
             return element_labels[0];
-        return element_labels[index + 1];
+        if ( reverse && index == 0 )
+            return  element_labels[element_labels.length - 1];
+        return reverse ? element_labels[index - 1] : element_labels[index + 1];
     }
 
     on_vertex_keydown(evt: KeyboardEvent) {
@@ -260,7 +272,7 @@ class MoleculeEditor {
         }
         const translated_key = this.translate_key_event(evt);
         if (translated_key.match(/[A-Za-z]/)) {
-            const new_label = this.get_next_element_label(this.active_vertex.label, translated_key);
+            const new_label = this.get_next_element_label(this.active_vertex.label, translated_key, evt.shiftKey);
             if (new_label == "")
                 return;
             this.commit_action(new ChangeVertexLabelAction(this.graph, this.active_vertex, new_label));
@@ -547,7 +559,7 @@ class MoleculeEditor {
 
     on_vertex_dragmove(vertex: Vertex, evt: KonvaEventObject<MouseEvent>) {
         vertex.on_drag(!evt.evt.altKey);
-        this.commit_action(new MoveVertexAction(this.graph, vertex));
+        this.commit_action(new MoveVertexAction(this.graph, vertex, this.downed_vertex_coords));
     }
 
     on_vertex_mouseover(vertex: Vertex) {
@@ -570,6 +582,7 @@ class MoleculeEditor {
 
     on_vertex_mousedown(vertex: Vertex) {
         this.downed_vertex = vertex;
+        this.downed_vertex_coords = JSON.parse(JSON.stringify(vertex.coords));
     }
 
     on_vertex_mouseup(vertex: Vertex) {

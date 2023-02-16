@@ -49,7 +49,40 @@ test("Implicit H test", () => {
     fire_key("+");
     fire_key("+");
     fire_key("B");
+    fire_key("B");
     expect(editor.graph.vertices[0].element?.symbol).toBe("B");
     expect(editor.graph.vertices[0].charge).toBe(-1);
     expect(editor.graph.vertices[0].h_count).toBe(3);
+});
+
+
+test("Change elements back and forth", () => {
+    fire({x: 100, y: 100}, "click");
+    expect(editor.graph.vertices.length).toBe(2);
+    fire(editor.graph.vertices[0].coords, "mousemove");
+    fire_key("C");
+    expect(editor.graph.vertices[0].element?.symbol).toBe("Cl");
+    expect(editor.graph.vertices[0].charge).toBe(0);
+    expect(editor.graph.vertices[0].h_count).toBe(0);
+    fire_key("C");
+    expect(editor.graph.vertices[0].element?.symbol).toBe("Ca");
+    expect(editor.graph.vertices[0].h_count).toBe(1);
+    fire_key("C");
+    expect(editor.graph.vertices[0].element?.symbol).toBe("Cu");
+    expect(editor.graph.vertices[0].h_count).toBe(0);
+    fire_key("C");
+    expect(editor.graph.vertices[0].element?.symbol).toBe("Cd");
+    expect(editor.graph.vertices[0].h_count).toBe(1);
+    fire_key("C", { shiftKey: true });
+    fire_key("C", { shiftKey: true });
+    fire_key("C", { shiftKey: true });
+    expect(editor.graph.vertices[0].element?.symbol).toBe("Cl");
+    expect(editor.graph.vertices[0].charge).toBe(0);
+    expect(editor.graph.vertices[0].h_count).toBe(0);
+    fire_key("C", { shiftKey: true });
+    expect(editor.graph.vertices[0].element?.symbol).toBe("C");
+    expect(editor.graph.vertices[0].charge).toBe(0);
+    expect(editor.graph.vertices[0].h_count).toBe(3);
+    fire_key("C", { shiftKey: true });
+    expect(editor.graph.vertices[0].element?.symbol).toBe("Cm");
 });
