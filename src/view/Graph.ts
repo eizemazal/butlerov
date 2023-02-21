@@ -911,10 +911,16 @@ class Graph {
         const r = this.subgraph_with(edge.v1).copy();
         r.edges = r.edges.filter( e => e.id != edge.id);
         r.edges.forEach(e => {
-            if (e.v1.id == bound_vertex.id)
+            if (e.v1.id == bound_vertex.id) {
+                e.v2.remove_neighbor(e.v1);
                 e.v1 = free_vertex;
-            if (e.v2.id == bound_vertex.id)
+                e.v2.add_neighbor(e.v1, e.bond_order);
+            }
+            if (e.v2.id == bound_vertex.id) {
+                e.v1.remove_neighbor(e.v2);
                 e.v2 = free_vertex;
+                e.v1.add_neighbor(e.v2, e.bond_order);
+            }
         });
         r.vertices = r.vertices.filter( e => e.id != edge.v1.id && e.id != edge.v2.id );
         // invert coords around center
