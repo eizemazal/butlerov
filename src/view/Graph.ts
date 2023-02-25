@@ -898,6 +898,13 @@ class Graph {
         return hs;
     }
 
+    /**
+     * Add vertices and edges to make Graph symmetrical around center of symmetry coincident with the center of edge.
+     * For instance, this transfrormation applied to double bond of styrene will produce trans-stilbene from it.
+     * @param edge Edge whose center will be coincident with center of symmetry
+     * @returns Added vertices and edges
+     */
+
     symmetrize_along_edge(edge: Edge): Graph {
         if ( (edge.v1.neighbors.length == 1) == (edge.v2.neighbors.length == 1) )
             return new Graph();
@@ -928,6 +935,54 @@ class Graph {
             e.coords.x = 2*center.x - e.coords.x;
             e.coords.y = 2*center.y - e.coords.y;
         });
+        this.add(r);
+        this.update_topology();
+        return r;
+    }
+
+    /**
+     * Apply rotation transformation to the graph
+     * @param origin coordinates of rotation origin
+     * @param angle angle of rotation in radians, clockwise. Angle 0 is a vector collinear with positive x branch.
+     */
+    rotate(origin: Coords, angle: number) {
+        this.vertices.forEach(e => {
+            const dx = e.coords.x - origin.x;
+            const dy = e.coords.y - origin.y;
+            e.coords = {
+                x: origin.x + dx * Math.cos(angle) + dy * Math.sin(angle),
+                y: origin.y - dx * Math.sin(angle) + dy * Math.cos(angle)
+            };
+        });
+    }
+
+    /**
+     * Add vertices and edges to make graph rotationally symmetrical around specified Vertex.
+     * For example, this transformation being applied to aliphatic carbon of toluene, will produce triphenylmethane for order 3
+     * or tetraphenylmethane for order 4.
+     * @param vertex Vertex which will be coincident with the center of rotational symmetry
+     * @param order order of symmetry
+     * @returns Graph with all added elements
+     */
+    symmetrize_at_vertex(vertex: Vertex, order: number): Graph {
+        if ( (vertex.neighbors.length != 1) )
+            return new Graph();
+        this.add_numbering();
+        const angle_increment = order == 2 ? 2*Math.PI / 3 : 2 * Math.PI / order;
+        const r = new Graph();
+        const subgraph = this.subgraph_with(vertex).copy();
+        subgraph.vertices = subgraph.vertices.filter(e => e.id != vertex.id);
+        subgraph.edges = subgraph.edges.filter(e => e.v1.id != vertex.id && e.v2.id != vertex.id);
+        subgraph.vertices.find(e => e.id == vertex.neighbors[0].vertex.id)?.remove_neighbor(vertex);
+        for (let i = 1; i < order; i++) {
+            const subgraph_copy = subgraph.copy();
+            subgraph_copy.rotate(vertex.coords, angle_increment*i);
+            const vertex_to_bind = subgraph_copy.vertices.find(e => e.id == vertex.neighbors[0].vertex.id);
+            if (!vertex_to_bind)
+                throw "This should never happen";
+            subgraph_copy.bind_vertices(vertex_to_bind, vertex);
+            r.add(subgraph_copy);
+        }
         this.add(r);
         this.update_topology();
         return r;

@@ -24,6 +24,7 @@ import {
     MoveVertexAction,
     StripHAction,
     SymmetrizeAlongEdgeAction,
+    SymmetrizeAtVertexAction,
     UpdatableAction,
     UpdateEdgeShapeAction
 } from "./Action";
@@ -374,7 +375,8 @@ class MoleculeEditor {
             const vertex = this.active_vertex;
             this.menu.add_button( new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); } ));
             this.menu.add_button( new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); } ));
-            //this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
+            if (this.active_vertex.neighbors.length == 1)
+                this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () => {
                 this.commit_action(new DeleteVertexAction(this.graph, vertex));
             } ));
@@ -410,14 +412,13 @@ class MoleculeEditor {
         this.menu.visible = true;
     }
 
-    /*menu_symmetry_vertex(vertex: Vertex) {
+    menu_symmetry_vertex(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("m", "Mirror at atom", () => { this.graph.attach_ring(vertex, 3); } ));
-        this.menu.add_button( new MenuButton("2", "C2v / D2h", () => { this.graph.attach_ring(vertex, 4); } ));
-        this.menu.add_button( new MenuButton("3", "C3v / D3h", () => { this.graph.attach_ring(vertex, 5); } ));
-        this.menu.add_button( new MenuButton("4", "C4v / D4h / Td", () => { this.graph.attach_ring(vertex, 6); } ));
+        this.menu.add_button( new MenuButton("2", "C2v / D2h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 2)); } ));
+        this.menu.add_button( new MenuButton("3", "C3v / D3h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 3)); } ));
+        this.menu.add_button( new MenuButton("4", "C4v / D4h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 4)); } ));
         this.menu.visible = true;
-    }*/
+    }
 
     menu_attach_ring(vertex: Vertex) {
         this.menu.clear_buttons();

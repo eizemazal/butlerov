@@ -1,5 +1,5 @@
 import { AddDefaultFragmentAction } from "../src/controller/Action";
-import {editor, fire_key, fire} from "../src/lib/testing";
+import {editor, fire_key} from "../src/lib/testing";
 
 beforeEach( () => {
     editor.clear();

@@ -481,6 +481,35 @@ class SymmetrizeAlongEdgeAction extends Action {
 }
 
 
+class SymmetrizeAtVertexAction extends Action {
+    graph: Graph;
+    vertex: Vertex;
+    added: Graph | null;
+    order: number;
+
+    constructor(graph: Graph, vertex: Vertex, order: number) {
+        super();
+        this.graph = graph;
+        this.vertex = vertex;
+        this.order = order;
+        this.added = null;
+    }
+
+    commit() {
+        if (this.added)
+            this.graph.add(this.added);
+        else
+            this.added = this.graph.symmetrize_at_vertex(this.vertex, this.order);
+    }
+
+    rollback() {
+        if (!this.added)
+            return;
+        this.graph.remove(this.added);
+    }
+}
+
+
 
 
 export {
@@ -501,5 +530,6 @@ export {
     StripHAction,
     MoveVertexAction,
     UpdateEdgeShapeAction,
-    SymmetrizeAlongEdgeAction
+    SymmetrizeAlongEdgeAction,
+    SymmetrizeAtVertexAction
 };
