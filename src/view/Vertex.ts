@@ -29,7 +29,7 @@ enum LabelAlignment {
 }
 
 class Vertex {
-    protected group: Konva.Group | null;
+    group: Konva.Group | null;
     protected controller: MoleculeEditor | null;
     protected _neighbors: Array<Neighbor>;
     protected is_active: boolean;
@@ -415,6 +415,7 @@ class Vertex {
             this.group.add(active_box);
         }
         this._draw_charge(stylesheet);
+        this.group.getStage() && this.group.draw();
     }
 
     on(event: string, f: (a: Vertex, b: KonvaEventObject<MouseEvent>) => void) {

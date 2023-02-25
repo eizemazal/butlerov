@@ -23,6 +23,8 @@ import {
     IncrementAtomChargeAction,
     MoveVertexAction,
     StripHAction,
+    SymmetrizeAlongEdgeAction,
+    SymmetrizeAtVertexAction,
     UpdatableAction,
     UpdateEdgeShapeAction
 } from "./Action";
@@ -39,6 +41,7 @@ class MoleculeEditor {
     active_edge: Edge | null;
     active_vertex: Vertex | null;
     downed_vertex: Vertex | null;
+    downed_vertex_coords: Coords | null;
     action_stack: Array<Action>;
     actions_rolled_back: number;
     _readonly: boolean;
@@ -69,7 +72,6 @@ class MoleculeEditor {
         this.drawing_layer = new Konva.Layer();
         this.graph_group = this.graph.attach(this);
         this.drawing_layer.add(this.graph_group);
-        this.drawing_layer.draw();
         this.menu = new Menu();
         this.menu.visible = false;
         this.top_layer = new Konva.Layer();
@@ -77,6 +79,7 @@ class MoleculeEditor {
         this.active_edge = null;
         this.active_vertex = null;
         this.downed_vertex = null;
+        this.downed_vertex_coords = null;
         const container = this.stage.container();
         container.addEventListener("keydown", (e) => { e.preventDefault(); this.on_keydown(e); });
         container.addEventListener("keyup", (e) => { e.preventDefault(); this.on_keyup(e); });
@@ -162,6 +165,7 @@ class MoleculeEditor {
         rect.setAttr("height", this.stage.getAttr("height") / this.zoom);
         if (this.graph.vertices.length || this.graph.edges.length) {
             this.welcome_message.visible(false);
+            this.graph.group?.draw();
             return;
         }
         this.welcome_message.visible(true);
@@ -237,16 +241,26 @@ class MoleculeEditor {
         this.active_vertex = null;
     }
 
-    get_next_element_label(label: string, key: string): string {
-        const element_labels = Object.keys(ChemicalElements).filter(e => e.toLowerCase()[0] == key.toLowerCase()).sort((a,b) => a < b ? -1 : 1);
+    get_next_element_label(label: string, key: string, reverse = false): string {
+        const element_labels = Object.keys(ChemicalElements)
+            .filter(e => e.toLowerCase()[0] == key.toLowerCase())
+            .sort((a,b) => {
+                if (ChemicalElements[a].abundance != ChemicalElements[b].abundance)
+                    return ChemicalElements[a].abundance < ChemicalElements[b].abundance ? -1 : 1;
+                return a < b ? -1 : 1;
+            });
         if (element_labels.length == 0)
             return "";
         if (label == "")
             label = "C";
         const index = element_labels.indexOf(label);
-        if (index == -1 || index == element_labels.length - 1)
+        if (index == -1)
+            return reverse ? element_labels[element_labels.length - 1] : element_labels[0];
+        if (!reverse && index == element_labels.length - 1 )
             return element_labels[0];
-        return element_labels[index + 1];
+        if ( reverse && index == 0 )
+            return  element_labels[element_labels.length - 1];
+        return reverse ? element_labels[index - 1] : element_labels[index + 1];
     }
 
     on_vertex_keydown(evt: KeyboardEvent) {
@@ -259,7 +273,7 @@ class MoleculeEditor {
         }
         const translated_key = this.translate_key_event(evt);
         if (translated_key.match(/[A-Za-z]/)) {
-            const new_label = this.get_next_element_label(this.active_vertex.label, translated_key);
+            const new_label = this.get_next_element_label(this.active_vertex.label, translated_key, evt.shiftKey);
             if (new_label == "")
                 return;
             this.commit_action(new ChangeVertexLabelAction(this.graph, this.active_vertex, new_label));
@@ -350,6 +364,8 @@ class MoleculeEditor {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleEither));
             } ));
             this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
+            if ( (edge.v1.neighbors.length == 1) != (edge.v2.neighbors.length == 1) )
+                this.menu.add_button( new MenuButton("S", "Symmetrize along", () => { this.commit_action(new SymmetrizeAlongEdgeAction(this.graph, edge)); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () =>  {
                 this.commit_action(new DeleteEdgeAction(this.graph, edge));
             } ));
@@ -359,7 +375,8 @@ class MoleculeEditor {
             const vertex = this.active_vertex;
             this.menu.add_button( new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); } ));
             this.menu.add_button( new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); } ));
-            //this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
+            if (this.active_vertex.neighbors.length == 1)
+                this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () => {
                 this.commit_action(new DeleteVertexAction(this.graph, vertex));
             } ));
@@ -395,14 +412,13 @@ class MoleculeEditor {
         this.menu.visible = true;
     }
 
-    /*menu_symmetry_vertex(vertex: Vertex) {
+    menu_symmetry_vertex(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("m", "Mirror at atom", () => { this.graph.attach_ring(vertex, 3); } ));
-        this.menu.add_button( new MenuButton("2", "C2v / D2h", () => { this.graph.attach_ring(vertex, 4); } ));
-        this.menu.add_button( new MenuButton("3", "C3v / D3h", () => { this.graph.attach_ring(vertex, 5); } ));
-        this.menu.add_button( new MenuButton("4", "C4v / D4h / Td", () => { this.graph.attach_ring(vertex, 6); } ));
+        this.menu.add_button( new MenuButton("2", "C2v / D2h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 2)); } ));
+        this.menu.add_button( new MenuButton("3", "C3v / D3h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 3)); } ));
+        this.menu.add_button( new MenuButton("4", "C4v / D4h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 4)); } ));
         this.menu.visible = true;
-    }*/
+    }
 
     menu_attach_ring(vertex: Vertex) {
         this.menu.clear_buttons();
@@ -544,7 +560,7 @@ class MoleculeEditor {
 
     on_vertex_dragmove(vertex: Vertex, evt: KonvaEventObject<MouseEvent>) {
         vertex.on_drag(!evt.evt.altKey);
-        this.commit_action(new MoveVertexAction(this.graph, vertex));
+        this.commit_action(new MoveVertexAction(this.graph, vertex, this.downed_vertex_coords));
     }
 
     on_vertex_mouseover(vertex: Vertex) {
@@ -567,6 +583,7 @@ class MoleculeEditor {
 
     on_vertex_mousedown(vertex: Vertex) {
         this.downed_vertex = vertex;
+        this.downed_vertex_coords = JSON.parse(JSON.stringify(vertex.coords));
     }
 
     on_vertex_mouseup(vertex: Vertex) {

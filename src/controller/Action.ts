@@ -389,15 +389,16 @@ class MoveVertexAction extends UpdatableAction {
     old_coords: Coords;
     new_coords: Coords;
 
-    constructor(graph: Graph, vertex: Vertex) {
+    constructor(graph: Graph, vertex: Vertex, original_coords: Coords | null) {
         super();
         this.graph = graph;
         this.vertex = vertex;
-        this.new_coords = this.old_coords = this.vertex.coords;
+        this.old_coords = original_coords || this.vertex.coords;
+        this.new_coords = this.vertex.coords;
     }
 
     commit() : void {
-        this.new_coords = this.vertex.coords;
+        this.vertex.coords = this.new_coords;
         this.vertex.update();
         this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
@@ -453,6 +454,62 @@ class IncrementAtomChargeAction extends UpdatableAction {
     }
 }
 
+class SymmetrizeAlongEdgeAction extends Action {
+    graph: Graph;
+    edge: Edge;
+    added: Graph | null;
+
+    constructor(graph: Graph, edge: Edge) {
+        super();
+        this.graph = graph;
+        this.edge = edge;
+        this.added = null;
+    }
+
+    commit() {
+        if (this.added)
+            this.graph.add(this.added);
+        else
+            this.added = this.graph.symmetrize_along_edge(this.edge);
+    }
+
+    rollback() {
+        if (!this.added)
+            return;
+        this.graph.remove(this.added);
+    }
+}
+
+
+class SymmetrizeAtVertexAction extends Action {
+    graph: Graph;
+    vertex: Vertex;
+    added: Graph | null;
+    order: number;
+
+    constructor(graph: Graph, vertex: Vertex, order: number) {
+        super();
+        this.graph = graph;
+        this.vertex = vertex;
+        this.order = order;
+        this.added = null;
+    }
+
+    commit() {
+        if (this.added)
+            this.graph.add(this.added);
+        else
+            this.added = this.graph.symmetrize_at_vertex(this.vertex, this.order);
+    }
+
+    rollback() {
+        if (!this.added)
+            return;
+        this.graph.remove(this.added);
+    }
+}
+
+
 
 
 export {
@@ -473,4 +530,6 @@ export {
     StripHAction,
     MoveVertexAction,
     UpdateEdgeShapeAction,
+    SymmetrizeAlongEdgeAction,
+    SymmetrizeAtVertexAction
 };

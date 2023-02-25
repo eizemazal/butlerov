@@ -521,16 +521,25 @@ class Graph {
             const delta_y = neighbors[0].coords.y - vertex.coords.y;
             const alfa = Math.atan2(delta_y, delta_x);
             const bond_len = Math.sqrt(delta_x * delta_x + delta_y * delta_y);
-            const coordinates: Coords = this.least_crowded_point([
-                {
-                    x: vertex.coords.x + bond_len * Math.cos(alfa+Math.PI/1.5),
-                    y: vertex.coords.y + bond_len * Math.sin(alfa+Math.PI/1.5)
-                },
-                {
-                    x: vertex.coords.x + bond_len * Math.cos(alfa-Math.PI/1.5),
-                    y: vertex.coords.y + bond_len * Math.sin(alfa-Math.PI/1.5)
-                },
-            ]);
+            let coordinates: Coords;
+            if (this.find_edges_by_vertex(vertex)[0].bond_order == 3) {
+                coordinates = {
+                    x: vertex.coords.x + bond_len * Math.cos(alfa+Math.PI),
+                    y: vertex.coords.y + bond_len * Math.sin(alfa+Math.PI)
+                };
+            }
+            else {
+                coordinates = this.least_crowded_point([
+                    {
+                        x: vertex.coords.x + bond_len * Math.cos(alfa+Math.PI/1.5),
+                        y: vertex.coords.y + bond_len * Math.sin(alfa+Math.PI/1.5)
+                    },
+                    {
+                        x: vertex.coords.x + bond_len * Math.cos(alfa-Math.PI/1.5),
+                        y: vertex.coords.y + bond_len * Math.sin(alfa-Math.PI/1.5)
+                    },
+                ]);
+            }
             const new_vertex = this._add_vertex(coordinates);
             r.edges = [this.bind_vertices(vertex, new_vertex)];
             r.vertices = [new_vertex];
@@ -759,6 +768,11 @@ class Graph {
         return res;
     }
 
+    subgraph_with(vertex: Vertex): Graph {
+        const subgraphs = this.subgraphs();
+        return subgraphs.find(g => g.vertices.find(v => v == vertex)) || new Graph();
+    }
+
     /**
      * For the given edge, obtain its topology - does it pertain to a ring or not.
      * @param edge an @see Edge to probe
@@ -882,6 +896,96 @@ class Graph {
         hs.vertices.forEach(e => hs.edges.push(...this.find_edges_by_vertex(e)));
         this.remove(hs);
         return hs;
+    }
+
+    /**
+     * Add vertices and edges to make Graph symmetrical around center of symmetry coincident with the center of edge.
+     * For instance, this transfrormation applied to double bond of styrene will produce trans-stilbene from it.
+     * @param edge Edge whose center will be coincident with center of symmetry
+     * @returns Added vertices and edges
+     */
+
+    symmetrize_along_edge(edge: Edge): Graph {
+        if ( (edge.v1.neighbors.length == 1) == (edge.v2.neighbors.length == 1) )
+            return new Graph();
+        const center : Coords = {
+            x: (edge.v1.coords.x + edge.v2.coords.x) / 2,
+            y: (edge.v1.coords.y + edge.v2.coords.y) / 2,
+        };
+        this.add_numbering();
+        const free_vertex = edge.v1.neighbors.length == 1 ? edge.v1 : edge.v2;
+        const bound_vertex = free_vertex == edge.v1 ? edge.v2 : edge.v1;
+        const r = this.subgraph_with(edge.v1).copy();
+        r.edges = r.edges.filter( e => e.id != edge.id);
+        r.edges.forEach(e => {
+            if (e.v1.id == bound_vertex.id) {
+                e.v2.remove_neighbor(e.v1);
+                e.v1 = free_vertex;
+                e.v2.add_neighbor(e.v1, e.bond_order);
+            }
+            if (e.v2.id == bound_vertex.id) {
+                e.v1.remove_neighbor(e.v2);
+                e.v2 = free_vertex;
+                e.v1.add_neighbor(e.v2, e.bond_order);
+            }
+        });
+        r.vertices = r.vertices.filter( e => e.id != edge.v1.id && e.id != edge.v2.id );
+        // invert coords around center
+        r.vertices.forEach( e => {
+            e.coords.x = 2*center.x - e.coords.x;
+            e.coords.y = 2*center.y - e.coords.y;
+        });
+        this.add(r);
+        this.update_topology();
+        return r;
+    }
+
+    /**
+     * Apply rotation transformation to the graph
+     * @param origin coordinates of rotation origin
+     * @param angle angle of rotation in radians, clockwise. Angle 0 is a vector collinear with positive x branch.
+     */
+    rotate(origin: Coords, angle: number) {
+        this.vertices.forEach(e => {
+            const dx = e.coords.x - origin.x;
+            const dy = e.coords.y - origin.y;
+            e.coords = {
+                x: origin.x + dx * Math.cos(angle) + dy * Math.sin(angle),
+                y: origin.y - dx * Math.sin(angle) + dy * Math.cos(angle)
+            };
+        });
+    }
+
+    /**
+     * Add vertices and edges to make graph rotationally symmetrical around specified Vertex.
+     * For example, this transformation being applied to aliphatic carbon of toluene, will produce triphenylmethane for order 3
+     * or tetraphenylmethane for order 4.
+     * @param vertex Vertex which will be coincident with the center of rotational symmetry
+     * @param order order of symmetry
+     * @returns Graph with all added elements
+     */
+    symmetrize_at_vertex(vertex: Vertex, order: number): Graph {
+        if ( (vertex.neighbors.length != 1) )
+            return new Graph();
+        this.add_numbering();
+        const angle_increment = order == 2 ? 2*Math.PI / 3 : 2 * Math.PI / order;
+        const r = new Graph();
+        const subgraph = this.subgraph_with(vertex).copy();
+        subgraph.vertices = subgraph.vertices.filter(e => e.id != vertex.id);
+        subgraph.edges = subgraph.edges.filter(e => e.v1.id != vertex.id && e.v2.id != vertex.id);
+        subgraph.vertices.find(e => e.id == vertex.neighbors[0].vertex.id)?.remove_neighbor(vertex);
+        for (let i = 1; i < order; i++) {
+            const subgraph_copy = subgraph.copy();
+            subgraph_copy.rotate(vertex.coords, angle_increment*i);
+            const vertex_to_bind = subgraph_copy.vertices.find(e => e.id == vertex.neighbors[0].vertex.id);
+            if (!vertex_to_bind)
+                throw "This should never happen";
+            subgraph_copy.bind_vertices(vertex_to_bind, vertex);
+            r.add(subgraph_copy);
+        }
+        this.add(r);
+        this.update_topology();
+        return r;
     }
 }
 

@@ -1,22 +1,24 @@
 import { MoleculeEditor } from "../controller/MoleculeEditor";
 import { fireEvent } from "@testing-library/dom";
 import { Vector2d } from "konva/lib/types";
+import Konva from "konva";
 
 const wrapper = document.createElement("div");
-const editor = MoleculeEditor.from_html_element(wrapper);
-editor.stage.setAttr("width", 300);
-editor.stage.setAttr("height", 300);
+const stage = new Konva.Stage({
+    container: wrapper,
+    width: 300,
+    height: 300,
+});
+const editor = new MoleculeEditor(stage);
 
 type EventMockObject = {
-    evt?: {
-        button?: number,
-        target?: HTMLDivElement | null,
-        screenX?: number,
-        screenY?: number,
-        shiftKey?: boolean,
-        ctrlKey?: boolean,
-        metaKey?: boolean,
-    }
+    button?: number,
+    target?: HTMLDivElement | null,
+    screenX?: number,
+    screenY?: number,
+    shiftKey?: boolean,
+    ctrlKey?: boolean,
+    metaKey?: boolean,
 }
 
 type KeyMockObject = {
@@ -28,20 +30,52 @@ type KeyMockObject = {
 
 function fire(pos: Vector2d, event_type: string, evt: EventMockObject | null = null) {
     if (event_type == "click" && !evt) {
-        evt = {evt: {button: 1}};
+        evt = { button: 1 };
     }
-    if (["mouseover", "mouseout"].indexOf(event_type) != -1 && !evt) {
-        evt = {evt: {target: null, screenX: pos.x, screenY: pos.y }};
+    const konva_evt = {
+        ...evt,
+        clientX: pos.x,
+        clientY: pos.y,
+        button: evt?.button || 0,
+        pointerId: ["pointerdown", "pointerup", "pointermove"].includes(event_type) ? 1 : undefined,
+        type: event_type,
+    // this is from Konva tests
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+    switch (event_type) {
+    case "click":
+        fire(pos, "mousedown", evt);
+        fire(pos, "mouseup", evt);
+        break;
+    case "pointerdown":
+        stage._pointerdown(konva_evt);
+        break;
+    case "mousedown":
+        fire(pos, "pointerdown", evt);
+        stage._pointerdown(konva_evt);
+        break;
+    case "pointerup":
+        stage._pointerup(konva_evt);
+        break;
+    case "mouseup":
+        fire(pos, "pointerup", evt);
+        Konva.DD._endDragBefore(konva_evt);
+        stage._pointerup(konva_evt);
+        Konva.DD._endDragAfter(konva_evt);
+        break;
+    case "pointermove":
+        stage._pointermove(konva_evt);
+        break;
+    case "mousemove":
+        fire(pos, "pointermove", evt);
+        Konva.DD._drag(konva_evt);
+        stage._pointermove(konva_evt);
+        break;
+    default:
+        throw "Event type " + event_type + " not implemented.";
     }
-    editor.stage.setPointersPositions({clientX: pos.x, clientY: pos.y});
-    // for some reason, editor.stage.getIntersection(pos) does not work
-    const shapes = editor.stage.getAllIntersections(pos);
-    if (shapes.length) {
-        shapes[shapes.length - 1].fire(event_type, evt, true);
-    }
-    else
-        editor.background_layer.fire(event_type, evt);
 }
+
 
 function fire_key(key: string, key_obj: KeyMockObject = {}) {
     key_obj.key = key;
