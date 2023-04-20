@@ -609,6 +609,8 @@ class MoleculeEditor {
             return;
         }
         const pos = this.background_layer.getRelativePointerPosition();
+        pos.x -= this.viewport_offset.x;
+        pos.y -= this.viewport_offset.y;
         if (evt.evt.ctrlKey || evt.evt.metaKey)
             this.commit_action(new AddSingleVertexAction(this.graph, pos.x, pos.y));
         else
