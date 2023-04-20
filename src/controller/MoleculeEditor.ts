@@ -331,8 +331,6 @@ class MoleculeEditor {
             this.menu.visible = false;
             return;
         }
-        this.menu.x = this.stage.pointerPos ? this.stage.pointerPos.x / this.stage.scaleX() : this.stage.width() / 2;
-        this.menu.y = this.stage.pointerPos ? this.stage.pointerPos.y / this.stage.scaleY() : this.stage.height() / 2;
 
         if (this.active_edge) {
             this.menu.clear_buttons();
@@ -389,6 +387,16 @@ class MoleculeEditor {
             this.menu.add_button( new MenuButton("h", "Strip hydrogens", () => { this.commit_action(new StripHAction(this.graph)); } ));
             this.menu.add_button( new MenuButton("x", "Clear drawing", () => { this.menu_confirm_clear(); } ));
         }
+
+        if (this.stage.pointerPos) {
+            this.menu.x = (this.stage.pointerPos.x + this.menu.width < this.stage.width()) ? this.stage.pointerPos.x : this.stage.width() - this.menu.width;
+            this.menu.y = (this.stage.pointerPos.y + this.menu.height < this.stage.height()) ? this.stage.pointerPos.y : this.stage.height() - this.menu.height;
+        }
+        else {
+            this.menu.x = (this.stage.width() - this.menu.width) / 2;
+            this.menu.y = (this.stage.height() - this.menu.height) / 2;
+        }
+
         this.menu.visible = true;
     }
 

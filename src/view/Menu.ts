@@ -23,6 +23,7 @@ class Menu {
             fill: "#eee",
             stroke: "#ddd",
             opacity: 0.7,
+            id: "background",
         });
         background.setAttr("cornerRadius", 3 / this.zoom);
         background.setAttr("strokeWidth", 1 / this.zoom);
@@ -52,6 +53,14 @@ class Menu {
 
     public set y(y: number) {
         this.group.setAttr("y", y);
+    }
+
+    public get width() : number {
+        return this.group.findOne("#background").width();
+    }
+
+    public get height() : number {
+        return this.group.findOne("#background").height();
     }
 
     as_group() {
