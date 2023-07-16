@@ -358,8 +358,11 @@ class MoleculeEditor {
             this.menu.add_button( new MenuButton("q", "Wedged down", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleDown));
             } ));
-            this.menu.add_button( new MenuButton("e", "Either stereo", () => {
+            this.menu.add_button( new MenuButton("e", "Single either", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleEither));
+            } ));
+            this.menu.add_button( new MenuButton("a", "Double either", () => {
+                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.DoubleEither));
             } ));
             this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
             if ( (edge.v1.neighbors.length == 1) != (edge.v2.neighbors.length == 1) )
