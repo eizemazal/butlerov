@@ -221,6 +221,14 @@ class MoleculeEditor {
         return this.graph.get_mol_string();
     }
 
+    load_mol_from_smiles(smiles: string) {
+        this.clear_actions();
+        this.graph.load_smiles(smiles);
+        this.center_view();
+        this.graph.update();
+        this.update_background();
+    }
+
     /**
      * Clears the control.
      * @param from_userspace Specify whether the action is invoked from userspace. In this case, add clear event to history.

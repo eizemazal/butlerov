@@ -37,6 +37,7 @@ class UpdateEdgeShapeAction extends Action {
             this.edge.orientation = this.new_orientation;
         this.edge.v1.change_neighbor_bond(this.edge.v2, this.edge.bond_order);
         this.edge.v2.change_neighbor_bond(this.edge.v1, this.edge.bond_order);
+        this.edge.update();
     }
     rollback() {
         this.edge.shape = this.old_shape;
