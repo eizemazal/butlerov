@@ -1,35 +1,13 @@
 import { Graph } from "./Graph";
 import { Vertex } from "./Vertex";
-//import { ChemicalElements } from "../lib/elements";
 import { BondType } from "./Edge";
 import { ChemicalElements } from "../lib/elements";
 
-/**
- * Finite state machine states
- */
-enum State {
-    // starting with this
-    Base,
-    // we consumed first letter of element like C in Cl or B in Br, not in square brackets
-    BaseElementPending,
-    // We consumed label like 1 in 12 and waiting for numbers to end
-    BaseLabelPending,
-    // we are entering atom specification like in [Au] after [
-    EnterAtom,
-    // parsing atom spec, after A in [Au]
-    InsideAtomSymbolPending,
-    // parsing atom spec, atom symbol parsed and added to graph
-    InsideAtom,
-}
-
-const lowercase_aromatic_symbols = new Set(["b", "c", "n", "o", "p", "s"]);
-const organic_symbols = new Set(["B", "C", "N", "O", "P", "S", "F", "Cl", "Br", "I"]);
 
 /**
  * Finite state automation class for parsing smiles into graphs
  */
 export class SmilesParser {
-    state : State = State.Base;
     graph : Graph;
     label = "";
     attachment_stack: Vertex[] = [];
@@ -41,146 +19,85 @@ export class SmilesParser {
     }
 
     parse(smiles: string) : void {
-        for (let i = 0; i < smiles.length; i++) {
-            this.nyamnyam(smiles[i], i);
-        }
-        // final call
-        this.nyamnyam("", smiles.length);
-    }
+        const lowercase_list = "(?:b|c|n|o|p|s)";
+        const re_lowercase = /^(?:b|c|n|o|p|s)/;
+        const re_organic = /^(?:Cl|Br|F|I|B|C|N|O|P|S)/;
+        // prepare a regexp matching chemical element symbol, sort by length to make Cl match before C
+        const element_list = "(?:" + Object.keys(ChemicalElements).sort((a,b) => b.length - a.length).join("|") + ")";
+        const re_atom_square_brackets = `^\\[(${element_list}|${lowercase_list})(@{1,2})?(H\\d{0,})?([+-]\\d{0,})?\\]`;
+        const re_label = /^(%\d{2,}|\d)+/;
 
-    open_bra() {
-        if (! this.attachment_stack) {
-            throw "( cannot be the first symbol of SMILES";
-        }
-        this.attachment_stack.push(this.attachment_stack[this.attachment_stack.length-1]);
-    }
-
-    close_bra() {
-        if (! this.attachment_stack) {
-            throw "Extraneous ) in SMILES";
-        }
-        this.attachment_stack.pop();
-    }
-
-    /**
-     * Consume character
-     */
-    nyamnyam(char: string, position: number): void {
-        if (this.state == State.BaseElementPending) {
-            // we are in Base, not in square brackets. The only two char elements allowed here are Cl and Br
-            if ( (this.element_symbol == "C" && char == "l") || (this.element_symbol == "B" && char == "r") ) {
-                this.element_symbol = this.element_symbol + char;
-                this.attach();
-                this.state = State.Base;
-                return;
+        let i = 0;
+        while (i < smiles.length) {
+            if (smiles[i] == "(") {
+                if (! this.attachment_stack) {
+                    throw "( cannot be the first symbol of SMILES";
+                }
+                this.attachment_stack.push(this.attachment_stack[this.attachment_stack.length-1]);
+                i += 1;
+                continue;
             }
-            this.state = State.Base; // fall through
-        }
-        if (this.state == State.BaseLabelPending) {
-            if (char.match(/[0-9]/)) {
-                this.state = State.BaseLabelPending;
-                this.label += char;
-                return;
+            if (smiles[i] == ")") {
+                if (! this.attachment_stack) {
+                    throw "Extraneous ) in SMILES";
+                }
+                this.attachment_stack.pop();
+                i += 1;
+                continue;
             }
-            console.log(`Found label ${this.label}`);
-            this.state = State.Base;
-        }
-        if (this.state == State.Base) {
-            if (this.element_symbol) {
-                this.attach();
-            }
-            if (char == "") {
-                return;
-            }
-            if (lowercase_aromatic_symbols.has(char)) {
-                this.element_symbol = char.toUpperCase();
-                return;
-            }
-            if ( organic_symbols.has(char) ) {
-                this.element_symbol = char;
-                this.state = State.BaseElementPending;
-                return;
-            }
-            if (char == "(")
-                return this.open_bra();
-            if (char == ")")
-                return this.close_bra();
-            if (char == "[") {
-                this.state = State.EnterAtom;
-                return;
-            }
-            if ( char == "=" ) {
+            if (smiles[i] == "=" ) {
                 this.bond_order = 2;
-                return;
+                i += 1;
+                continue;
             }
-            if (char == "#" ) {
+            if (smiles[i] == "#" ) {
                 this.bond_order = 3;
-                return;
+                i += 1;
+                continue;
             }
-            if (char.match(/[0-9]/)) {
-                this.state = State.BaseLabelPending;
-                this.label = char;
-                return;
-            }
-            throw `Unexpected ${char} at position ${position}`;
-        }
-        if (this.state == State.EnterAtom) {
-            if (lowercase_aromatic_symbols.has(char) ){
-                this.element_symbol = char.toUpperCase();
-                this.state = State.InsideAtom;
-                return;
-            }
-            // in fact, atom can start from any letter except X
-            if ( char.match(/[A-Y|Z]/) ) {
-                this.element_symbol = char;
-                this.state = State.InsideAtomSymbolPending;
-                return;
-            }
-            throw `Unexpected ${char} inside atom specification at position ${position}`;
-        }
-        if (this.state == State.InsideAtomSymbolPending) {
-            if ( (this.element_symbol + char) in ChemicalElements) {
-                this.element_symbol = this.element_symbol + char;
+
+            let match = smiles.substring(i).match(re_organic);
+            if (match) {
+                this.element_symbol = match[0];
                 this.attach();
-                this.state = State.InsideAtom;
-                this.element_symbol = "";
-                return;
+                i += match[0].length;
+                continue;
             }
-            // fall through
-            else {
-                this.state = State.InsideAtom;
-            }
-        }
-        if (this.state == State.InsideAtom) {
-            if (this.element_symbol) {
+            match = smiles.substring(i).match(re_lowercase);
+            if (match) {
+                this.element_symbol = match[0].toUpperCase();
                 this.attach();
-                this.element_symbol = "";
+                i += match[0].length;
+                continue;
             }
-            if (char == "]") {
-                this.state = State.Base;
-                return;
+            match = smiles.substring(i).match(re_atom_square_brackets);
+            if (match) {
+                this.element_symbol = match[1];
+                // aromatic symbols can be encountered here as [nH] too
+                if (this.element_symbol.length == 1 && this.element_symbol.toLowerCase() == this.element_symbol)
+                    this.element_symbol = this.element_symbol.toUpperCase();
+                // [ "[Na@@H2+2]", "Na", "@@", "H2", "+2" ]
+                this.attach();
+                console.log(match);
+                // convert + or - to +1/-1
+                if (match[4])
+                    this.attachment_stack[this.attachment_stack.length-1].charge = parseInt(match[4].length == 1 ? match[4] + "1" : match[4]);
+                i += match[0].length;
+                continue;
             }
-            if (char == "+") {
-                this.attachment_stack[this.attachment_stack.length-1].charge += 1;
-                return;
+            match = smiles.substring(i).match(re_label);
+            if (match) {
+                const labels = match[0].match(/(%\d{2,}|\d)/g);
+                console.log(`Found labels ${labels}`);
+                i += match[0].length;
+                continue;
             }
-            if (char == "-") {
-                this.attachment_stack[this.attachment_stack.length-1].charge -= 1;
-                return;
-            }
-            throw `Unexpected ${char} inside atom specification at position ${position}`;
+            throw `Unknown symbol ${smiles[i]} at position ${i}`;
         }
     }
-
     attach() {
-        let added;
         const attach_to = this.attachment_stack.pop();
-        if (attach_to) {
-            added = this.graph.add_chain(attach_to, 1);
-        }
-        else {
-            added = this.graph.add_vertex( { x: 100, y: 100}, this.element_symbol);
-        }
+        const added = attach_to ? this.graph.add_chain(attach_to, 1) : this.graph.add_vertex( { x: 100, y: 100}, this.element_symbol);
         this.attachment_stack.push(added.vertices[0]);
         added.vertices[0].label = this.element_symbol;
         if (this.bond_order == 2)
@@ -192,7 +109,6 @@ export class SmilesParser {
     }
 
     reset() {
-        this.state = State.Base;
         this.element_symbol = "";
         this.attachment_stack = [];
         this.bond_order = 1;
