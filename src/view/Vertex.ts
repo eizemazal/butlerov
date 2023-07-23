@@ -49,7 +49,7 @@ class Vertex {
     public id: string;
 
     constructor() {
-        this._coords = { x: 0, y: 0};
+        this._coords = { x: 0, y: 0 };
         this._label = "";
         this._computed_label = "";
         this._charge = 0;
@@ -77,7 +77,7 @@ class Vertex {
         return v;
     }
 
-    attach(controller: MoleculeEditor):Konva.Group {
+    attach(controller: MoleculeEditor): Konva.Group {
         this.controller = controller;
         if (!this.group)
             this.group = new Konva.Group();
@@ -131,7 +131,7 @@ class Vertex {
         this.update();
     }
 
-    private draw_label(stylesheet: Stylesheet) : void {
+    private draw_label(stylesheet: Stylesheet): void {
         const text = this.group?.findOne("#text");
         if (!text)
             return;

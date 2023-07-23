@@ -8,6 +8,7 @@
     "build": "npm run clean && npx webpack --mode=production",
     "dev": "npm run clean && npx webpack --mode=development",
     "clean": "node build/clean.js",
+    "lint": "eslint --fix",
     "test": "jest",
     "prepare": "npm run build",
     "prepublishOnly": "npm run test"
