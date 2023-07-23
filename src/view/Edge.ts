@@ -2,7 +2,6 @@ import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { MoleculeEditor } from "../main";
 import { Coords, Vertex } from "./Vertex";
-import { Stylesheet } from "./Stylesheet";
 
 enum EdgeShape {
     Single,
@@ -11,6 +10,7 @@ enum EdgeShape {
     SingleUp,
     SingleDown,
     SingleEither,
+    DoubleEither,
 }
 
 enum EdgeOrientation {
@@ -44,20 +44,54 @@ enum EdgeTopology {
     Ring
 }
 
+/**
+ * Class representing edges between Vertices. It is called Edge, not Bond, because there are multicenter bonds
+ * that Edge does not represent. Edge always connects two Vertices, v1 and v2
+ */
 class Edge {
+    /**
+     * If Edge is drawn on the screen, this will refer to MoleculeEditor. Otherwise it can be detached from screen
+     * @defaultValue null
+     */
     protected controller: MoleculeEditor | null;
+    /**
+     * Contains all Konva elements that need to be drawn for this Edge. Or null when Edge is detached from controller.
+     * @defaultValue null
+     */
     protected group: Konva.Group | null;
+    /**
+     * First Vertex. There are Edges that are directed - they are directed from v1 to v2
+     */
     public v1: Vertex;
+    /**
+     * Second Vertex. There are Edges that are directed - they are directed from v1 to v2
+     */
     public v2: Vertex;
+    /**
+     * Internal use only - coordinates of the first point that the edge connects. It is updated by @function calculate_coordinates
+     * and takes into account vertical and horizontal clearance of vertex label
+     */
     protected point1: Coords;
+    /**
+     * Internal use only - coordinates of the second point that the edge connects. It is updated by @function calculate_coordinates
+     * and takes into account vertical and horizontal clearance of vertex label
+     */
     protected point2: Coords;
     protected _shape: EdgeShape;
+    /**
+     * Length of the edge in screen coordinates (between @var point1 and @var point2)
+     */
     public screen_length: number;
-    public center_length: number;
+
     protected is_active: boolean;
     public topology: EdgeTopology;
-    // angle between y and line directed from vertex1 to vertex2
+    /**
+     * angle between y axis and line directed from vertex1 to vertex2, clockwise
+     */
     protected alfa: number;
+    /**
+     * Arbitrary identification string used by copy constructors to create copies of objects
+     */
     public id: string;
     public orientation: EdgeOrientation;
 
@@ -70,7 +104,6 @@ class Edge {
         this.point1 = {x: 0, y: 0};
         this.point2 = {x: 0, y: 0};
         this.screen_length = 0;
-        this.center_length = 0;
         this.alfa = 0;
         this.is_active = false;
         this.topology = EdgeTopology.Undefined;
@@ -109,7 +142,7 @@ class Edge {
     }
 
     public get bond_order(): number {
-        if (this._shape == EdgeShape.Double)
+        if (this._shape == EdgeShape.Double || this._shape == EdgeShape.DoubleEither)
             return 2;
         if (this._shape == EdgeShape.Triple)
             return 3;
@@ -119,6 +152,7 @@ class Edge {
     public get bond_type(): BondType {
         switch( this._shape ) {
         case EdgeShape.Double:
+        case EdgeShape.DoubleEither:
             return BondType.Double;
         case EdgeShape.Triple:
             return BondType.Triple;
@@ -231,7 +265,6 @@ class Edge {
         this.point1 = { ...this.v1.coords };
         this.point2 = { ...this.v2.coords };
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
-        this.center_length = this.screen_length;
         if (!this.screen_length)
             return;
         this.alfa = Math.atan2(this.point2.y-this.point1.y, this.point2.x-this.point1.x) - Math.PI/2;
@@ -240,158 +273,181 @@ class Edge {
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
     }
 
-    // draw central line for single, double, triple and triangle shaped wedged bond
-    _draw_centerline(stylesheet: Stylesheet) {
-        const line = this.group?.findOne("#bond_line") ||
-            new Konva.Line({
-                stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
-                fill: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
-                id: "bond_line",
-                closed: true,
-            });
-        line.setAttr("x", this.point1.x);
-        line.setAttr("y", this.point1.y);
-        line.setAttr("strokeWidth", stylesheet.bond_thickness_px);
-        line.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
-        if ([EdgeShape.Single, EdgeShape.Double, EdgeShape.Triple].indexOf(this._shape) != -1) {
-            line.setAttr("points", [ 0, 0, -this.screen_length*Math.sin(this.alfa), this.screen_length*Math.cos(this.alfa) ]);
-            line.setAttr("lineJoin", "miter");
-        }
-        else if (this._shape == EdgeShape.SingleUp) {
-            line.setAttr("points", [
-                0, 0,
-                -this.screen_length*Math.sin(this.alfa) + stylesheet.bond_wedge_px*Math.cos(this.alfa)/2,
-                this.screen_length*Math.cos(this.alfa) + stylesheet.bond_wedge_px*Math.sin( this.alfa)/2,
-                -this.screen_length*Math.sin(this.alfa) - stylesheet.bond_wedge_px*Math.cos(this.alfa)/2,
-                this.screen_length*Math.cos(this.alfa) - stylesheet.bond_wedge_px*Math.sin( this.alfa)/2,
-            ]);
-            line.setAttr("fillEnabled", true);
-            line.setAttr("lineJoin", "round");
-            line.setAttr("closed", true);
-        }
-        else if (this._shape == EdgeShape.SingleDown) {
-            line.setAttr("points", [
-                0, 0,
-                -this.screen_length*Math.sin(this.alfa) + stylesheet.bond_wedge_px*Math.cos(this.alfa)/2,
-                this.screen_length*Math.cos(this.alfa) + stylesheet.bond_wedge_px*Math.sin( this.alfa)/2,
-                -this.screen_length*Math.sin(this.alfa) - stylesheet.bond_wedge_px*Math.cos(this.alfa)/2,
-                this.screen_length*Math.cos(this.alfa) - stylesheet.bond_wedge_px*Math.sin( this.alfa)/2,
-            ]);
-            line.setAttr("fillEnabled", false);
-            line.setAttr("lineJoin", "round");
-            line.setAttr("closed", true);
-        }
-        else if (this._shape == EdgeShape.SingleEither) {
-            const pts : number[] = [];
-            const npts = this.screen_length / stylesheet.bond_either_period_px;
-            for (let i = 0; i <= npts; i++) {
-                if (i % 2) {
-                    pts.push((-this.screen_length*Math.sin(this.alfa) + stylesheet.bond_wedge_px*Math.cos(this.alfa)/2)*i/npts);
-                    pts.push((this.screen_length*Math.cos(this.alfa) + stylesheet.bond_wedge_px*Math.sin( this.alfa)/2)*i/npts);
-                }
-                else {
-                    pts.push((-this.screen_length*Math.sin(this.alfa) - stylesheet.bond_wedge_px*Math.cos(this.alfa)/2)*i/npts);
-                    pts.push((this.screen_length*Math.cos(this.alfa) - stylesheet.bond_wedge_px*Math.sin( this.alfa)/2)*i/npts);
-                }
-            }
-            pts.push(-this.screen_length*Math.sin(this.alfa));
-            pts.push(this.screen_length*Math.cos(this.alfa));
-            line.setAttr("points", pts);
-            line.setAttr("fillEnabled", false);
-            line.setAttr("closed", false);
-            line.setAttr("lineJoin", "round");
-        }
-        this.group?.add(<Konva.Line>line);
-    }
-
-    _draw_single(stylesheet: Stylesheet) {
-        this.group?.findOne("#bond_line2")?.destroy();
-        this.group?.findOne("#bond_line3")?.destroy();
-        this._draw_centerline(stylesheet);
-    }
-
-    _draw_double(stylesheet: Stylesheet) {
-        this.group?.findOne("#bond_line3")?.destroy();
-        this._draw_centerline(stylesheet);
-        const line2 = this.group?.findOne("#bond_line2") ||
-        new Konva.Line({
-            stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
-            id: "bond_line2",
-        });
-        line2.setAttr("strokeWidth", stylesheet.bond_thickness_px);
-        line2.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
-        if (this.orientation == EdgeOrientation.Center) {
-            line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa)/2);
-            line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa)/2);
-            const centerline = this.group?.findOne("#bond_line");
-            centerline?.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa)/2);
-            centerline?.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa)/2);
-            line2.setAttr("points", [ 0, 0, -this.screen_length*Math.sin(this.alfa), this.screen_length*Math.cos(this.alfa) ]);
-        }
-        else if (this.orientation == EdgeOrientation.Left) {
-            line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
-            line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa) + stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
-            line2.setAttr("points", [ 0, 0, -this.screen_length*(1-stylesheet.double_bond_shortening)*Math.sin(this.alfa), this.screen_length*(1-stylesheet.double_bond_shortening)*Math.cos(this.alfa) ]);
-        }
-        else {
-            line2.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
-            line2.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa) + stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
-            line2.setAttr("points", [ 0, 0, -this.screen_length*(1-stylesheet.double_bond_shortening)*Math.sin(this.alfa), this.screen_length*(1-stylesheet.double_bond_shortening)*Math.cos(this.alfa) ]);
-        }
-        this.group?.add(<Konva.Line>line2);
-    }
-
-    _draw_triple(stylesheet: Stylesheet) {
-        this._draw_centerline(stylesheet);
-        const line2 = this.group?.findOne("#bond_line2") ||
-        new Konva.Line({
-            stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
-            id: "bond_line2",
-        });
-        line2.setAttr("strokeWidth", stylesheet.bond_thickness_px);
-        line2.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
-        line2.setAttr("x", this.point1.x + stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
-        line2.setAttr("y", this.point1.y + stylesheet.bond_spacing_px*Math.sin(this.alfa) + stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
-        line2.setAttr("points", [ 0, 0, -this.screen_length*(1-stylesheet.double_bond_shortening)*Math.sin(this.alfa), this.screen_length*(1-stylesheet.double_bond_shortening)*Math.cos(this.alfa) ]);
-        this.group?.add(<Konva.Line>line2);
-
-        const line3 = this.group?.findOne("#bond_line3") ||
-        new Konva.Line({
-            stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
-            id: "bond_line3",
-        });
-        line3.setAttr("strokeWidth", stylesheet.bond_thickness_px);
-        line3.setAttr("hitStrokeWidth", Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
-        line3.setAttr("x", this.point1.x - stylesheet.bond_spacing_px*Math.cos(this.alfa) - stylesheet.double_bond_shortening*this.screen_length*Math.sin(this.alfa)/2);
-        line3.setAttr("y", this.point1.y - stylesheet.bond_spacing_px*Math.sin(this.alfa) + stylesheet.double_bond_shortening*this.screen_length*Math.cos(this.alfa)/2);
-        line3.setAttr("points", [ 0, 0, -this.screen_length*(1-stylesheet.double_bond_shortening)*Math.sin(this.alfa), this.screen_length*(1-stylesheet.double_bond_shortening)*Math.cos(this.alfa) ]);
-        this.group?.add(<Konva.Line>line3);
-    }
-
     public set z_index(index: number) {
         this.group?.setAttr("zIndex", index);
     }
 
-    update() {
-        if (!this.controller)
+    /**
+     * Create sequentially numbered lines if they do not exist, removing extraneous ones, and return an array with them.
+     * @param stylesheet
+     * @param count number of lines to create
+     * @returns array of lines
+     */
+    create_lines(count = 1): Konva.Line[] {
+        const stylesheet = this.controller?.stylesheet;
+        const result: Konva.Line[] = [];
+        if (!stylesheet)
+            return result;
+        for (let i = 0; i < count; i++) {
+            result.push(this.group?.findOne("#bond_line" + i) ||
+            new Konva.Line({
+                stroke: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
+                fill: this.is_active ? stylesheet.bond_active_color : stylesheet.bond_stroke_color,
+                id: "bond_line" + i,
+                strokeWidth: stylesheet.bond_thickness_px,
+                hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
+            }));
+        }
+        let i = count;
+        let line;
+        do {
+            line = this.group?.findOne("#bond_line" + i++);
+            line?.destroy();
+        } while (line);
+        return result;
+    }
+
+    draw_single() {
+        const line = this.create_lines(1)[0];
+        line.setAttr("points", [ 0, 0, this.screen_length, 0 ]);
+        line.setAttr("lineJoin", "miter");
+        this.group?.add(<Konva.Line>line);
+    }
+
+    draw_single_up() {
+        const stylesheet = this.controller?.stylesheet;
+        if (!stylesheet)
             return;
-        const stylesheet = this.controller.stylesheet;
+        const line = this.create_lines(1)[0];
+        line.setAttr("points", [
+            0, 0,
+            this.screen_length, -stylesheet.bond_wedge_px/2,
+            this.screen_length, stylesheet.bond_wedge_px/2
+        ]);
+        line.setAttr("fillEnabled", true);
+        line.setAttr("closed", true);
+        line.setAttr("lineJoin", "round");
+        this.group?.add(<Konva.Line>line);
+    }
+
+    draw_single_down() {
+        const stylesheet = this.controller?.stylesheet;
+        if (!stylesheet)
+            return;
+        const line = this.create_lines(1)[0];
+        line.setAttr("points", [
+            0, -stylesheet.bond_wedge_px/2,
+            0, stylesheet.bond_wedge_px/2,
+            this.screen_length, 0
+        ]);
+        line.setAttr("fillEnabled", false);
+        line.setAttr("closed", true);
+        line.setAttr("lineJoin", "round");
+        this.group?.add(<Konva.Line>line);
+    }
+
+    draw_single_either() {
+        const stylesheet = this.controller?.stylesheet;
+        if (!stylesheet)
+            return;
+        const line = this.create_lines(1)[0];
+        const pts : number[] = [];
+        const npts = this.screen_length / stylesheet.bond_either_period_px;
+        for (let i = 0; i <= npts; i++) {
+            pts.push(i / npts*this.screen_length);
+            pts.push(Math.sign(i%2-0.5)*stylesheet.bond_wedge_px*i/npts);
+        }
+        line.setAttr("points", pts);
+        line.setAttr("fillEnabled", false);
+        line.setAttr("closed", false);
+        line.setAttr("lineJoin", "round");
+        this.group?.add(<Konva.Line>line);
+    }
+
+    draw_double() {
+        const stylesheet = this.controller?.stylesheet;
+        if (!stylesheet)
+            return;
+        const lines = this.create_lines(2);
+        if (this.orientation == EdgeOrientation.Center) {
+            lines[0].setAttr("points", [ 0, -stylesheet.bond_spacing_px/2, this.screen_length, -stylesheet.bond_spacing_px/2 ]);
+            lines[1].setAttr("points", [ 0, stylesheet.bond_spacing_px/2, this.screen_length, stylesheet.bond_spacing_px/2 ]);
+        }
+        else {
+            const sign = this.orientation == EdgeOrientation.Right ? 1 : -1;
+            lines[0].setAttr("points", [ 0, 0, this.screen_length, 0 ]);
+            lines[1].setAttr("points", [
+                this.screen_length*stylesheet.double_bond_shortening/2, sign*stylesheet.bond_spacing_px,
+                this.screen_length*(1-stylesheet.double_bond_shortening/2), sign*stylesheet.bond_spacing_px,
+            ]);
+        }
+        this.group?.add(<Konva.Line>lines[0]);
+        this.group?.add(<Konva.Line>lines[1]);
+    }
+
+    draw_double_either() {
+        const stylesheet = this.controller?.stylesheet;
+        if (!stylesheet)
+            return;
+        const lines = this.create_lines(2);
+        lines[0].setAttr("points", [ 0, -stylesheet.bond_spacing_px/2, this.screen_length, stylesheet.bond_spacing_px/2 ]);
+        lines[1].setAttr("points", [ 0, stylesheet.bond_spacing_px/2, this.screen_length, -stylesheet.bond_spacing_px/2 ]);
+        this.group?.add(<Konva.Line>lines[0]);
+        this.group?.add(<Konva.Line>lines[1]);
+    }
+
+    draw_triple() {
+        const stylesheet = this.controller?.stylesheet;
+        if (!stylesheet)
+            return;
+        const lines = this.create_lines(3);
+        lines[0].setAttr("points", [ 0, 0, this.screen_length, 0 ]);
+        lines[1].setAttr("points", [
+            this.screen_length*stylesheet.double_bond_shortening/2, -stylesheet.bond_spacing_px,
+            this.screen_length*(1-stylesheet.double_bond_shortening/2), -stylesheet.bond_spacing_px,
+        ]);
+        lines[2].setAttr("points", [
+            this.screen_length*stylesheet.double_bond_shortening/2, stylesheet.bond_spacing_px,
+            this.screen_length*(1-stylesheet.double_bond_shortening/2), stylesheet.bond_spacing_px,
+        ]);
+        this.group?.add(<Konva.Line>lines[0]);
+        this.group?.add(<Konva.Line>lines[1]);
+        this.group?.add(<Konva.Line>lines[2]);
+    }
+
+    update() {
+        if (!this.controller || !this.group)
+            return;
         this.calculate_coordinates();
         switch(this._shape) {
         case EdgeShape.Single:
+            this.draw_single();
+            break;
         case EdgeShape.SingleUp:
+            this.draw_single_up();
+            break;
         case EdgeShape.SingleDown:
+            this.draw_single_down();
+            break;
         case EdgeShape.SingleEither:
-            this._draw_single(stylesheet);
+            this.draw_single_either();
             break;
         case EdgeShape.Double:
-            this._draw_double(stylesheet);
+            this.draw_double();
+            break;
+        case EdgeShape.DoubleEither:
+            this.draw_double_either();
             break;
         case EdgeShape.Triple:
-            this._draw_triple(stylesheet);
+            this.draw_triple();
             break;
+        default:
+            this.draw_single();
         }
-        if (this.group?.getStage())
+        this.group.setAttr("x", this.point1.x);
+        this.group.setAttr("y", this.point1.y);
+        this.group.rotation(180*this.alfa/Math.PI + 90);
+        if (this.group.getStage())
             this.group.draw();
     }
 }

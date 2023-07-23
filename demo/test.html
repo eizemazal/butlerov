@@ -30,6 +30,10 @@
                 d.load_mol_from_string(document.getElementById("moltxt").value);
             }
             //eslint-disable-next-line
+            function readMolSmiles() {
+                d.load_mol_from_smiles(document.getElementById("smiles").value);
+            }
+            //eslint-disable-next-line
             function readonlyChange() {
                 d.readonly = document.getElementById("readonly-chkbx").checked;
             }
@@ -108,6 +112,10 @@
             input.large {
                 width: 140px;
             }
+            input.smiles {
+                width: 300px;
+                margin: 20px 5px;
+            }
         </style>
     </head>
     <body onload="init()">
@@ -120,6 +128,12 @@
                 <div class="wrapper">
                     <div id="chemical"></div>
                 </div>
+                <h2>Read/write SMILES</h2>
+                <div>
+                <button onclick="">Get as text</button>
+                <button onclick="readMolSmiles()">Read from text</button>
+                </div>
+                <input type="text" class="smiles" id="smiles" name="smiles" />
                 <h2>Read/write .mol format (ctab)</h2>
                 <div>
                 <button onclick="getMol()">Get as text</button>

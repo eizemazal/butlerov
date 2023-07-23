@@ -2,6 +2,7 @@ import Konva from "konva";
 import { MoleculeEditor } from "../main";
 import { BondType, Edge, EdgeOrientation, EdgeShape, EdgeTopology } from "./Edge";
 import { Coords, Vertex, VertexTopology } from "./Vertex";
+import { SmilesParser } from "./Smiles";
 
 /**
  * Class to specify rectangle by two opposite points
@@ -232,6 +233,28 @@ class Graph {
         }
         r += "M  END";
         return r;
+    }
+
+    /**
+     * Load string of SMILES
+     */
+    load_smiles(smiles: string) : void {
+        this.clear();
+        const controller = this.controller;
+        if (controller)
+            this.detach();
+
+        const parser = new SmilesParser(this);
+        parser.parse(smiles);
+        if (controller) {
+            this.mol_scaling_factor = this.get_average_bond_distance() / controller.stylesheet.bond_length_px;
+            this.vertices.forEach( e => {
+                e.coords = { x: e.coords.x / this.mol_scaling_factor, y: e.coords.y / this.mol_scaling_factor };
+            });
+            this.attach(controller);
+        }
+        this.update_topology();
+        this.edges.forEach(e => {this.update_edge_orientation(e);});
     }
 
     /**
