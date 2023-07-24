@@ -1,12 +1,12 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import { Edge, EdgeShape, BondType, EdgeOrientation } from "../view/Edge";
-import { Graph } from "../view/Graph";
-import { Stylesheet } from "../view/Stylesheet";
-import { Coords, Vertex } from "../view/Vertex";
+import { Edge, EdgeShape, BondType, EdgeOrientation } from "../graph/Edge";
+import { Graph } from "../graph/Graph";
+import { Stylesheet } from "../graph/Stylesheet";
+import { Coords, Vertex } from "../graph/Vertex";
 import { ChemicalElements } from "../lib/elements";
-import { Menu } from "../view/Menu";
-import { MenuButton } from "../view/MenuButton";
+import { Menu } from "./Menu";
+import { MenuButton } from "./MenuButton";
 import {
     Action,
     AddBoundVertexAction,
@@ -28,6 +28,8 @@ import {
     UpdatableAction,
     UpdateEdgeShapeAction
 } from "./Action";
+import { Converter } from "../converter/Converter";
+import { MolConverter } from "../converter/MolConverter";
 
 class MoleculeEditor {
     stage: Konva.Stage;
@@ -209,24 +211,35 @@ class MoleculeEditor {
         this.zoom = zoom;
     }
 
+    /**
+     * @deprecated will be removed in favor of @see load
+     * @param mol_string
+     */
     load_mol_from_string(mol_string: string) {
-        this.clear_actions();
-        this.graph.load_mol_string(mol_string);
-        this.center_view();
-        this.graph.update();
-        this.update_background();
+        this.load(mol_string, new MolConverter());
     }
 
+    /**
+     * @deprecated will be removed in favor of @see save
+     * @param mol_string
+     */
     get_mol_string() {
-        return this.graph.get_mol_string();
+        return this.save(new MolConverter());
     }
 
-    load_mol_from_smiles(smiles: string) {
+    load(s: string, converter: Converter) {
         this.clear_actions();
-        this.graph.load_smiles(smiles);
+        if (converter.from_string)
+            converter.from_string(s, this.graph);
         this.center_view();
         this.graph.update();
         this.update_background();
+    }
+
+    save(converter: Converter): string {
+        if (converter.to_string)
+            return converter.to_string(this.graph);
+        return "";
     }
 
     /**

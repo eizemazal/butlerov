@@ -1,6 +1,7 @@
-import { Edge, EdgeOrientation, EdgeShape } from "../view/Edge";
-import { Graph } from "../view/Graph";
-import { Coords, Vertex } from "../view/Vertex";
+import { MolConverter } from "../converter/MolConverter";
+import { Edge, EdgeOrientation, EdgeShape } from "../graph/Edge";
+import { Graph } from "../graph/Graph";
+import { Coords, Vertex } from "../graph/Vertex";
 
 abstract class Action {
     abstract commit() : void;
@@ -57,11 +58,11 @@ class ClearGraphAction extends Action {
         this.mol = "";
     }
     commit() {
-        this.mol = this.graph.get_mol_string();
+        this.mol = new MolConverter().to_string(this.graph);
         this.graph.clear();
     }
     rollback() {
-        this.graph.load_mol_string(this.mol);
+        new MolConverter().from_string(this.mol, this.graph);
         this.graph.update();
     }
 }

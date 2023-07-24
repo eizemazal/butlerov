@@ -5,9 +5,13 @@
         <script type="text/javascript" src="../dist/butlerov.js"></script>
         <script type="text/javascript">
             let d;
+            let mol_converter;
+            let smiles_converter;
             //eslint-disable-next-line
             function init() {
                 d = window.butlerov.MoleculeEditor.from_html_element(document.getElementById("chemical"));
+                smiles_converter = new window.butlerov.SmilesConverter();
+                mol_converter = new window.butlerov.MolConverter();
                 for (const el of document.querySelectorAll("[id^=\"style-\"]")) {
                     const prop_name = el.id.substring("style-".length).replaceAll("-", "_");
                     const prop_type = typeof(d.stylesheet[prop_name]);
@@ -23,15 +27,15 @@
             }
             //eslint-disable-next-line
             function getMol() {
-                document.getElementById("moltxt").value = d.get_mol_string();
+                document.getElementById("moltxt").value = d.save(mol_converter);
             }
             //eslint-disable-next-line
             function readMol() {
-                d.load_mol_from_string(document.getElementById("moltxt").value);
+                d.load(document.getElementById("moltxt").value, mol_converter);
             }
             //eslint-disable-next-line
-            function readMolSmiles() {
-                d.load_mol_from_smiles(document.getElementById("smiles").value);
+            function readSmiles() {
+                d.load(document.getElementById("smiles").value, smiles_converter);
             }
             //eslint-disable-next-line
             function readonlyChange() {
@@ -131,7 +135,7 @@
                 <h2>Read/write SMILES</h2>
                 <div>
                 <button onclick="">Get as text</button>
-                <button onclick="readMolSmiles()">Read from text</button>
+                <button onclick="readSmiles()">Read from text</button>
                 </div>
                 <input type="text" class="smiles" id="smiles" name="smiles" />
                 <h2>Read/write .mol format (ctab)</h2>

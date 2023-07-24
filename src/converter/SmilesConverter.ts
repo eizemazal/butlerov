@@ -1,25 +1,43 @@
-import { Graph } from "./Graph";
-import { Vertex } from "./Vertex";
-import { BondType } from "./Edge";
+import { Graph } from "../graph/Graph";
+import { Vertex } from "../graph/Vertex";
+import { BondType } from "../graph/Edge";
 import { ChemicalElements } from "../lib/elements";
+import { Converter } from "./Converter";
 
 
 /**
- * Finite state automation class for parsing smiles into graphs
+ * Converter class for SMILES
  */
-export class SmilesParser {
-    graph : Graph;
+export class SmilesConverter extends Converter {
+    graph : Graph = new Graph();
     label = "";
     attachment_stack: Vertex[] = [];
     element_symbol = "";
     bond_order = 1;
     labels: { [key: string]: Vertex } = {};
-    constructor(graph: Graph | null = null) {
+
+    from_string(s: string, graph: Graph | null): Graph {
         this.graph = graph ? graph : new Graph();
+        const controller = this.graph.controller;
+        if (controller)
+            this.graph.detach();
+        this.graph.clear();
         this.reset();
+        this._parse(s);
+        if (controller) {
+            const scaling_factor = this.graph.get_average_bond_distance() / controller.stylesheet.bond_length_px;
+            this.graph.mol_scaling_factor = scaling_factor;
+            this.graph.vertices.forEach( e => {
+                e.coords = { x: e.coords.x / scaling_factor, y: e.coords.y / scaling_factor };
+            });
+            this.graph.attach(controller);
+        }
+        this.graph.update_topology();
+        this.graph.edges.forEach(e => {this.graph.update_edge_orientation(e);});
+        return this.graph;
     }
 
-    parse(smiles: string) : void {
+    _parse(smiles: string) : void {
         const lowercase_list = "(?:b|c|n|o|p|s)";
         const re_lowercase = /^(?:b|c|n|o|p|s)/;
         const re_organic = /^(?:Cl|Br|F|I|B|C|N|O|P|S)/;
@@ -106,7 +124,6 @@ export class SmilesParser {
             }
             throw `Unknown symbol ${smiles[i]} at position ${i}`;
         }
-        console.log(this.graph);
     }
     attach() {
         const attach_to = this.attachment_stack.pop();

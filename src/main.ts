@@ -1,2 +1,4 @@
 import { MoleculeEditor } from "./controller/MoleculeEditor";
-export {MoleculeEditor};
+import { MolConverter } from "./converter/MolConverter";
+import { SmilesConverter } from "./converter/SmilesConverter";
+export { MoleculeEditor, SmilesConverter, MolConverter };
