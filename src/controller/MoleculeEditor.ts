@@ -373,7 +373,7 @@ class MoleculeEditor {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.DoubleEither));
             } ));
             this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
-            if ( (edge.v1.neighbors.length == 1) != (edge.v2.neighbors.length == 1) )
+            if ( (edge.v1.neighbors.size == 1) != (edge.v2.neighbors.size == 1) )
                 this.menu.add_button( new MenuButton("S", "Symmetrize along", () => { this.commit_action(new SymmetrizeAlongEdgeAction(this.graph, edge)); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () =>  {
                 this.commit_action(new DeleteEdgeAction(this.graph, edge));
@@ -384,7 +384,7 @@ class MoleculeEditor {
             const vertex = this.active_vertex;
             this.menu.add_button( new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); } ));
             this.menu.add_button( new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); } ));
-            if (this.active_vertex.neighbors.length == 1)
+            if (this.active_vertex.neighbors.size == 1)
                 this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () => {
                 this.commit_action(new DeleteVertexAction(this.graph, vertex));

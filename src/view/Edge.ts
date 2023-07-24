@@ -164,17 +164,17 @@ class Edge {
         switch( bond_type ) {
         case BondType.Double:
             this._shape = EdgeShape.Double;
-            this.v1.change_neighbor_bond(this.v2, 2);
-            this.v2.change_neighbor_bond(this.v1, 2);
+            this.v1.set_neighbor(this.v2, 2);
+            this.v2.set_neighbor(this.v1, 2);
             return;
         case BondType.Triple:
-            this.v1.change_neighbor_bond(this.v2, 3);
-            this.v2.change_neighbor_bond(this.v1, 3);
+            this.v1.set_neighbor(this.v2, 3);
+            this.v2.set_neighbor(this.v1, 3);
             this._shape = EdgeShape.Triple;
             return;
         }
-        this.v1.change_neighbor_bond(this.v2, 1);
-        this.v2.change_neighbor_bond(this.v1, 1);
+        this.v1.set_neighbor(this.v2, 1);
+        this.v2.set_neighbor(this.v1, 1);
         this._shape = EdgeShape.Single;
     }
 

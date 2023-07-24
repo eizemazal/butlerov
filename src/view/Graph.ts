@@ -74,8 +74,8 @@ class Graph {
         r.edges = this.edges.map( e => {
             const v1 = r.vertices[this.vertices.findIndex( v => v == e.v1 )];
             const v2 = r.vertices[this.vertices.findIndex( v => v == e.v2 )];
-            v1.add_neighbor(v2, e.bond_order);
-            v2.add_neighbor(v1, e.bond_order);
+            v1.set_neighbor(v2, e.bond_order);
+            v2.set_neighbor(v1, e.bond_order);
             return e.copy(v1, v2);
         });
         r.mol_scaling_factor = this.mol_scaling_factor;
@@ -366,7 +366,7 @@ class Graph {
     add(graph: Graph): void {
         this.vertices.push(...graph.vertices.filter( e => this.vertices.indexOf(e) == -1));
         this.edges.push(...graph.edges.filter( e => this.edges.indexOf(e) == -1));
-        this.edges.forEach(e => { e.v1.add_neighbor(e.v2, e.bond_order); e.v2.add_neighbor(e.v1, e.bond_order); });
+        this.edges.forEach(e => { e.v1.set_neighbor(e.v2, e.bond_order); e.v2.set_neighbor(e.v1, e.bond_order); });
         if (this.controller) {
             const controller = this.controller;
             graph.vertices.forEach(e => { this.group?.add(e.attach(controller)); });
@@ -399,8 +399,8 @@ class Graph {
     bind_vertices(v1: Vertex, v2: Vertex, edge_shape: EdgeShape = EdgeShape.Single): Edge {
         const edge = new Edge(v1, v2);
         edge.shape = edge_shape;
-        v1.add_neighbor(v2, edge.bond_order);
-        v2.add_neighbor(v1, edge.bond_order);
+        v1.set_neighbor(v2, edge.bond_order);
+        v2.set_neighbor(v1, edge.bond_order);
         this.edges.push(edge);
         if (this.controller) {
             this.group?.add(edge.attach(this.controller));
@@ -440,12 +440,12 @@ class Graph {
         edge.v1.remove_neighbor(edge.v2);
         edge.v2.remove_neighbor(edge.v1);
         // delete lone vertices
-        if (drop_dangling_vertices && edge.v1.neighbors.length == 0) {
+        if (drop_dangling_vertices && edge.v1.neighbors.size == 0) {
             edge.v1.detach();
             r.vertices.push(edge.v1);
             this.vertices = this.vertices.filter( e => e != edge.v1);
         }
-        if (drop_dangling_vertices && edge.v2.neighbors.length == 0) {
+        if (drop_dangling_vertices && edge.v2.neighbors.size == 0) {
             edge.v2.detach();
             r.vertices.push(edge.v2);
             this.vertices = this.vertices.filter( e => e != edge.v2);
@@ -569,8 +569,8 @@ class Graph {
             return r;
         }
         // help drawing polysubstituted atoms. We can move vertices which have no other neighbors
-        let movable_neighbors = neighbors.filter(e => e.neighbors.length == 1);
-        let fixed_neighbors = neighbors.filter(e => e.neighbors.length != 1);
+        let movable_neighbors = neighbors.filter(e => e.neighbors.size == 1);
+        let fixed_neighbors = neighbors.filter(e => e.neighbors.size != 1);
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         if (!fixed_neighbors.length)
             fixed_neighbors.push(...movable_neighbors.splice(0, 1));
@@ -734,7 +734,7 @@ class Graph {
      * @returns a Graph containing newly created edges and vertices
      */
     attach_ring(vertex: Vertex, nvertices: number, desaturate = false) : Graph {
-        if (vertex.neighbors.length < 2) {
+        if (vertex.neighbors.size < 2) {
             const r: Graph = this.add_bound_vertex_to(vertex);
             const frag = this.fuse_ring(r.edges[0], nvertices, desaturate);
             r.vertices = [...r.vertices, ...frag.vertices];
@@ -777,10 +777,10 @@ class Graph {
                 rest_vertices.delete(vertex);
                 to_visit.delete(vertex);
                 subgraph_vertices.add(vertex);
-                for (const neighbor of vertex.neighbors) {
-                    if (subgraph_vertices.has(neighbor.vertex))
+                for (const [neighboring_vertex,] of vertex.neighbors) {
+                    if (subgraph_vertices.has(neighboring_vertex))
                         continue;
-                    to_visit.add(neighbor.vertex);
+                    to_visit.add(neighboring_vertex);
                 }
             }
             const subgraph = new Graph();
@@ -802,7 +802,7 @@ class Graph {
      * @returns @see EdgeTopology, either EdgeTopology.Chain, or EdgeTopology.Ring
      */
     edge_topology(edge: Edge): EdgeTopology {
-        if ( edge.v1.neighbors.length == 1 || edge.v2.neighbors.length == 1)
+        if ( edge.v1.neighbors.size == 1 || edge.v2.neighbors.size == 1)
             return EdgeTopology.Chain;
         const edge_index = this.edges.findIndex(e => e == edge);
         const graph_copy = this.copy();
@@ -894,7 +894,7 @@ class Graph {
         const chain_edges = graph_copy.edges.filter( e => e.topology == EdgeTopology.Chain);
         chain_edges.forEach( e => graph_copy.delete_edge(e) );
         // remove lone vertices; they might have been present originally
-        graph_copy.vertices = graph_copy.vertices.filter( e => e.neighbors.length );
+        graph_copy.vertices = graph_copy.vertices.filter( e => e.neighbors.size );
         this.ringsystems = [];
         for (const ringsystem_copy of graph_copy.subgraphs()) {
             const ringsystem = new Graph();
@@ -929,14 +929,14 @@ class Graph {
      */
 
     symmetrize_along_edge(edge: Edge): Graph {
-        if ( (edge.v1.neighbors.length == 1) == (edge.v2.neighbors.length == 1) )
+        if ( (edge.v1.neighbors.size == 1) == (edge.v2.neighbors.size == 1) )
             return new Graph();
         const center : Coords = {
             x: (edge.v1.coords.x + edge.v2.coords.x) / 2,
             y: (edge.v1.coords.y + edge.v2.coords.y) / 2,
         };
         this.add_numbering();
-        const free_vertex = edge.v1.neighbors.length == 1 ? edge.v1 : edge.v2;
+        const free_vertex = edge.v1.neighbors.size == 1 ? edge.v1 : edge.v2;
         const bound_vertex = free_vertex == edge.v1 ? edge.v2 : edge.v1;
         const r = this.subgraph_with(edge.v1).copy();
         r.edges = r.edges.filter( e => e.id != edge.id);
@@ -944,12 +944,12 @@ class Graph {
             if (e.v1.id == bound_vertex.id) {
                 e.v2.remove_neighbor(e.v1);
                 e.v1 = free_vertex;
-                e.v2.add_neighbor(e.v1, e.bond_order);
+                e.v2.set_neighbor(e.v1, e.bond_order);
             }
             if (e.v2.id == bound_vertex.id) {
                 e.v1.remove_neighbor(e.v2);
                 e.v2 = free_vertex;
-                e.v1.add_neighbor(e.v2, e.bond_order);
+                e.v1.set_neighbor(e.v2, e.bond_order);
             }
         });
         r.vertices = r.vertices.filter( e => e.id != edge.v1.id && e.id != edge.v2.id );
@@ -988,7 +988,7 @@ class Graph {
      * @returns Graph with all added elements
      */
     symmetrize_at_vertex(vertex: Vertex, order: number): Graph {
-        if ( (vertex.neighbors.length != 1) )
+        if ( (vertex.neighbors.size != 1) )
             return new Graph();
         this.add_numbering();
         const angle_increment = order == 2 ? 2*Math.PI / 3 : 2 * Math.PI / order;
@@ -996,11 +996,12 @@ class Graph {
         const subgraph = this.subgraph_with(vertex).copy();
         subgraph.vertices = subgraph.vertices.filter(e => e.id != vertex.id);
         subgraph.edges = subgraph.edges.filter(e => e.v1.id != vertex.id && e.v2.id != vertex.id);
-        subgraph.vertices.find(e => e.id == vertex.neighbors[0].vertex.id)?.remove_neighbor(vertex);
+        const neighboring_vertex_id = vertex.neighbors.keys().next().value.id;
+        subgraph.vertices.find(e => e.id ==neighboring_vertex_id)?.remove_neighbor(vertex);
         for (let i = 1; i < order; i++) {
             const subgraph_copy = subgraph.copy();
             subgraph_copy.rotate(vertex.coords, angle_increment*i);
-            const vertex_to_bind = subgraph_copy.vertices.find(e => e.id == vertex.neighbors[0].vertex.id);
+            const vertex_to_bind = subgraph_copy.vertices.find(e => e.id == neighboring_vertex_id);
             if (!vertex_to_bind)
                 throw "This should never happen";
             subgraph_copy.bind_vertices(vertex_to_bind, vertex);
@@ -1010,6 +1011,7 @@ class Graph {
         this.update_topology();
         return r;
     }
+
 }
 
 export { Graph };

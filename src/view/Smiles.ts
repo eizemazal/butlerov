@@ -13,6 +13,7 @@ export class SmilesParser {
     attachment_stack: Vertex[] = [];
     element_symbol = "";
     bond_order = 1;
+    labels: { [key: string]: Vertex } = {};
     constructor(graph: Graph | null = null) {
         this.graph = graph ? graph : new Graph();
         this.reset();
@@ -55,6 +56,11 @@ export class SmilesParser {
                 i += 1;
                 continue;
             }
+            if (smiles[i] == "/" || smiles[i] == "\\") {
+                /// FIXME ignore cis-trans for now
+                i += 1;
+                continue;
+            }
 
             let match = smiles.substring(i).match(re_organic);
             if (match) {
@@ -78,7 +84,6 @@ export class SmilesParser {
                     this.element_symbol = this.element_symbol.toUpperCase();
                 // [ "[Na@@H2+2]", "Na", "@@", "H2", "+2" ]
                 this.attach();
-                console.log(match);
                 // convert + or - to +1/-1
                 if (match[4])
                     this.attachment_stack[this.attachment_stack.length-1].charge = parseInt(match[4].length == 1 ? match[4] + "1" : match[4]);
@@ -87,13 +92,21 @@ export class SmilesParser {
             }
             match = smiles.substring(i).match(re_label);
             if (match) {
-                const labels = match[0].match(/(%\d{2,}|\d)/g);
-                console.log(`Found labels ${labels}`);
+                if (!this.attachment_stack.length)
+                    throw "Label must follow atom in SMILES string";
+                const labels = match[0].match(/(%\d{2,}|\d)/g) || [];
+                for (let j = 0; j < labels.length; j++) {
+                    if (labels[j] in this.labels)
+                        this.graph.bind_vertices(this.labels[labels[j]], this.attachment_stack[this.attachment_stack.length-1]);
+                    else
+                        this.labels[labels[j]] = this.attachment_stack[this.attachment_stack.length-1];
+                }
                 i += match[0].length;
                 continue;
             }
             throw `Unknown symbol ${smiles[i]} at position ${i}`;
         }
+        console.log(this.graph);
     }
     attach() {
         const attach_to = this.attachment_stack.pop();
@@ -113,5 +126,6 @@ export class SmilesParser {
         this.attachment_stack = [];
         this.bond_order = 1;
         this.label = "";
+        this.labels = {};
     }
 }

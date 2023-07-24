@@ -35,15 +35,15 @@ class UpdateEdgeShapeAction extends Action {
         }
         else
             this.edge.orientation = this.new_orientation;
-        this.edge.v1.change_neighbor_bond(this.edge.v2, this.edge.bond_order);
-        this.edge.v2.change_neighbor_bond(this.edge.v1, this.edge.bond_order);
+        this.edge.v1.set_neighbor(this.edge.v2, this.edge.bond_order);
+        this.edge.v2.set_neighbor(this.edge.v1, this.edge.bond_order);
         this.edge.update();
     }
     rollback() {
         this.edge.shape = this.old_shape;
         this.edge.orientation = this.old_orientation;
-        this.edge.v1.change_neighbor_bond(this.edge.v2, this.edge.bond_order);
-        this.edge.v2.change_neighbor_bond(this.edge.v1, this.edge.bond_order);
+        this.edge.v1.set_neighbor(this.edge.v2, this.edge.bond_order);
+        this.edge.v2.set_neighbor(this.edge.v1, this.edge.bond_order);
         this.edge.update();
     }
 }
@@ -133,20 +133,20 @@ class AddBoundVertexAction extends Action {
     commit() {
         if (this.added) {
             this.graph.add(this.added);
-            this.vertex.neighbors.forEach( (e, idx) =>  e.vertex.coords = this.new_neighbor_coords[idx]);
+            Array.from(this.vertex.neighbors.keys()).forEach( (e, idx) =>  e.coords = this.new_neighbor_coords[idx]);
             this.graph.update();
         }
         else {
-            this.old_neighbor_coords = this.vertex.neighbors.map( e => e.vertex.coords );
+            this.old_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map( e => e.coords );
             this.added = this.graph.add_bound_vertex_to(this.vertex);
-            this.new_neighbor_coords = this.vertex.neighbors.map( e => e.vertex.coords );
+            this.new_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map( e => e.coords );
         }
     }
     rollback() {
         if (!this.added)
             return;
         this.graph.remove(this.added);
-        this.vertex.neighbors.forEach( (e, idx) =>  e.vertex.coords = this.old_neighbor_coords[idx]);
+        Array.from(this.vertex.neighbors.keys()).forEach( (e, idx) =>  e.coords = this.old_neighbor_coords[idx]);
         this.graph.update();
     }
 }
@@ -400,14 +400,16 @@ class MoveVertexAction extends UpdatableAction {
     commit() : void {
         this.vertex.coords = this.new_coords;
         this.vertex.update();
-        this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
+        for (const [vertex,] of this.vertex.neighbors)
+            vertex.update();
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
     }
 
     rollback(): void {
         this.vertex.coords = this.old_coords;
         this.vertex.update();
-        this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
+        for (const [vertex,] of this.vertex.neighbors)
+            vertex.update();
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
     }
 
@@ -416,7 +418,8 @@ class MoveVertexAction extends UpdatableAction {
             return false;
         this.new_coords = action.vertex.coords;
         this.vertex.update();
-        this.vertex.neighbors.filter(e => e.vertex != this.vertex).forEach(e => e.vertex.update());
+        for (const [vertex,] of this.vertex.neighbors)
+            vertex.update();
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
         return true;
     }

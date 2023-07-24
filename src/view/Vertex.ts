@@ -10,11 +10,6 @@ type Coords = {
     y: number;
 }
 
-type Neighbor = {
-    vertex: Vertex;
-    bond_order: number;
-}
-
 enum VertexTopology {
     Undefined = 0,
     Chain,
@@ -29,41 +24,24 @@ enum LabelAlignment {
 }
 
 class Vertex {
-    group: Konva.Group | null;
-    protected controller: MoleculeEditor | null;
-    protected _neighbors: Array<Neighbor>;
-    protected is_active: boolean;
-    protected _coords: Coords;
-    protected _charge : number;
-    protected _label : string;
-    protected _computed_label: string;
-    protected _element: ChemicalElement | null;
-    protected _h_count: number;
-    protected _label_alignment: LabelAlignment;
+    group: Konva.Group | null = null;
+    protected controller: MoleculeEditor | null = null;
+    protected _neighbors: Map<Vertex, number> = new Map();
+    protected is_active = false;
+    protected _coords: Coords = { x: 0, y: 0 };
+    protected _charge = 0;
+    protected _label = "";
+    protected _computed_label = "";
+    protected _element: ChemicalElement | null = ChemicalElements["C"];
+    protected _h_count = 4;
+    protected _label_alignment: LabelAlignment = LabelAlignment.Left;
     /**
      * Offset of label text element origin to atom center. For example, SO3H group is to have it in the middle of S letter,
      * and LiOOC in the middle of C
      */
-    protected _label_offset: Coords;
-    public topology: VertexTopology;
-    public id: string;
-
-    constructor() {
-        this._coords = { x: 0, y: 0 };
-        this._label = "";
-        this._computed_label = "";
-        this._charge = 0;
-        this.controller = null;
-        this._element = ChemicalElements["C"];
-        this._h_count = 4;
-        this.group = null;
-        this.is_active = false;
-        this._neighbors = [];
-        this.id = "";
-        this._label_alignment = LabelAlignment.Left;
-        this.topology = VertexTopology.Undefined;
-        this._label_offset = { x: 0, y: 0 };
-    }
+    protected _label_offset: Coords = { x: 0, y: 0 };
+    public topology: VertexTopology = VertexTopology.Undefined;
+    public id = "";
 
     copy(): Vertex {
         const v = new Vertex();
@@ -113,14 +91,14 @@ class Vertex {
     public set label(label: string) {
         if (label == "") {
             this._element = ChemicalElements["C"];
-            if (this.neighbors.length)
+            if (this.neighbors.size)
                 this._label = "";
             else
                 this._label = "C";
         }
         else if (label in ChemicalElements) {
             this._element = ChemicalElements[label];
-            if (label == "C" && this.neighbors.length)
+            if (label == "C" && this.neighbors.size)
                 this._label = "";
             else
                 this._label = label;
@@ -150,7 +128,7 @@ class Vertex {
             //   \   /
             //     N
             //     H
-            if (this.neighbors.length > 1 && alfa > Math.PI / 4 && alfa <= 3*Math.PI/4) {
+            if (this.neighbors.size > 1 && alfa > Math.PI / 4 && alfa <= 3*Math.PI/4) {
                 this._computed_label = this._label + "\nH" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
                 this._label_alignment = LabelAlignment.Top;
                 text.setAttr("text", this._computed_label);
@@ -159,7 +137,7 @@ class Vertex {
             //     H
             //     N
             //   /   \
-            else if (this.neighbors.length > 1 && alfa > 5*Math.PI / 4 && alfa <= 7*Math.PI/4) {
+            else if (this.neighbors.size > 1 && alfa > 5*Math.PI / 4 && alfa <= 7*Math.PI/4) {
                 this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + "\n" + this._label;
                 this._label_alignment = LabelAlignment.Bottom;
                 text.setAttr("text", this._computed_label);
@@ -167,8 +145,8 @@ class Vertex {
             }
             // -COOH
             else if (
-                (this.neighbors.length > 1 && (alfa > 7*Math.PI/4 || alfa <= Math.PI / 4)) ||
-                (this.neighbors.length == 1 && (alfa < Math.PI/2 || alfa > 3 * Math.PI / 2))
+                (this.neighbors.size > 1 && (alfa > 7*Math.PI/4 || alfa <= Math.PI / 4)) ||
+                (this.neighbors.size == 1 && (alfa < Math.PI/2 || alfa > 3 * Math.PI / 2))
             ) {
                 this._computed_label = this._label + "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
                 this._label_alignment = LabelAlignment.Left;
@@ -177,8 +155,8 @@ class Vertex {
             }
             // HOOC-
             else if (
-                (this.neighbors.length > 1 && alfa > 3*Math.PI/4 && alfa <= 5*Math.PI/4) ||
-                (this.neighbors.length == 1 && (alfa >= Math.PI/2 && alfa <= 3 * Math.PI / 2))
+                (this.neighbors.size > 1 && alfa > 3*Math.PI/4 && alfa <= 5*Math.PI/4) ||
+                (this.neighbors.size == 1 && (alfa >= Math.PI/2 && alfa <= 3 * Math.PI / 2))
             ) {
                 this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + this._label;
                 this._label_alignment = LabelAlignment.Right;
@@ -240,7 +218,7 @@ class Vertex {
     least_crowded_angle() {
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         let angles: Array<number> = [];
-        angles = this.neighbors.map(e => Math.atan2(e.vertex.coords.y-this.coords.y, e.vertex.coords.x-this.coords.x));
+        angles = Array.from(this.neighbors.keys()).map(e => Math.atan2(e.coords.y-this.coords.y, e.coords.x-this.coords.x));
         angles.sort( (a,b) => a > b ? 1 : -1);
         let largest_diff = 0;
         let angle1 = 0;
@@ -298,7 +276,7 @@ class Vertex {
         const frame = charge_group.findOne("#charge_frame");
         const charge_group_w = frame ? frame.width() : charge_group.findOne("#charge_text").width();
         const charge_group_h = frame ? frame.height() : charge_group.findOne("#charge_text").height();
-        const alfa = this.neighbors.length ? this.least_crowded_angle() : 1.75*Math.PI;
+        const alfa = this.neighbors.size ? this.least_crowded_angle() : 1.75*Math.PI;
         let x;
         let y;
         if (this.group?.findOne("#text")) {
@@ -365,11 +343,11 @@ class Vertex {
     }
 
     update() {
-        if (this._neighbors.length && this._label == "C")
+        if (this._neighbors.size && this._label == "C")
             this._label = "";
         if (!this.group || !this.controller)
             return;
-        this.group.draggable(this._neighbors.length <= 1);
+        this.group.draggable(this._neighbors.size <= 1);
         const stylesheet = this.controller.stylesheet;
         this.group.x(this._coords.x);
         this.group.y(this._coords.y);
@@ -400,7 +378,7 @@ class Vertex {
                 fill: stylesheet.bond_stroke_color,
                 id: "circle",
             });
-            circle.setAttr("radius", this._neighbors.length > 1 ? stylesheet.bond_thickness_px/2 : 0);
+            circle.setAttr("radius", this._neighbors.size > 1 ? stylesheet.bond_thickness_px/2 : 0);
             this.group.add(circle);
             const active_box = <Konva.Rect>this.group.findOne("#active_box") || new Konva.Rect({
                 x: -5,
@@ -427,15 +405,18 @@ class Vertex {
         if (!this.controller)
             throw Error("Vertex not attached to controller");
         const stylesheet = this.controller.stylesheet;
-        if (this._neighbors.length != 1)
+        if (this._neighbors.size != 1)
             return;
-        const n_vertex = this._neighbors[0].vertex;
+        const n_vertex = this._neighbors.keys().next().value;
         let alfa = Math.atan2(this.coords.y - n_vertex.coords.y, this.coords.x - n_vertex.coords.x);
         if (snap_to_angle) {
             const alfa_rounded = Math.round((alfa * 180 / Math.PI) / stylesheet.bond_snap_degrees)*stylesheet.bond_snap_degrees * Math.PI/180;
             // if the pivot vertex has exactly two adjacents (one we are moving), allow to create 180 deg angle with the rest adjacent
             if (n_vertex._neighbors.length == 2) {
-                const n2_vertex:Vertex = n_vertex._neighbors[0].vertex == this ? n_vertex._neighbors[1].vertex : n_vertex._neighbors[0].vertex;
+                const iter = n_vertex._neighbors.keys();
+                let n2_vertex:Vertex = iter.next().value;
+                if (n2_vertex == this)
+                    n2_vertex = iter.next().value;
                 const beta = Math.atan2(n_vertex.coords.y - n2_vertex.coords.y, n_vertex.coords.x - n2_vertex.coords.x);
                 if (Math.abs(alfa - beta)*180/Math.PI < stylesheet.bond_snap_degrees && Math.abs(alfa_rounded - alfa) > Math.abs(alfa - beta))
                     alfa = beta;
@@ -467,7 +448,9 @@ class Vertex {
 
     private compute_h_count() {
         if (this._element) {
-            const n_valent_bonds = this.neighbors.reduce( (p, e) => p + e.bond_order, 0);
+            let n_valent_bonds = 0;
+            for (const [, bond_order] of this.neighbors)
+                n_valent_bonds += bond_order;
             this._h_count = this._element.get_h_count(n_valent_bonds, this._charge);
         }
         else
@@ -478,25 +461,14 @@ class Vertex {
         return this._neighbors;
     }
 
-    public add_neighbor(vertex: Vertex, bond_order: number) {
-        if (this._neighbors.findIndex( e=> e.vertex == vertex) != -1)
-            return;
-        this._neighbors.push({vertex: vertex, bond_order: bond_order} );
+    public set_neighbor(vertex: Vertex, bond_order: number) {
+        this._neighbors.set(vertex, bond_order);
         this.compute_h_count();
         this.update();
     }
 
     public remove_neighbor(vertex: Vertex) {
-        this._neighbors = this._neighbors.filter(e => e.vertex != vertex);
-        this.compute_h_count();
-        this.update();
-    }
-
-    public change_neighbor_bond(vertex: Vertex, bond_order: number) {
-        const neighbor = this.neighbors.find( e => e.vertex == vertex);
-        if (!neighbor)
-            return;
-        neighbor.bond_order = bond_order;
+        this._neighbors.delete(vertex);
         this.compute_h_count();
         this.update();
     }
