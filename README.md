@@ -79,6 +79,24 @@ brew install pkg-config cairo pango libpng jpeg giflib librsvg
 The project uses eslint.
 I am developing using VS code and eslint plugin. Contributions are highly welcome.
 
+
+## ToDo - smaller tasks
+- implement support for isotope specification
+- add support for radicals
+- sometimes cycles are created over existing atoms - fix it
+- when creating an edge by dragging between existing vertices, display it
+- when edge order is changed (e.g. from 1 to 3), move substituents to fit geometry
+- add support for abbreviations and superatoms
+- improve display of charges to show them top right when possible and not adjacent to a double edge
+- add support for coloring schemes for atoms
+- support for selection, copy and paste
+
+## ToDo - larger tasks
+- Add support for SMILES reading and writing. Structures after inserting SMILES should look well.
+- Write support for mobile platforms to use taps for drawing on Android and iOS devices
+- Implement scheme drawing tool based on Butlerov. It should retain its lightweight functionality to draw and display structures. Add support for drawing primitives (arrows, text etc), and support for multiple structures.
+- write support for cdx export and import, and svg export
+
 ---
 
 ## License
