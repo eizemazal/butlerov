@@ -90,11 +90,11 @@ export class MolConverter extends Converter {
             if (lines[i].match(/\s*M\s+ISO\s+.+/)) {
                 const match_object = lines[i].match(/\s*M\s+ISO\s+(\d+)(.+)$/);
                 if (!match_object)
-                    throw Error("Charge line inconsistent.");
+                    throw Error("Isotope line inconsistent.");
                 const count = parseInt(match_object[1]);
                 const isotopes = match_object[2].trim().split(/\s+/);
                 if (count*2 != isotopes.length)
-                    throw Error("Charge line inconsistent - count does not match data.");
+                    throw Error("Isotope line inconsistent - count does not match data.");
                 for (let j = 0; j < count; j++) {
                     const v_index = parseInt(isotopes[j*2]) - 1;
                     const isotope = parseInt(isotopes[j*2 + 1]);
@@ -151,7 +151,7 @@ export class MolConverter extends Converter {
             r += charges.reduce((a, e) => a + e.padStart(4, " "), "") + "\n";
         }
         if (isotopes.length) {
-            r += "M  ISO" + `${charges.length/2}`.padStart(3, " ");
+            r += "M  ISO" + `${isotopes.length/2}`.padStart(3, " ");
             r += isotopes.reduce((a, e) => a + e.padStart(4, " "), "") + "\n";
         }
         r += "M  END";

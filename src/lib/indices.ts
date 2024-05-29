@@ -32,14 +32,18 @@ function int_to_superscript(int: number): string {
 }
 
 function charge_to_superscript(charge: number): string {
+    const superscriptSign: { [key: string] :  number } = {
+        '+': 0x207A,
+        '-': 0x207B
+    };
     if (charge == 1)
-        return "⁺";
+        return String.fromCodePoint(superscriptSign["+"]);
     if (charge == -1)
-        return "⁻";
+        return String.fromCodePoint(superscriptSign["-"]);
     if (charge > 0)
-        return int_to_superscript(charge) + "⁺";
+        return int_to_superscript(charge) + String.fromCodePoint(superscriptSign["+"]);
     if (charge < 0)
-        return int_to_superscript(-charge) + "⁻";
+        return int_to_superscript(-charge) + String.fromCodePoint(superscriptSign["-"]);
     return "";
 }
 

@@ -330,10 +330,10 @@ class Vertex {
         });
         charge_text.setAttr("x", stylesheet.atom_charge_frame_enabled ? hpadding / 2 : 0);
         charge_text.setAttr("y", stylesheet.atom_charge_frame_enabled ? vpadding / 2 : 0);
-        charge_text.setAttr("text", this.charge == -1 ? "－" : this.charge == 1 ? "+" : this.charge > 1 ? `${this._charge}+` : `${Math.abs(this._charge)}-`);
+        charge_text.setAttr("text", this.charge == -1 ? " - " : this.charge == 1 ? "+" : this.charge > 1 ? `${this._charge}+` : `${Math.abs(this._charge)}-`);
         charge_text.setAttr("fill", this.is_active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color);
         charge_text.setAttr("fontFamily", stylesheet.atom_font_family);
-        charge_text.setAttr("fontSize", stylesheet.atom_charge_font_size);
+        charge_text.setAttr("fontSize", Math.abs(this._charge) > 1 ? stylesheet.atom_charge_font_size : stylesheet.atom_charge_font_size + 2);
         charge_group.add(charge_text);
         if (stylesheet.atom_charge_frame_enabled) {
             const charge_frame = <Konva.Rect>this.group?.findOne("#charge_frame") || new Konva.Rect({
