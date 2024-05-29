@@ -87,6 +87,20 @@ export class MolConverter extends Converter {
                     graph.vertices[v_index].charge = charge;
                 }
             }
+            if (lines[i].match(/\s*M\s+ISO\s+.+/)) {
+                const match_object = lines[i].match(/\s*M\s+ISO\s+(\d+)(.+)$/);
+                if (!match_object)
+                    throw Error("Charge line inconsistent.");
+                const count = parseInt(match_object[1]);
+                const isotopes = match_object[2].trim().split(/\s+/);
+                if (count*2 != isotopes.length)
+                    throw Error("Charge line inconsistent - count does not match data.");
+                for (let j = 0; j < count; j++) {
+                    const v_index = parseInt(isotopes[j*2]) - 1;
+                    const isotope = parseInt(isotopes[j*2 + 1]);
+                    graph.vertices[v_index].isotope = isotope;
+                }
+            }
         }
         if (controller) {
             const scaling_factor = graph.get_average_bond_distance() / controller.stylesheet.bond_length_px;
@@ -110,6 +124,7 @@ export class MolConverter extends Converter {
         const nbonds = `${graph.edges.length}`.padStart(3, " ");
         r += `${natoms}${nbonds}  0  0  0  0  0  0  0  0  1 V2000\n`;
         const charges:Array<string> = [];
+        const isotopes:Array<string> = [];
         graph.vertices.forEach((e,idx) => {
             const mol_rect = graph.get_molecule_rect();
             const scaled_x = (e.coords.x - mol_rect.x1) * graph.mol_scaling_factor;
@@ -121,6 +136,8 @@ export class MolConverter extends Converter {
             r += `${x}${y}${z} ${element} 0  0  0  0  0  0  0  0  0  0  0  0\n`;
             if (e.charge)
                 charges.push(`${idx+1}`, `${e.charge}`);
+            if (e.isotope)
+                isotopes.push(`${idx+1}`, `${e.isotope}`);
         });
         graph.edges.forEach( e => {
             const v1index = `${graph.vertices.findIndex(v => v == e.v1)+1}`.padStart(3, " ");
@@ -132,6 +149,10 @@ export class MolConverter extends Converter {
         if (charges.length) {
             r += "M  CHG" + `${charges.length/2}`.padStart(3, " ");
             r += charges.reduce((a, e) => a + e.padStart(4, " "), "") + "\n";
+        }
+        if (isotopes.length) {
+            r += "M  ISO" + `${charges.length/2}`.padStart(3, " ");
+            r += isotopes.reduce((a, e) => a + e.padStart(4, " "), "") + "\n";
         }
         r += "M  END";
         return r;

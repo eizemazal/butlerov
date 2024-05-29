@@ -103,3 +103,34 @@ test("Strip hydrogens", () => {
     expect(editor.graph.vertices.length).toBe(2);
 });
 
+test("Isotopes", () => {
+    fire({x: 100, y: 100}, "click");
+    expect(editor.graph.vertices.length).toBe(2);
+    expect(editor.graph.vertices[0].isotope).toBe(0);
+    fire(editor.graph.vertices[0].coords, "mousemove");
+    fire_key(" ");
+    fire_key("i");
+    fire_key("1");
+    expect(editor.graph.vertices[0].isotope).toBe(12); // first isotope for C 
+    expect(editor.graph.vertices[0].label).toBe('C');
+    fire_key(" ");
+    fire_key("i");
+    fire_key("2");
+    expect(editor.graph.vertices[0].isotope).toBe(13); // second isotope for C 
+    fire_key(" ");
+    fire_key("i");
+    fire_key("x");
+    expect(editor.graph.vertices[0].isotope).toBe(0);
+    expect(editor.graph.vertices[0].label).toBe('');
+    fire_key("H");
+    expect(editor.graph.vertices[0].element?.symbol).toBe("H");
+    expect(editor.graph.vertices[0].isotope).toBe(0); // change atom
+    fire_key(" ");
+    fire_key("i");
+    fire_key("1");
+    expect(editor.graph.vertices[0].isotope).toBe(1); // first isotope for H
+    fire_key("C");
+    expect(editor.graph.vertices[0].element?.symbol).toBe("C");
+    expect(editor.graph.vertices[0].label).toBe('');
+    expect(editor.graph.vertices[0].isotope).toBe(0); // change atom should change isotope
+});
