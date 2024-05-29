@@ -2,6 +2,7 @@
  * Class that contains all the settings needed to render structures. Instantiated once and passed by
  * reference to all objects that are present on the drawing.
  */
+
 class Stylesheet {
     /**
      * Font size of atom labels in pixels
@@ -10,7 +11,7 @@ class Stylesheet {
     atom_font_size_px: number;
     /**
      * Font family for atom labels
-     * @defaultValue `Arial`
+     * @defaultValue `"Arial Unicode MS"`
      */
     atom_font_family: string;
     /**
@@ -149,7 +150,7 @@ class Stylesheet {
 
     constructor() {
         this.atom_font_size_px = 12;
-        this.atom_font_family = "Arial";
+        this.atom_font_family = "Arial Unicode MS";
         this.atom_label_horizontal_clearance_px = 2;
         this.atom_label_vertical_clearance_px = 2;
         this.atom_charge_font_size = 9;
