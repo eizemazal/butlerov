@@ -384,6 +384,38 @@ class ChangeVertexLabelAction extends UpdatableAction {
     }
 }
 
+class ChangeVertexIsotopeAction extends UpdatableAction {
+    graph: Graph;
+    vertex: Vertex;
+    old_isotope: number;
+    new_isotope: number;
+    constructor(graph: Graph, vertex: Vertex, isotope: number) {
+        super();
+        this.graph = graph;
+        this.vertex = vertex;
+        this.old_isotope = vertex.isotope;
+        this.new_isotope = isotope;
+    }
+    _set_isotope(isotope: number) {
+        this.vertex.isotope = isotope;
+        this.vertex.update();
+        this.graph.find_edges_by_vertex(this.vertex).forEach(e => { this.graph.update_edge_orientation(e, false); e.update(); });
+    }
+    commit() {
+        this._set_isotope(this.new_isotope);
+    }
+    rollback() {
+        this._set_isotope(this.old_isotope);
+    }
+    update(action: this): boolean {
+        if (this.vertex != action.vertex)
+            return false;
+        this.new_isotope = action.new_isotope;
+        this._set_isotope(this.new_isotope);
+        return true;
+    }
+}
+
 class MoveVertexAction extends UpdatableAction {
     graph: Graph;
     vertex: Vertex;
@@ -526,6 +558,7 @@ export {
     AttachRingAction,
     BindVerticesAction,
     ChangeVertexLabelAction,
+    ChangeVertexIsotopeAction,
     ClearGraphAction,
     DeleteEdgeAction,
     DeleteVertexAction,

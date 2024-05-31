@@ -3,7 +3,7 @@ import { KonvaEventObject } from "konva/lib/Node";
 import { ChemicalElement, ChemicalElements } from "../lib/elements";
 import { Stylesheet } from "./Stylesheet";
 import { MoleculeEditor } from "../main";
-import { int_to_subscript } from "../lib/indices";
+import { int_to_subscript, int_to_superscript } from "../lib/indices";
 
 type Coords = {
     x: number;
@@ -30,6 +30,7 @@ class Vertex {
     protected is_active = false;
     protected _coords: Coords = { x: 0, y: 0 };
     protected _charge = 0;
+    protected _isotope = 0;
     protected _label = "";
     protected _computed_label = "";
     protected _element: ChemicalElement | null = ChemicalElements["C"];
@@ -49,6 +50,7 @@ class Vertex {
         v._label = this.label;
         v._element = this._element;
         v._charge = this._charge;
+        v._isotope = this._isotope;
         v._h_count = this._h_count;
         v.id = this.id;
         v.topology = this.topology;
@@ -89,6 +91,7 @@ class Vertex {
     }
 
     public set label(label: string) {
+        this._isotope = 0;
         if (label == "") {
             this._element = ChemicalElements["C"];
             if (this.neighbors.size)
@@ -114,10 +117,11 @@ class Vertex {
         if (!text)
             return;
         text.setAttr("fill", this.active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color);
+        const label_with_isotope = (this._isotope == 0) ? this._label : int_to_superscript(this._isotope) + this._label;
         if (!this._h_count) {
-            this._computed_label = this._label;
+            this._computed_label = label_with_isotope;
             this._label_alignment = LabelAlignment.Left;
-            text.setAttr("text", this._label);
+            text.setAttr("text", this._computed_label);
             this._label_offset = {x : -text.getAttr("width") / 2, y: -text.getAttr("height") / 2};
         }
         else {
@@ -129,7 +133,7 @@ class Vertex {
             //     N
             //     H
             if (this.neighbors.size > 1 && alfa > Math.PI / 4 && alfa <= 3*Math.PI/4) {
-                this._computed_label = this._label + "\nH" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
+                this._computed_label = label_with_isotope + "\nH" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
                 this._label_alignment = LabelAlignment.Top;
                 text.setAttr("text", this._computed_label);
                 this._label_offset = {x : -text.getAttr("width") / 2, y: -atom_label_h / 2};
@@ -138,7 +142,7 @@ class Vertex {
             //     N
             //   /   \
             else if (this.neighbors.size > 1 && alfa > 5*Math.PI / 4 && alfa <= 7*Math.PI/4) {
-                this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + "\n" + this._label;
+                this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + "\n" + label_with_isotope;
                 this._label_alignment = LabelAlignment.Bottom;
                 text.setAttr("text", this._computed_label);
                 this._label_offset = {x : -text.getAttr("width") / 2, y: -text.getAttr("height")  + atom_label_h / 2};
@@ -148,7 +152,7 @@ class Vertex {
                 (this.neighbors.size > 1 && (alfa > 7*Math.PI/4 || alfa <= Math.PI / 4)) ||
                 (this.neighbors.size == 1 && (alfa < Math.PI/2 || alfa > 3 * Math.PI / 2))
             ) {
-                this._computed_label = this._label + "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
+                this._computed_label = label_with_isotope + "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "");
                 this._label_alignment = LabelAlignment.Left;
                 text.setAttr("text", this._computed_label);
                 this._label_offset = {x : -atom_label_w / 2, y: -atom_label_h / 2};
@@ -158,7 +162,7 @@ class Vertex {
                 (this.neighbors.size > 1 && alfa > 3*Math.PI/4 && alfa <= 5*Math.PI/4) ||
                 (this.neighbors.size == 1 && (alfa >= Math.PI/2 && alfa <= 3 * Math.PI / 2))
             ) {
-                this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + this._label;
+                this._computed_label = "H" + (this._h_count > 1 ? int_to_subscript(this._h_count) : "") + label_with_isotope;
                 this._label_alignment = LabelAlignment.Right;
                 text.setAttr("text", this._computed_label);
                 this._label_offset = {x : -text.getAttr("width")+atom_label_w / 2, y: -atom_label_h / 2};
@@ -189,6 +193,15 @@ class Vertex {
     public set charge(charge: number) {
         this._charge = charge;
         this.compute_h_count();
+        this.update();
+    }
+
+    public get isotope(): number {
+        return this._isotope;
+    }
+
+    public set isotope(isotope: number) {
+        this._isotope = isotope;
         this.update();
     }
 
@@ -317,7 +330,7 @@ class Vertex {
         });
         charge_text.setAttr("x", stylesheet.atom_charge_frame_enabled ? hpadding / 2 : 0);
         charge_text.setAttr("y", stylesheet.atom_charge_frame_enabled ? vpadding / 2 : 0);
-        charge_text.setAttr("text", this.charge == -1 ? "－" : this.charge == 1 ? "+" : this.charge > 1 ? `${this._charge}+` : `${Math.abs(this._charge)}-`);
+        charge_text.setAttr("text", this.charge == -1 ? String.fromCodePoint(0xFF0D) : this.charge == 1 ? "+" : this.charge > 1 ? `${this._charge}+` : `${Math.abs(this._charge)}-`);
         charge_text.setAttr("fill", this.is_active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color);
         charge_text.setAttr("fontFamily", stylesheet.atom_font_family);
         charge_text.setAttr("fontSize", stylesheet.atom_charge_font_size);
@@ -343,8 +356,8 @@ class Vertex {
     }
 
     update() {
-        if (this._neighbors.size && this._label == "C")
-            this._label = "";
+        if (this._element?.symbol == "C")
+            this._label = (this._neighbors.size && this._isotope == 0) ? "" : "C";
         if (!this.group || !this.controller)
             return;
         this.group.draggable(this._neighbors.size <= 1);
