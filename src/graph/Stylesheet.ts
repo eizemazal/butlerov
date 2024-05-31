@@ -11,7 +11,7 @@ class Stylesheet {
     atom_font_size_px: number;
     /**
      * Font family for atom labels
-     * @defaultValue `"Arial Unicode MS"`
+     * @defaultValue `ButlerovSans`
      */
     atom_font_family: string;
     /**
@@ -150,7 +150,7 @@ class Stylesheet {
 
     constructor() {
         this.atom_font_size_px = 12;
-        this.atom_font_family = "Arial Unicode MS";
+        this.atom_font_family = "ButlerovSans";
         this.atom_label_horizontal_clearance_px = 2;
         this.atom_label_vertical_clearance_px = 2;
         this.atom_charge_font_size = 9;

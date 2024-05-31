@@ -31,6 +31,8 @@ import {
 } from "./Action";
 import { Converter } from "../converter/Converter";
 import { MolConverter } from "../converter/MolConverter";
+import { int_to_superscript } from "../lib/indices";
+
 
 class MoleculeEditor {
     stage: Konva.Stage;
@@ -399,7 +401,7 @@ class MoleculeEditor {
             this.menu.add_button( new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); } ));
             this.menu.add_button( new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); } ));
             if (vertex.element?.isotopes.length != 0) {
-                this.menu.add_button( new MenuButton("I", "Isotopes", () => { this.menu_isotopes(vertex); } ))
+                this.menu.add_button( new MenuButton("I", "Isotopes", () => { this.menu_isotopes(vertex); } ));
             }
             if (vertex.neighbors.size == 1)
                 this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
@@ -495,12 +497,12 @@ class MoleculeEditor {
 
     menu_isotopes(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton(`x`, `x`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, 0)); } ));
+        this.menu.add_button( new MenuButton("x", "x", () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, 0)); } ));
         if (vertex.element?.isotopes) {
             for (const [index, is] of vertex.element.isotopes.entries()) {
-                this.menu.add_button( new MenuButton(`${index + 1}`, `[${is}${vertex.element.symbol}]`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, is)); } ));
+                this.menu.add_button( new MenuButton(`${index + 1}`, `${int_to_superscript(is)}${vertex.element.symbol}`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, is)); } ));
             }
-        };
+        }
         this.menu.visible = true;
     }
 

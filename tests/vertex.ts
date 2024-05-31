@@ -112,7 +112,7 @@ test("Isotopes", () => {
     fire_key("i");
     fire_key("1");
     expect(editor.graph.vertices[0].isotope).toBe(12); // first isotope for C 
-    expect(editor.graph.vertices[0].label).toBe('C');
+    expect(editor.graph.vertices[0].label).toBe("C");
     fire_key(" ");
     fire_key("i");
     fire_key("2");
@@ -121,7 +121,7 @@ test("Isotopes", () => {
     fire_key("i");
     fire_key("x");
     expect(editor.graph.vertices[0].isotope).toBe(0);
-    expect(editor.graph.vertices[0].label).toBe('');
+    expect(editor.graph.vertices[0].label).toBe("");
     fire_key("H");
     expect(editor.graph.vertices[0].element?.symbol).toBe("H");
     expect(editor.graph.vertices[0].isotope).toBe(0); // change atom
@@ -131,6 +131,6 @@ test("Isotopes", () => {
     expect(editor.graph.vertices[0].isotope).toBe(1); // first isotope for H
     fire_key("C");
     expect(editor.graph.vertices[0].element?.symbol).toBe("C");
-    expect(editor.graph.vertices[0].label).toBe('');
+    expect(editor.graph.vertices[0].label).toBe("");
     expect(editor.graph.vertices[0].isotope).toBe(0); // change atom should change isotope
 });

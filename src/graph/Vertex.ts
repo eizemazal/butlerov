@@ -117,7 +117,7 @@ class Vertex {
         if (!text)
             return;
         text.setAttr("fill", this.active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color);
-        const label_with_isotope = (this._isotope == 0) ? this._label : int_to_superscript(this._isotope) + this._label
+        const label_with_isotope = (this._isotope == 0) ? this._label : int_to_superscript(this._isotope) + this._label;
         if (!this._h_count) {
             this._computed_label = label_with_isotope;
             this._label_alignment = LabelAlignment.Left;
@@ -330,10 +330,10 @@ class Vertex {
         });
         charge_text.setAttr("x", stylesheet.atom_charge_frame_enabled ? hpadding / 2 : 0);
         charge_text.setAttr("y", stylesheet.atom_charge_frame_enabled ? vpadding / 2 : 0);
-        charge_text.setAttr("text", this.charge == -1 ? " - " : this.charge == 1 ? "+" : this.charge > 1 ? `${this._charge}+` : `${Math.abs(this._charge)}-`);
+        charge_text.setAttr("text", this.charge == -1 ? String.fromCodePoint(0xFF0D) : this.charge == 1 ? "+" : this.charge > 1 ? `${this._charge}+` : `${Math.abs(this._charge)}-`);
         charge_text.setAttr("fill", this.is_active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color);
         charge_text.setAttr("fontFamily", stylesheet.atom_font_family);
-        charge_text.setAttr("fontSize", Math.abs(this._charge) > 1 ? stylesheet.atom_charge_font_size : stylesheet.atom_charge_font_size + 2);
+        charge_text.setAttr("fontSize", stylesheet.atom_charge_font_size);
         charge_group.add(charge_text);
         if (stylesheet.atom_charge_frame_enabled) {
             const charge_frame = <Konva.Rect>this.group?.findOne("#charge_frame") || new Konva.Rect({
@@ -356,10 +356,8 @@ class Vertex {
     }
 
     update() {
-        if (this._neighbors.size && this._isotope == 0 && this._label == "C")
-            this._label = "";
-        if (this._isotope != 0 && this._label == "")
-            this._label = "C";
+        if (this._element?.symbol == "C")
+            this._label = (this._neighbors.size && this._isotope == 0) ? "" : "C";
         if (!this.group || !this.controller)
             return;
         this.group.draggable(this._neighbors.size <= 1);
