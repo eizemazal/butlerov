@@ -16,6 +16,7 @@ import {
     AttachRingAction,
     BindVerticesAction,
     ChangeVertexLabelAction,
+    ChangeVertexIsotopeAction,
     ClearGraphAction,
     DeleteEdgeAction,
     DeleteVertexAction,
@@ -30,6 +31,8 @@ import {
 } from "./Action";
 import { Converter } from "../converter/Converter";
 import { MolConverter } from "../converter/MolConverter";
+import { int_to_superscript } from "../lib/indices";
+
 
 class MoleculeEditor {
     stage: Konva.Stage;
@@ -397,7 +400,10 @@ class MoleculeEditor {
             const vertex = this.active_vertex;
             this.menu.add_button( new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); } ));
             this.menu.add_button( new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); } ));
-            if (this.active_vertex.neighbors.size == 1)
+            if (vertex.element?.isotopes.length != 0) {
+                this.menu.add_button( new MenuButton("I", "Isotopes", () => { this.menu_isotopes(vertex); } ));
+            }
+            if (vertex.neighbors.size == 1)
                 this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
             this.menu.add_button( new MenuButton("x", "Delete", () => {
                 this.commit_action(new DeleteVertexAction(this.graph, vertex));
@@ -486,6 +492,17 @@ class MoleculeEditor {
         this.menu.add_button( new MenuButton("6", "Hexyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 6)); } ));
         this.menu.add_button( new MenuButton("7", "Heptyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 7)); } ));
         this.menu.add_button( new MenuButton("8", "Octyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 8)); } ));
+        this.menu.visible = true;
+    }
+
+    menu_isotopes(vertex: Vertex) {
+        this.menu.clear_buttons();
+        this.menu.add_button( new MenuButton("x", "x", () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, 0)); } ));
+        if (vertex.element?.isotopes) {
+            for (const [index, is] of vertex.element.isotopes.entries()) {
+                this.menu.add_button( new MenuButton(`${index + 1}`, `${int_to_superscript(is)}${vertex.element.symbol}`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, is)); } ));
+            }
+        }
         this.menu.visible = true;
     }
 
