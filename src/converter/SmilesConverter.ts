@@ -1,6 +1,6 @@
-import { Graph } from "../graph/Graph";
-import { Vertex } from "../graph/Vertex";
-import { BondType } from "../graph/Edge";
+import { Graph } from "../drawable/Graph";
+import { Vertex } from "../drawable/Vertex";
+import { BondType } from "../drawable/Edge";
 import { ChemicalElements } from "../lib/elements";
 import { Converter } from "./Converter";
 

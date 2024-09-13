@@ -1,7 +1,8 @@
 import Konva from "konva";
-import { MoleculeEditor } from "../main";
+import { Controller } from "../controller/Controller";
 import { BondType, Edge, EdgeOrientation, EdgeShape, EdgeTopology } from "./Edge";
 import { Coords, Vertex, VertexTopology } from "./Vertex";
+import { Drawable } from "./Drawable";
 
 /**
  * Class to specify rectangle by two opposite points
@@ -21,7 +22,7 @@ type Rect = {
  * detached Graphs internally referring to the same @see Vertex and @see Edge objects that are present in original Graph.
  * This allows to implement operation history (Undo and Redo) easily.
  */
-class Graph {
+class Graph extends Drawable {
     /**
      * List of @see Vertex objects representing atoms
      */
@@ -30,14 +31,6 @@ class Graph {
      * List of @see Edge objects representing bonds
      */
     edges: Array<Edge>;
-    /**
-     * konva group object is only relevant for attached Graph
-     */
-    group: Konva.Group | null;
-    /**
-     * controller object for user interaction. null for detached. @default null
-     */
-    controller: MoleculeEditor | null;
     /**
      * Array of subgraphs representing ringsystems in the graph. This value is populated when @see update_topology is called.
      * @default []
@@ -55,10 +48,9 @@ class Graph {
     mol_scaling_factor: number;
 
     constructor() {
-        this.controller = null;
+        super();
         this.vertices = [];
         this.edges = [];
-        this.group = null;
         this.ringsystems = [];
         this.mol_scaling_factor = 1;
     }
@@ -75,7 +67,10 @@ class Graph {
             const v2 = r.vertices[this.vertices.findIndex( v => v == e.v2 )];
             v1.set_neighbor(v2, e.bond_order);
             v2.set_neighbor(v1, e.bond_order);
-            return e.copy(v1, v2);
+            const new_edge = e.copy();
+            new_edge.v1 = v1;
+            new_edge.v2 = v2;
+            return new_edge;
         });
         r.mol_scaling_factor = this.mol_scaling_factor;
         return r;
@@ -83,10 +78,10 @@ class Graph {
 
     /**
     * Attach @see Graph to controller.
-    * @param controller an object of @see MoleculeEditor class
+    * @param controller an object of @see Controller class
     * @returns an object of Konva.Group type depicting Graph
     */
-    attach(controller: MoleculeEditor): Konva.Group {
+    attach(controller: Controller): Konva.Group {
         this.controller = controller;
         if (!this.group)
             this.group = new Konva.Group();
@@ -398,7 +393,7 @@ class Graph {
             if (this.find_edges_by_vertex(vertex)[0].bond_order == 3) {
                 coordinates = {
                     x: vertex.coords.x + bond_len * Math.cos(alfa+Math.PI),
-                    y: vertex.coords.y + bond_len * Math.sin(alfa+Math.PI)
+                    y: vertex.coords.y + bond_len * Math.sin(+Math.PI)
                 };
             }
             else {

@@ -1,7 +1,7 @@
-import { Graph } from "../graph/Graph";
+import { Graph } from "../drawable/Graph";
 import { Converter } from "./Converter";
-import { EdgeShape } from "../graph/Edge";
-import { Vertex } from "../graph/Vertex";
+import { EdgeShape } from "../drawable/Edge";
+import { Vertex } from "../drawable/Vertex";
 
 
 /**

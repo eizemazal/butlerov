@@ -1,16 +1,8 @@
+import { Action, UpdatableAction } from "./Action";
 import { MolConverter } from "../converter/MolConverter";
-import { Edge, EdgeOrientation, EdgeShape } from "../graph/Edge";
-import { Graph } from "../graph/Graph";
-import { Coords, Vertex } from "../graph/Vertex";
-
-abstract class Action {
-    abstract commit() : void;
-    abstract rollback() : void;
-}
-
-abstract class UpdatableAction extends Action {
-    abstract update(action: this): boolean;
-}
+import { Edge, EdgeOrientation, EdgeShape } from "../drawable/Edge";
+import { Graph } from "../drawable/Graph";
+import { Coords, Vertex } from "../drawable/Vertex";
 
 class UpdateEdgeShapeAction extends Action {
     graph: Graph;
@@ -549,8 +541,6 @@ class SymmetrizeAtVertexAction extends Action {
 
 
 export {
-    Action,
-    UpdatableAction,
     AddBoundVertexAction,
     AddSingleVertexAction,
     AddChainAction,

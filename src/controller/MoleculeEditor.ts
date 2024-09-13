@@ -1,14 +1,14 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import { Edge, EdgeShape, BondType, EdgeOrientation } from "../graph/Edge";
-import { Graph } from "../graph/Graph";
-import { Stylesheet } from "../graph/Stylesheet";
-import { Coords, Vertex } from "../graph/Vertex";
+import { Edge, EdgeShape, BondType, EdgeOrientation } from "../drawable/Edge";
+import { Graph } from "../drawable/Graph";
+import { Stylesheet } from "./Stylesheet";
+import {Controller} from "./Controller";
+import { Coords, Vertex } from "../drawable/Vertex";
 import { ChemicalElements } from "../lib/elements";
 import { Menu } from "./Menu";
 import { MenuButton } from "./MenuButton";
 import {
-    Action,
     AddBoundVertexAction,
     AddChainAction,
     AddDefaultFragmentAction,
@@ -26,15 +26,15 @@ import {
     StripHAction,
     SymmetrizeAlongEdgeAction,
     SymmetrizeAtVertexAction,
-    UpdatableAction,
-    UpdateEdgeShapeAction
-} from "./Action";
+    UpdateEdgeShapeAction,
+} from "../action/GraphActions";
+import { ActionDirection } from "../action/Action";
 import { Converter } from "../converter/Converter";
 import { MolConverter } from "../converter/MolConverter";
-import { int_to_superscript } from "../lib/indices";
+import { Drawable } from "../drawable/Drawable";
 
 
-class MoleculeEditor {
+class MoleculeEditor extends Controller {
     stage: Konva.Stage;
     drawing_layer: Konva.Layer;
     background_layer: Konva.Layer;
@@ -47,14 +47,12 @@ class MoleculeEditor {
     active_vertex: Vertex | null;
     downed_vertex: Vertex | null;
     downed_vertex_coords: Coords | null;
-    action_stack: Array<Action>;
-    actions_rolled_back: number;
     _readonly: boolean;
-    _onchange: (() => void) | null;
     panning: boolean;
     _viewport_offset: Coords;
     graph_group: Konva.Group;
     constructor(stage: Konva.Stage, autofocus = true) {
+        super(stage, autofocus);
         this.stage = stage;
         this.stylesheet = new Stylesheet();
         this.graph = new Graph();
@@ -88,13 +86,10 @@ class MoleculeEditor {
         const container = this.stage.container();
         container.addEventListener("keydown", (e) => { e.preventDefault(); this.on_keydown(e); });
         container.addEventListener("keyup", (e) => { e.preventDefault(); this.on_keyup(e); });
-        container.tabIndex = 1;
-        autofocus && container.focus();
         this.stage.add(this.background_layer);
         this.stage.add(this.drawing_layer);
         this.stage.add(this.top_layer);
         this.update_background();
-        this._onchange = null;
         this.action_stack = [];
         this.actions_rolled_back = 0;
         this._readonly = false;
@@ -102,67 +97,40 @@ class MoleculeEditor {
         this._viewport_offset = {x: 0, y: 0};
     }
 
-    static from_html_element(el: HTMLDivElement, autofocus = true) {
-        const stage = new Konva.Stage({
-            container: el,
-            width: el.clientWidth,
-            height: el.clientHeight
-        });
-        return new MoleculeEditor(stage, autofocus);
+    protected on_action(direction: ActionDirection): void {
+        if (direction == ActionDirection.UNDO || direction == ActionDirection.REDO)
+            this.deactivate_edges_vertices();
+        this.update_background();
     }
 
-    commit_action(action: Action) {
-        // find last action that has not been rolled back, and throw away history after it
-        for (let i = 0; i < this.actions_rolled_back; i++) {
-            this.action_stack.pop();
-        }
-        this.actions_rolled_back = 0;
-        if (this.action_stack.length) {
-            const last_action = this.action_stack[this.action_stack.length - 1];
-            if (last_action instanceof UpdatableAction && action.constructor == last_action.constructor) {
-                if (last_action.update(<UpdatableAction>action)) {
-                    if (this._onchange)
-                        this._onchange();
-                    this.update_background();
-                    return;
-                }
+    public dispatch(entity: Drawable, evt: Konva.KonvaEventObject<MouseEvent>): void {
+        if (entity instanceof Vertex) {
+            switch (evt.type) {
+            case "dragmove": this.on_vertex_dragmove(entity, evt); break;
+            case "mouseover": this.on_vertex_mouseover(entity); break;
+            case "mouseout": this.on_vertex_mouseout(); break;
+            case "click": this.on_vertex_click(entity, evt); break;
+            case "contextmenu":
+                evt.evt.preventDefault();
+                this.toggle_menu();
+                break;
+            case "mousedown": this.on_vertex_mousedown(entity); break;
+            case "mouseup": this.on_vertex_mouseup(entity);
             }
         }
-        this.action_stack.push(action);
-        action.commit();
-        if (this._onchange)
-            this._onchange();
-        this.update_background();
-    }
-    rollback_actions(count: number) {
-        for (let i = 0; i < count; i++) {
-            if (this.actions_rolled_back >= this.action_stack.length)
-                return;
-            this.actions_rolled_back += 1;
-            this.action_stack[this.action_stack.length - this.actions_rolled_back].rollback();
+        else if (entity instanceof Edge) {
+            switch (evt.type) {
+            case "mouseover": this.on_edge_mouseover(entity); break;
+            case "mouseout": this.on_edge_mouseout(); break;
+            case "click": this.on_edge_click(entity, evt); break;
+            case "contextmenu":
+                evt.evt.preventDefault();
+                this.toggle_menu();
+                break;
+            }
         }
-        this.deactivate_edges_vertices();
-        if (this._onchange)
-            this._onchange();
-        this.update_background();
-    }
-    recommit_actions(count: number) {
-        for (let i = 0; i < count; i++) {
-            if (this.actions_rolled_back < 1 )
-                return;
-            this.action_stack[this.action_stack.length - this.actions_rolled_back].commit();
-            this.actions_rolled_back -= 1;
-        }
-        this.deactivate_edges_vertices();
-        if (this._onchange)
-            this._onchange();
-        this.update_background();
     }
 
-    clear_actions() {
-        this.actions_rolled_back = 0;
-        this.action_stack = [];
-    }
 
     update_background() {
         const rect = this.background_layer.findOne("#background_rect");
@@ -170,7 +138,7 @@ class MoleculeEditor {
         rect.setAttr("height", this.stage.getAttr("height") / this.zoom);
         if (this.graph.vertices.length || this.graph.edges.length) {
             this.welcome_message.visible(false);
-            this.graph.group?.draw();
+            this.graph.draw();
             return;
         }
         this.welcome_message.visible(true);
@@ -500,7 +468,7 @@ class MoleculeEditor {
         this.menu.add_button( new MenuButton("x", "x", () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, 0)); } ));
         if (vertex.element?.isotopes) {
             for (const [index, is] of vertex.element.isotopes.entries()) {
-                this.menu.add_button( new MenuButton(`${index + 1}`, `${int_to_superscript(is)}${vertex.element.symbol}`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, is)); } ));
+                this.menu.add_button( new MenuButton(`${index + 1}`, `${is}${vertex.element.symbol}`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, is)); } ));
             }
         }
         this.menu.visible = true;
@@ -688,10 +656,6 @@ class MoleculeEditor {
         this.panning = false;
         this.deactivate_edges_vertices();
         this.stage.container().style.cursor = "default";
-    }
-
-    public set onchange(handler: () => void) {
-        this._onchange = handler;
     }
 
     public get readonly(): boolean {

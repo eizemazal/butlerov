@@ -77,6 +77,16 @@ class Stylesheet {
      */
     atom_active_label_color: string;
     /**
+     * Indices are smaller than baseline font by this factor. I.e., for 10 pt baseline font with this factor set to 0.8, 8 pt font will be used as index.
+     * @defaultValue 0.8
+     */
+    index_font_size_ratio: number;
+    /**
+     * Indices are drawn by default with a bit heavier font than baseline text.
+     * @defaultValue 150
+     */
+    index_font_weight: number;
+    /**
      * Default length of bond that is created on click, in screen pixels. Note that it is possible to create bonds of different length.
      * When mol file is loaded into editor, the bonds can also have different lengths
      * @defaultValue 25
@@ -149,10 +159,10 @@ class Stylesheet {
     debug_enable_label_rects: boolean;
 
     constructor() {
-        this.atom_font_size_px = 12;
-        this.atom_font_family = "ButlerovSans";
-        this.atom_label_horizontal_clearance_px = 2;
-        this.atom_label_vertical_clearance_px = 2;
+        this.atom_font_size_px = 14;
+        this.atom_font_family = "Arial";
+        this.atom_label_horizontal_clearance_px = 0;
+        this.atom_label_vertical_clearance_px = 0;
         this.atom_charge_font_size = 9;
         this.atom_charge_frame_enabled = true;
         this.atom_charge_frame_corner_radius_single = 5;
@@ -161,6 +171,8 @@ class Stylesheet {
         this.atom_label_color = "#333";
         this.atom_active_box_color = "red";
         this.atom_active_label_color = "red";
+        this.index_font_size_ratio = 0.8;
+        this.index_font_weight = 600;
         this.bond_length_px = 25;
         this.bond_thickness_px = 2;
         this.bond_wedge_px = 6;

@@ -18,7 +18,7 @@
     "structure",
     "2d"
   ],
-  "author": "Alex Ustinov, Lumiprobe",
+  "author": "Project team",
   "license": "MIT",
   "devDependencies": {
     "@testing-library/dom": "^8.14.0",

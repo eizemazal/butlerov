@@ -1,4 +1,4 @@
-import { Graph } from "../graph/Graph";
+import { Graph } from "../drawable/Graph";
 
 /**
  * This is a base class for all converters of Graph from/to other formats

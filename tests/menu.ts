@@ -1,4 +1,4 @@
-import { AddDefaultFragmentAction } from "../src/controller/Action";
+import { AddDefaultFragmentAction } from "../src/action/GraphActions";
 import {editor, fire_key} from "../src/lib/testing";
 
 beforeEach( () => {

@@ -1,4 +1,4 @@
-import { BondType, EdgeOrientation, EdgeShape } from "../src/graph/Edge";
+import { BondType, EdgeOrientation, EdgeShape } from "../src/drawable/Edge";
 import {editor, fire_key, fire} from "../src/lib/testing";
 
 beforeEach( () => {

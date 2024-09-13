@@ -1,6 +1,6 @@
 import { ChemicalElements } from "../src/lib/elements";
-import { BondType, EdgeShape, EdgeTopology } from "../src/graph/Edge";
-import { Graph } from "../src/graph/Graph";
+import { BondType, EdgeShape, EdgeTopology } from "../src/drawable/Edge";
+import { Graph } from "../src/drawable/Graph";
 import { MolConverter } from "../src/converter/MolConverter";
 
 test("Draw graph programmatically and check topology", () => {
