@@ -111,12 +111,12 @@ test("Isotopes", () => {
     fire_key(" ");
     fire_key("i");
     fire_key("1");
-    expect(editor.graph.vertices[0].isotope).toBe(12); // first isotope for C 
+    expect(editor.graph.vertices[0].isotope).toBe(12); // first isotope for C
     expect(editor.graph.vertices[0].label).toBe("C");
     fire_key(" ");
     fire_key("i");
     fire_key("2");
-    expect(editor.graph.vertices[0].isotope).toBe(13); // second isotope for C 
+    expect(editor.graph.vertices[0].isotope).toBe(13); // second isotope for C
     fire_key(" ");
     fire_key("i");
     fire_key("x");

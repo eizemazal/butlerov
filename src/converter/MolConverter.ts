@@ -1,7 +1,7 @@
-import { Graph } from "../graph/Graph";
+import { Graph } from "../drawable/Graph";
 import { Converter } from "./Converter";
-import { EdgeShape } from "../graph/Edge";
-import { Vertex } from "../graph/Vertex";
+import { EdgeShape } from "../drawable/Edge";
+import { Vertex } from "../drawable/Vertex";
 
 
 /**
@@ -132,7 +132,10 @@ export class MolConverter extends Converter {
             const x = `${scaled_x.toFixed(4)}`.padStart(10, " ");
             const y = `${(-scaled_y).toFixed(4)}`.padStart(10, " ");
             const z = "    0.0000";
-            const element = `${e.label ? e.label : "C"}`.padEnd(3, " ");
+            if (!e.element) {
+                throw "Abbreviated/custom label cannot be saved to mol";
+            }
+            const element = `${e.element?.symbol}`.padEnd(3, " ");
             r += `${x}${y}${z} ${element} 0  0  0  0  0  0  0  0  0  0  0  0\n`;
             if (e.charge)
                 charges.push(`${idx+1}`, `${e.charge}`);

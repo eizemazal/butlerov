@@ -1,16 +1,8 @@
-import { MolConverter } from "../converter/MolConverter";
-import { Edge, EdgeOrientation, EdgeShape } from "../graph/Edge";
-import { Graph } from "../graph/Graph";
-import { Coords, Vertex } from "../graph/Vertex";
-
-abstract class Action {
-    abstract commit() : void;
-    abstract rollback() : void;
-}
-
-abstract class UpdatableAction extends Action {
-    abstract update(action: this): boolean;
-}
+import { Action, UpdatableAction } from "./Action";
+import { Edge, EdgeOrientation, EdgeShape } from "../drawable/Edge";
+import { Graph } from "../drawable/Graph";
+import { Vertex } from "../drawable/Vertex";
+import { Coords } from "../lib/common";
 
 class UpdateEdgeShapeAction extends Action {
     graph: Graph;
@@ -51,19 +43,24 @@ class UpdateEdgeShapeAction extends Action {
 
 class ClearGraphAction extends Action {
     graph: Graph;
-    mol: string;
+    vertices: Vertex[] = [];
+    edges: Edge[] = [];
     constructor(graph: Graph) {
         super();
         this.graph = graph;
-        this.mol = "";
     }
     commit() {
-        this.mol = new MolConverter().to_string(this.graph);
+        // we have to store the same objects to retain history
+        this.vertices = this.graph.vertices;
+        this.edges = this.graph.edges;
         this.graph.clear();
     }
     rollback() {
-        new MolConverter().from_string(this.mol, this.graph);
-        this.graph.update();
+        const copy = new Graph();
+        copy.vertices = this.vertices;
+        copy.edges = this.edges;
+        // will re-attach everything
+        this.graph.add(copy);
     }
 }
 
@@ -545,12 +542,59 @@ class SymmetrizeAtVertexAction extends Action {
     }
 }
 
+class ExpandLinearAction extends Action {
+    graph: Graph;
+    vertex: Vertex;
+    vertex_idx = 0;
+    expansion: Graph;
+    edge_added: Edge | null = null;
+    edges_removed: Map<number, Edge>;
+
+    constructor(graph: Graph, vertex: Vertex) {
+        super();
+        this.graph = graph;
+        this.vertex = vertex;
+        this.vertex_idx = this.graph.vertices.findIndex(e => e === vertex);
+        this.edges_removed = new Map();
+        if (!this.vertex.linear_formula)
+            this.expansion = new Graph();
+        else
+            this.expansion = this.vertex.linear_formula.to_graph();
+    }
+    commit() {
+        this.vertex.active = false;
+        const neighbor_vertex = this.vertex.neighbors.keys().next().value;
+        this.graph.edges.forEach( (e, idx) => {
+            if (e.v1 == this.vertex || e.v2 == this.vertex)
+                this.edges_removed.set(idx, e);
+        });
+        this.graph.edges = this.graph.edges.filter((_,idx) => idx in this.edges_removed);
+        this.edges_removed.forEach(e => e.detach());
+        this.graph.vertices = this.graph.vertices.filter( e => e != this.vertex);
+        this.vertex.detach();
+        this.edge_added = this.graph.combind(this.expansion, neighbor_vertex, this.expansion.vertices[0]);
+        this.graph.update();
+    }
+    rollback() {
+        this.graph.remove(this.expansion);
+        if (this.edge_added)
+            this.graph.delete_edge(this.edge_added, false, true);
+        this.graph.vertices.splice(this.vertex_idx, 0, this.vertex);
+        if (this.graph.controller)
+            this.vertex.attach(this.graph.controller);
+        for ( const [idx, edge] of this.edges_removed) {
+            this.graph.edges.splice(idx, 0, edge);
+            if (this.graph.controller)
+                edge.attach(this.graph.controller);
+        }
+        this.graph.update();
+    }
+}
+
 
 
 
 export {
-    Action,
-    UpdatableAction,
     AddBoundVertexAction,
     AddSingleVertexAction,
     AddChainAction,
@@ -568,5 +612,6 @@ export {
     MoveVertexAction,
     UpdateEdgeShapeAction,
     SymmetrizeAlongEdgeAction,
-    SymmetrizeAtVertexAction
+    SymmetrizeAtVertexAction,
+    ExpandLinearAction
 };

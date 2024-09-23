@@ -1,4 +1,4 @@
-import { Graph } from "../src/graph/Graph";
+import { Graph } from "../src/drawable/Graph";
 import { ChemicalElements } from "../src/lib/elements";
 import {SmilesConverter} from "../src/converter/SmilesConverter";
 

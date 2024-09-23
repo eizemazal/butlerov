@@ -1,7 +1,9 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import { MoleculeEditor } from "../main";
-import { Coords, Vertex } from "./Vertex";
+import {  Vertex } from "./Vertex";
+import { Drawable } from "./Drawable";
+import { Controller } from "../controller/Controller";
+import { Coords } from "../lib/common";
 
 enum EdgeShape {
     Single,
@@ -48,17 +50,7 @@ enum EdgeTopology {
  * Class representing edges between Vertices. It is called Edge, not Bond, because there are multicenter bonds
  * that Edge does not represent. Edge always connects two Vertices, v1 and v2
  */
-class Edge {
-    /**
-     * If Edge is drawn on the screen, this will refer to MoleculeEditor. Otherwise it can be detached from screen
-     * @defaultValue null
-     */
-    protected controller: MoleculeEditor | null;
-    /**
-     * Contains all Konva elements that need to be drawn for this Edge. Or null when Edge is detached from controller.
-     * @defaultValue null
-     */
-    protected group: Konva.Group | null;
+class Edge extends Drawable {
     /**
      * First Vertex. There are Edges that are directed - they are directed from v1 to v2
      */
@@ -96,6 +88,7 @@ class Edge {
     public orientation: EdgeOrientation;
 
     constructor (v1: Vertex, v2: Vertex) {
+        super();
         this.v1 = v1;
         this.v2 = v2;
         this._shape = EdgeShape.Single;
@@ -111,34 +104,19 @@ class Edge {
         this.orientation = EdgeOrientation.Left;
     }
 
-    copy(v1: Vertex, v2: Vertex) {
-        const r = new Edge(v1, v2);
+    copy() {
+        const r = new Edge(this.v1, this.v2);
         r._shape = this._shape;
         r.topology = this.topology;
         r.id = this.id;
         return r;
     }
 
-    attach(controller: MoleculeEditor): Konva.Group {
-        this.controller = controller;
-        if (!this.group)
-            this.group = new Konva.Group();
-        this.on("click", (edge: Edge, evt: KonvaEventObject<MouseEvent>) => controller.on_edge_click(edge, evt));
-        this.on("mouseover", (edge: Edge) => controller.on_edge_mouseover(edge));
-        this.on("mouseout", () => controller.on_edge_mouseout());
-        this.on("contextmenu", (edge: Edge, evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); controller.toggle_menu();} );
-        // edges of bonds are below vertices of atoms, put them back
-        this.update();
-        return this.group;
-    }
-
-    detach() {
-        this.group?.destroyChildren();
-        this.controller = null;
-    }
-
-    on(event: string, f: (a: Edge, b: KonvaEventObject<MouseEvent>) => void) {
-        this.group?.on(event, (evt: KonvaEventObject<MouseEvent>) => { f(this, evt); } );
+    attach_events(controller: Controller): void {
+        const event_names = ["click", "mouseover", "mouseout", "contextmenu"];
+        for (const event_name of event_names) {
+            this.group?.on(event_name, (evt: KonvaEventObject<MouseEvent>) => controller.dispatch(this, evt));
+        }
     }
 
     public get bond_order(): number {
@@ -261,15 +239,21 @@ class Edge {
     }
 
     calculate_coordinates() {
-        const stylesheet = this.controller?.stylesheet;
         this.point1 = { ...this.v1.coords };
         this.point2 = { ...this.v2.coords };
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
         if (!this.screen_length)
             return;
-        this.alfa = Math.atan2(this.point2.y-this.point1.y, this.point2.x-this.point1.x) - Math.PI/2;
-        this.point1 = this.v1.get_label_boundary(this.alfa+Math.PI, stylesheet?.atom_label_horizontal_clearance_px, stylesheet?.atom_label_vertical_clearance_px);
-        this.point2 = this.v2.get_label_boundary(this.alfa, stylesheet?.atom_label_horizontal_clearance_px, stylesheet?.atom_label_vertical_clearance_px);
+        this.alfa = Math.atan2(this.point2.y-this.point1.y, this.point2.x-this.point1.x);
+        const boundary_offset1 = this.v1.get_boundary_offset_at(this.alfa);
+        const boundary_offset2 = this.v2.get_boundary_offset_at(Math.PI + this.alfa);
+
+        this.alfa -= Math.PI/2;
+
+        this.point1.x += boundary_offset1.x;
+        this.point1.y += boundary_offset1.y;
+        this.point2.x += boundary_offset2.x;
+        this.point2.y += boundary_offset2.y;
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
     }
 
@@ -314,33 +298,19 @@ class Edge {
         this.group?.add(<Konva.Line>line);
     }
 
-    draw_single_up() {
+    draw_single_up_down(fill: boolean) {
         const stylesheet = this.controller?.stylesheet;
         if (!stylesheet)
             return;
         const line = this.create_lines(1)[0];
+        const startx = this.v1.label ? 0.05 * this.screen_length : 0;
+        const endx = this.v2.label ? 0.92 * this.screen_length : this.screen_length;
         line.setAttr("points", [
-            0, 0,
-            this.screen_length, -stylesheet.bond_wedge_px/2,
-            this.screen_length, stylesheet.bond_wedge_px/2
+            startx, 0,
+            endx, -stylesheet.bond_wedge_px/2,
+            endx, stylesheet.bond_wedge_px/2
         ]);
-        line.setAttr("fillEnabled", true);
-        line.setAttr("closed", true);
-        line.setAttr("lineJoin", "round");
-        this.group?.add(<Konva.Line>line);
-    }
-
-    draw_single_down() {
-        const stylesheet = this.controller?.stylesheet;
-        if (!stylesheet)
-            return;
-        const line = this.create_lines(1)[0];
-        line.setAttr("points", [
-            0, -stylesheet.bond_wedge_px/2,
-            0, stylesheet.bond_wedge_px/2,
-            this.screen_length, 0
-        ]);
-        line.setAttr("fillEnabled", false);
+        line.setAttr("fillEnabled", fill);
         line.setAttr("closed", true);
         line.setAttr("lineJoin", "round");
         this.group?.add(<Konva.Line>line);
@@ -424,10 +394,10 @@ class Edge {
             this.draw_single();
             break;
         case EdgeShape.SingleUp:
-            this.draw_single_up();
+            this.draw_single_up_down(true);
             break;
         case EdgeShape.SingleDown:
-            this.draw_single_down();
+            this.draw_single_up_down(false);
             break;
         case EdgeShape.SingleEither:
             this.draw_single_either();

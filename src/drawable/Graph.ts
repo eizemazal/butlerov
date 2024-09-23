@@ -1,7 +1,9 @@
 import Konva from "konva";
-import { MoleculeEditor } from "../main";
+import { Controller } from "../controller/Controller";
 import { BondType, Edge, EdgeOrientation, EdgeShape, EdgeTopology } from "./Edge";
-import { Coords, Vertex, VertexTopology } from "./Vertex";
+import { Coords } from "../lib/common";
+import { LabelType, Vertex, VertexTopology } from "./Vertex";
+import { Drawable } from "./Drawable";
 
 /**
  * Class to specify rectangle by two opposite points
@@ -21,7 +23,7 @@ type Rect = {
  * detached Graphs internally referring to the same @see Vertex and @see Edge objects that are present in original Graph.
  * This allows to implement operation history (Undo and Redo) easily.
  */
-class Graph {
+class Graph extends Drawable {
     /**
      * List of @see Vertex objects representing atoms
      */
@@ -30,14 +32,6 @@ class Graph {
      * List of @see Edge objects representing bonds
      */
     edges: Array<Edge>;
-    /**
-     * konva group object is only relevant for attached Graph
-     */
-    group: Konva.Group | null;
-    /**
-     * controller object for user interaction. null for detached. @default null
-     */
-    controller: MoleculeEditor | null;
     /**
      * Array of subgraphs representing ringsystems in the graph. This value is populated when @see update_topology is called.
      * @default []
@@ -55,10 +49,9 @@ class Graph {
     mol_scaling_factor: number;
 
     constructor() {
-        this.controller = null;
+        super();
         this.vertices = [];
         this.edges = [];
-        this.group = null;
         this.ringsystems = [];
         this.mol_scaling_factor = 1;
     }
@@ -75,7 +68,10 @@ class Graph {
             const v2 = r.vertices[this.vertices.findIndex( v => v == e.v2 )];
             v1.set_neighbor(v2, e.bond_order);
             v2.set_neighbor(v1, e.bond_order);
-            return e.copy(v1, v2);
+            const new_edge = e.copy();
+            new_edge.v1 = v1;
+            new_edge.v2 = v2;
+            return new_edge;
         });
         r.mol_scaling_factor = this.mol_scaling_factor;
         return r;
@@ -83,10 +79,10 @@ class Graph {
 
     /**
     * Attach @see Graph to controller.
-    * @param controller an object of @see MoleculeEditor class
+    * @param controller an object of @see Controller class
     * @returns an object of Konva.Group type depicting Graph
     */
-    attach(controller: MoleculeEditor): Konva.Group {
+    attach(controller: Controller): Konva.Group {
         this.controller = controller;
         if (!this.group)
             this.group = new Konva.Group();
@@ -223,6 +219,31 @@ class Graph {
             graph.edges.forEach(e => { this.group?.add(e.attach(controller)); e.z_index = 0; } );
         }
         this.update();
+    }
+
+
+    /**
+     * Combine and bind another graph with the existing one. An edge will be created between our_vertex and their_vertex.
+     * Another graph is scaled, translated and rotated to adjust.
+     * @param graph their graph
+     * @param our_vertex vertex in our graph
+     * @param their_vertex vertex in their graph
+     */
+    combind(graph: Graph, our_vertex: Vertex, their_vertex: Vertex): Edge {
+        const our_added = this.add_bound_vertex_to(our_vertex);
+        const their_added = graph.add_bound_vertex_to(their_vertex);
+        const their_added_coords = their_added.vertices[0].coords;
+        const our_added_coords = our_added.vertices[0].coords;
+        const scale = this.get_average_bond_distance() / graph.get_average_bond_distance();
+        graph.scale(scale);
+        const alfa = Math.atan2(their_added_coords.y-their_vertex.coords.y, their_added_coords.x-their_vertex.coords.x) - Math.atan2(our_vertex.coords.y - our_added_coords.y, our_vertex.coords.x - our_added_coords.x);
+        graph.rotate(their_added_coords, alfa);
+        const translation : Coords = {x: our_vertex.coords.x - their_added_coords.x, y: our_vertex.coords.y - their_added_coords.y};
+        graph.translate(translation);
+        this.remove(our_added);
+        graph.remove(their_added);
+        this.add(graph);
+        return this.bind_vertices(our_vertex, their_vertex);
     }
 
     /**
@@ -398,7 +419,7 @@ class Graph {
             if (this.find_edges_by_vertex(vertex)[0].bond_order == 3) {
                 coordinates = {
                     x: vertex.coords.x + bond_len * Math.cos(alfa+Math.PI),
-                    y: vertex.coords.y + bond_len * Math.sin(alfa+Math.PI)
+                    y: vertex.coords.y + bond_len * Math.sin(+Math.PI)
                 };
             }
             else {
@@ -419,8 +440,8 @@ class Graph {
             return r;
         }
         // help drawing polysubstituted atoms. We can move vertices which have no other neighbors
-        let movable_neighbors = neighbors.filter(e => e.neighbors.size == 1);
-        let fixed_neighbors = neighbors.filter(e => e.neighbors.size != 1);
+        let movable_neighbors = neighbors.filter(e => e.neighbors.size == 1 && e.label_type == LabelType.Atom );
+        let fixed_neighbors = neighbors.filter(e => e.neighbors.size != 1 || e.label_type != LabelType.Atom );
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         if (!fixed_neighbors.length)
             fixed_neighbors.push(...movable_neighbors.splice(0, 1));
@@ -830,6 +851,28 @@ class Graph {
     }
 
     /**
+     * Apply translation to the graph
+     * @param coords vector to add to all coordinates
+     */
+    translate(coords: Coords) {
+        this.vertices.forEach( e => {
+            e.coords.x += coords.x;
+            e.coords.y += coords.y;
+        });
+    }
+
+    /**
+     * Apply scaling to the graph
+     * @param factor Scaling factor
+     */
+    scale(factor: number) {
+        this.vertices.forEach( e => {
+            e.coords.x *= factor;
+            e.coords.y *= factor;
+        });
+    }
+
+    /**
      * Add vertices and edges to make graph rotationally symmetrical around specified Vertex.
      * For example, this transformation being applied to aliphatic carbon of toluene, will produce triphenylmethane for order 3
      * or tetraphenylmethane for order 4.
@@ -861,7 +904,6 @@ class Graph {
         this.update_topology();
         return r;
     }
-
 }
 
 export { Graph };
