@@ -1,7 +1,8 @@
 import Konva from "konva";
 import { Controller } from "../controller/Controller";
 import { BondType, Edge, EdgeOrientation, EdgeShape, EdgeTopology } from "./Edge";
-import { Coords, Vertex, VertexTopology } from "./Vertex";
+import { Coords } from "../lib/common";
+import { LabelType, Vertex, VertexTopology } from "./Vertex";
 import { Drawable } from "./Drawable";
 
 /**
@@ -220,6 +221,31 @@ class Graph extends Drawable {
         this.update();
     }
 
+
+    /**
+     * Combine and bind another graph with the existing one. An edge will be created between our_vertex and their_vertex.
+     * Another graph is scaled, translated and rotated to adjust.
+     * @param graph their graph
+     * @param our_vertex vertex in our graph
+     * @param their_vertex vertex in their graph
+     */
+    combind(graph: Graph, our_vertex: Vertex, their_vertex: Vertex): Edge {
+        const our_added = this.add_bound_vertex_to(our_vertex);
+        const their_added = graph.add_bound_vertex_to(their_vertex);
+        const their_added_coords = their_added.vertices[0].coords;
+        const our_added_coords = our_added.vertices[0].coords;
+        const scale = this.get_average_bond_distance() / graph.get_average_bond_distance();
+        graph.scale(scale);
+        const alfa = Math.atan2(their_added_coords.y-their_vertex.coords.y, their_added_coords.x-their_vertex.coords.x) - Math.atan2(our_vertex.coords.y - our_added_coords.y, our_vertex.coords.x - our_added_coords.x);
+        graph.rotate(their_added_coords, alfa);
+        const translation : Coords = {x: our_vertex.coords.x - their_added_coords.x, y: our_vertex.coords.y - their_added_coords.y};
+        graph.translate(translation);
+        this.remove(our_added);
+        graph.remove(their_added);
+        this.add(graph);
+        return this.bind_vertices(our_vertex, their_vertex);
+    }
+
     /**
      * Remove the specified subgraph from the Graph. All the vertices and edges will be detached.
      * @param graph subgraph to remove.
@@ -414,8 +440,8 @@ class Graph extends Drawable {
             return r;
         }
         // help drawing polysubstituted atoms. We can move vertices which have no other neighbors
-        let movable_neighbors = neighbors.filter(e => e.neighbors.size == 1);
-        let fixed_neighbors = neighbors.filter(e => e.neighbors.size != 1);
+        let movable_neighbors = neighbors.filter(e => e.neighbors.size == 1 && e.label_type == LabelType.Atom );
+        let fixed_neighbors = neighbors.filter(e => e.neighbors.size != 1 || e.label_type != LabelType.Atom );
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         if (!fixed_neighbors.length)
             fixed_neighbors.push(...movable_neighbors.splice(0, 1));
@@ -825,6 +851,28 @@ class Graph extends Drawable {
     }
 
     /**
+     * Apply translation to the graph
+     * @param coords vector to add to all coordinates
+     */
+    translate(coords: Coords) {
+        this.vertices.forEach( e => {
+            e.coords.x += coords.x;
+            e.coords.y += coords.y;
+        });
+    }
+
+    /**
+     * Apply scaling to the graph
+     * @param factor Scaling factor
+     */
+    scale(factor: number) {
+        this.vertices.forEach( e => {
+            e.coords.x *= factor;
+            e.coords.y *= factor;
+        });
+    }
+
+    /**
      * Add vertices and edges to make graph rotationally symmetrical around specified Vertex.
      * For example, this transformation being applied to aliphatic carbon of toluene, will produce triphenylmethane for order 3
      * or tetraphenylmethane for order 4.
@@ -856,7 +904,6 @@ class Graph extends Drawable {
         this.update_topology();
         return r;
     }
-
 }
 
 export { Graph };

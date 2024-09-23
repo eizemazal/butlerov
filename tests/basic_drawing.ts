@@ -1,5 +1,6 @@
 import { ChemicalElements } from "../src/lib/elements";
 import {editor, fire_key, fire} from "../src/lib/testing";
+import userEvent from "@testing-library/user-event";
 
 beforeEach( () => {
     editor.clear();
@@ -200,4 +201,52 @@ test("Bind vertices, undo, redo", () => {
     expect(editor.graph.edges.length).toBe(2);
     fire_key("y", { ctrlKey: true } );
     expect(editor.graph.edges.length).toBe(3);
+});
+
+
+test("Add abbreviation via textbox and expand it", async () => {
+    const ue = userEvent.setup();
+    fire({x: 100, y: 100}, "click");
+    expect(editor.graph.vertices.length).toBe(2);
+    expect(editor.graph.edges.length).toBe(1);
+    fire(editor.graph.vertices[0].coords, "mousemove");
+    fire_key("Enter");
+    expect(editor.text_box.visible).toBe(true);
+    await ue.keyboard("OTf");
+    expect(editor.text_box.value).toBe("OTf");
+    fire_key("Enter");
+    expect(editor.text_box.visible).toBe(false);
+    expect(editor.graph.vertices.length).toBe(2);
+    expect(editor.graph.edges.length).toBe(1);
+    expect(editor.graph.vertices[0].label).toBe("OTf");
+    fire_key("z", { ctrlKey: true } );
+    expect(editor.graph.vertices[0].label).toBe("");
+    fire_key("y", { ctrlKey: true } );
+    expect(editor.graph.vertices[0].label).toBe("OTf");
+    fire({x: 100, y: 100}, "mousemove");
+    fire_key(" ");
+    fire_key("P");
+    expect(editor.graph.vertices.length).toBe(9);
+    expect(editor.graph.edges.length).toBe(8);
+    fire_key("z", { ctrlKey: true } );
+    expect(editor.graph.vertices.length).toBe(2);
+    expect(editor.graph.vertices[0].label).toBe("OTf");
+    fire_key("y", { ctrlKey: true } );
+    expect(editor.graph.vertices.length).toBe(9);
+});
+
+test("Readonly control", () => {
+    expect(editor.empty).toBe(true);
+    fire({x: 100, y: 100}, "click");
+    expect(editor.graph.vertices.length).toBe(2);
+    expect(editor.graph.edges.length).toBe(1);
+    expect(editor.readonly).toBe(false);
+    editor.readonly = true;
+    expect(editor.readonly).toBe(true);
+    fire(editor.graph.vertices[0].coords, "click");
+    expect(editor.graph.vertices.length).toBe(2);
+    editor.readonly = false;
+    expect(editor.readonly).toBe(false);
+    fire(editor.graph.vertices[0].coords, "click");
+    expect(editor.graph.vertices.length).toBe(3);
 });

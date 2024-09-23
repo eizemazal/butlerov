@@ -1,8 +1,9 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import { Coords, Vertex } from "./Vertex";
+import {  Vertex } from "./Vertex";
 import { Drawable } from "./Drawable";
 import { Controller } from "../controller/Controller";
+import { Coords } from "../lib/common";
 
 enum EdgeShape {
     Single,
@@ -243,14 +244,16 @@ class Edge extends Drawable {
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
         if (!this.screen_length)
             return;
-        this.alfa = Math.atan2(this.point2.y-this.point1.y, this.point2.x-this.point1.x) - Math.PI/2;
+        this.alfa = Math.atan2(this.point2.y-this.point1.y, this.point2.x-this.point1.x);
         const boundary_offset1 = this.v1.get_boundary_offset_at(this.alfa);
         const boundary_offset2 = this.v2.get_boundary_offset_at(Math.PI + this.alfa);
 
-        this.point1.x -= boundary_offset1.x;
-        this.point1.y -= boundary_offset1.y;
-        this.point2.x -= boundary_offset2.x;
-        this.point2.y -= boundary_offset2.y;
+        this.alfa -= Math.PI/2;
+
+        this.point1.x += boundary_offset1.x;
+        this.point1.y += boundary_offset1.y;
+        this.point2.x += boundary_offset2.x;
+        this.point2.y += boundary_offset2.y;
         this.screen_length = Math.sqrt((this.point2.x-this.point1.x)*(this.point2.x-this.point1.x)+(this.point2.y-this.point1.y)*(this.point2.y-this.point1.y));
     }
 
@@ -295,33 +298,19 @@ class Edge extends Drawable {
         this.group?.add(<Konva.Line>line);
     }
 
-    draw_single_up() {
+    draw_single_up_down(fill: boolean) {
         const stylesheet = this.controller?.stylesheet;
         if (!stylesheet)
             return;
         const line = this.create_lines(1)[0];
+        const startx = this.v1.label ? 0.05 * this.screen_length : 0;
+        const endx = this.v2.label ? 0.92 * this.screen_length : this.screen_length;
         line.setAttr("points", [
-            0, 0,
-            this.screen_length, -stylesheet.bond_wedge_px/2,
-            this.screen_length, stylesheet.bond_wedge_px/2
+            startx, 0,
+            endx, -stylesheet.bond_wedge_px/2,
+            endx, stylesheet.bond_wedge_px/2
         ]);
-        line.setAttr("fillEnabled", true);
-        line.setAttr("closed", true);
-        line.setAttr("lineJoin", "round");
-        this.group?.add(<Konva.Line>line);
-    }
-
-    draw_single_down() {
-        const stylesheet = this.controller?.stylesheet;
-        if (!stylesheet)
-            return;
-        const line = this.create_lines(1)[0];
-        line.setAttr("points", [
-            0, -stylesheet.bond_wedge_px/2,
-            0, stylesheet.bond_wedge_px/2,
-            this.screen_length, 0
-        ]);
-        line.setAttr("fillEnabled", false);
+        line.setAttr("fillEnabled", fill);
         line.setAttr("closed", true);
         line.setAttr("lineJoin", "round");
         this.group?.add(<Konva.Line>line);
@@ -405,10 +394,10 @@ class Edge extends Drawable {
             this.draw_single();
             break;
         case EdgeShape.SingleUp:
-            this.draw_single_up();
+            this.draw_single_up_down(true);
             break;
         case EdgeShape.SingleDown:
-            this.draw_single_down();
+            this.draw_single_up_down(false);
             break;
         case EdgeShape.SingleEither:
             this.draw_single_either();

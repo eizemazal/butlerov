@@ -3,8 +3,9 @@ import { KonvaEventObject } from "konva/lib/Node";
 import { Edge, EdgeShape, BondType, EdgeOrientation } from "../drawable/Edge";
 import { Graph } from "../drawable/Graph";
 import { Stylesheet } from "./Stylesheet";
+import { Coords } from "../lib/common";
 import {Controller} from "./Controller";
-import { Coords, Vertex } from "../drawable/Vertex";
+import { LabelType, Vertex } from "../drawable/Vertex";
 import { ChemicalElements } from "../lib/elements";
 import { Menu } from "./Menu";
 import { MenuButton } from "./MenuButton";
@@ -27,11 +28,13 @@ import {
     SymmetrizeAlongEdgeAction,
     SymmetrizeAtVertexAction,
     UpdateEdgeShapeAction,
+    ExpandLinearAction
 } from "../action/GraphActions";
 import { ActionDirection } from "../action/Action";
 import { Converter } from "../converter/Converter";
 import { MolConverter } from "../converter/MolConverter";
 import { Drawable } from "../drawable/Drawable";
+import { TextBox } from "./TextBox";
 
 
 class MoleculeEditor extends Controller {
@@ -51,6 +54,7 @@ class MoleculeEditor extends Controller {
     panning: boolean;
     _viewport_offset: Coords;
     graph_group: Konva.Group;
+    text_box: TextBox;
     constructor(stage: Konva.Stage, autofocus = true) {
         super(stage, autofocus);
         this.stage = stage;
@@ -84,8 +88,8 @@ class MoleculeEditor extends Controller {
         this.downed_vertex = null;
         this.downed_vertex_coords = null;
         const container = this.stage.container();
-        container.addEventListener("keydown", (e) => { e.preventDefault(); this.on_keydown(e); });
-        container.addEventListener("keyup", (e) => { e.preventDefault(); this.on_keyup(e); });
+        container.addEventListener("keydown", (e) => { this.on_keydown(e); });
+        container.addEventListener("keyup", (e) => { this.on_keyup(e); });
         this.stage.add(this.background_layer);
         this.stage.add(this.drawing_layer);
         this.stage.add(this.top_layer);
@@ -95,6 +99,7 @@ class MoleculeEditor extends Controller {
         this._readonly = false;
         this.panning = false;
         this._viewport_offset = {x: 0, y: 0};
+        this.text_box = new TextBox(this);
     }
 
     protected on_action(direction: ActionDirection): void {
@@ -263,6 +268,10 @@ class MoleculeEditor extends Controller {
             this.active_vertex = null;
             return;
         }
+        if (evt.key == "Enter") {
+            this.edit_vertex_label(this.active_vertex);
+            return;
+        }
         const translated_key = this.translate_key_event(evt);
         if (translated_key.match(/[A-Za-z]/)) {
             const new_label = this.get_next_element_label(this.active_vertex.label, translated_key, evt.shiftKey);
@@ -368,8 +377,12 @@ class MoleculeEditor extends Controller {
             const vertex = this.active_vertex;
             this.menu.add_button( new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); } ));
             this.menu.add_button( new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); } ));
-            if (vertex.element?.isotopes.length != 0) {
+            this.menu.add_button( new MenuButton("E", "Edit", () => { this.edit_vertex_label(vertex); } ) );
+            if (vertex.label_type == LabelType.Atom && vertex.element?.isotopes.length != 0) {
                 this.menu.add_button( new MenuButton("I", "Isotopes", () => { this.menu_isotopes(vertex); } ));
+            }
+            if (vertex.label_type == LabelType.Linear && vertex.neighbors.size == 1) {
+                this.menu.add_button( new MenuButton("P", "Expand", () => { this.commit_action(new ExpandLinearAction(this.graph, vertex)); } ));
             }
             if (vertex.neighbors.size == 1)
                 this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
@@ -483,6 +496,9 @@ class MoleculeEditor extends Controller {
     }
 
     on_keyup(evt: KeyboardEvent) {
+        if (this.text_box.visible)
+            return;
+        evt.preventDefault();
         if (evt.key == "Shift")
             this.stage.container().style.cursor = "default";
     }
@@ -498,6 +514,11 @@ class MoleculeEditor extends Controller {
     }
 
     on_keydown(evt: KeyboardEvent): void {
+        if (this.text_box.visible) {
+            this.text_box.handle_keydown(evt);
+            return;
+        }
+        evt.preventDefault();
         if (evt.key == "Shift") {
             this.stage.container().style.cursor = "move";
             return;
@@ -625,6 +646,10 @@ class MoleculeEditor extends Controller {
             this.menu.visible = false;
             return;
         }
+        if (this.text_box.visible) {
+            this.text_box.cancel();
+            return;
+        }
         const pos = this.background_layer.getRelativePointerPosition();
         pos.x -= this.viewport_offset.x;
         pos.y -= this.viewport_offset.y;
@@ -690,6 +715,23 @@ class MoleculeEditor extends Controller {
         if (evt.code.match(/Digit(\d+)/))
             return evt.code.substring(5);
         return evt.key;
+    }
+
+    edit_vertex_label(vertex: Vertex) {
+        if (this.text_box.visible)
+            this.text_box.close();
+        this.text_box.x = (vertex.coords.x - this._viewport_offset.x) / this.zoom;
+        this.text_box.y = (vertex.coords.y - this._viewport_offset.y) / this.zoom;
+        this.text_box.value = vertex.label;
+        vertex.hide();
+        this.text_box.onchange = (value) => {
+            this.commit_action(new ChangeVertexLabelAction(this.graph, vertex, value));
+        };
+        this.text_box.onclose = () => {
+            vertex.show();
+            this.stage.container().focus();
+        };
+        this.text_box.open();
     }
 }
 

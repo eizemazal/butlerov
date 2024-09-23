@@ -1,8 +1,19 @@
 import Konva from "konva";
 import { Controller } from "../controller/Controller";
 import { Drawable } from "./Drawable";
-import { Coords } from "./Vertex";
+import { Coords } from "../lib/common";
+import { CompositeLinearFormulaFragment } from "../lib/linear";
 
+export class FontStyle {
+    size = 12;
+    family = "Arial";
+    color = "#bbb";
+    weight: "" | "bold" | number = "";
+
+    public get style() {
+        return `${this.weight}`;
+    }
+}
 
 
 /**
@@ -15,7 +26,7 @@ import { Coords } from "./Vertex";
  * font_family and font_size_px properties can be specified
  * color is get/set property
  *
- * TextSegment's group zero point is left top corner of baseline text.
+ * TextSegment's group zero point is at left top corner of baseline text.
  * center_x and center_y props refer to the central point of baseline text.
  */
 export class TextSegment extends Drawable {
@@ -28,16 +39,14 @@ export class TextSegment extends Drawable {
     // index at left top, i.e. isotope
     index_lt = "";
 
-    font_family: string | null = null;
-    font_size_px = 0;
-    _color = "";
+    // this is not used in implementation, just an attribute that we should not break at this segment
+    nobreak = false;
 
-    // these are computed at update() costlessly
-    _width = 0;
-    _height = 0;
-    // center of text
-    private _center_x = 0;
-    private _center_y = 0;
+    _style: FontStyle;
+
+    // these readonly properties are computed at update() costlessly
+    _first_letter_center_x = 0;
+    _last_letter_center_x = 0;
     _top_boundary = 0;
     _bottom_boundary = 0;
     _right_boundary = 0;
@@ -48,32 +57,32 @@ export class TextSegment extends Drawable {
         this.index_rb = index_rb;
         this.index_rt = index_rt;
         this.index_lt = index_lt;
-    }
-
-    attach(controller: Controller): Konva.Group {
-        this.controller = controller;
-        if (!this.group)
-            this.group = new Konva.Group();
-        if (!this.font_family)
-            this.font_family = this.controller.stylesheet.atom_font_family;
-        if (!this.font_size_px)
-            this.font_size_px = this.controller.stylesheet.atom_font_size_px;
-        if (!this._color)
-            this._color = this.controller.stylesheet.atom_label_color;
-        this.update();
-        return this.group;
+        this._style = new FontStyle();
     }
 
     public get color(): string {
-        return this._color;
+        return this._style.color;
     }
 
     public set color(value: string) {
-        if (value == this._color)
+        if (value == this._style.color)
             return;
-        this._color = value;
+        this._style.color = value;
         for (const selector of ["lt", "rt", "rb", "txt"])
             this.group?.findOne(`#${selector}`)?.setAttr("fill", value);
+    }
+
+
+    public get font_style(): FontStyle {
+        return this._style;
+    }
+
+    /**
+     * set font style. If only change in color is needed, use color setter that is faster to update
+     */
+    public set font_style(style: FontStyle) {
+        this._style = style;
+        this.update();
     }
 
     public get x(): number {
@@ -107,12 +116,20 @@ export class TextSegment extends Drawable {
         return this._bottom_boundary;
     }
 
-    public get center_x(): number {
-        return this._center_x;
+    public get first_letter_center_x() {
+        return this._first_letter_center_x;
     }
 
-    public get center_y(): number {
-        return this._center_y;
+    public get center_x() {
+        return (this.right_boundary - this.left_boundary) / 2 + this.left_boundary;
+    }
+
+    public get center_y() {
+        return this._style.size / 2;
+    }
+
+    public get last_letter_center_x() {
+        return this._last_letter_center_x;
     }
 
     /**
@@ -121,7 +138,11 @@ export class TextSegment extends Drawable {
      * @returns whether redraw was required
      */
     update_with(ts: TextSegment): boolean {
+
+        this.nobreak = ts.nobreak;
+
         let redraw_required = false;
+
         if (ts.text != this.text) {
             this.text = ts.text;
             redraw_required = true;
@@ -153,7 +174,9 @@ export class TextSegment extends Drawable {
         this._bottom_boundary = 0;
         this._right_boundary = 0;
 
-        const index_font_size = this.font_size_px * this.controller?.stylesheet.index_font_size_ratio;
+        const index_font_size = this._style.size * this.controller?.stylesheet.index_font_size_ratio;
+        const superscript_offset_y = this.controller.stylesheet.superscript_offset_ratio * this._style.size;
+        const subscript_offset_y = this.controller.stylesheet.subscript_offset_ratio * this._style.size;
 
         // left top index
         let elem : Konva.Text = this.group.findOne("#lt");
@@ -161,14 +184,14 @@ export class TextSegment extends Drawable {
             if (!elem)
                 elem = new Konva.Text({id : "lt"});
             elem.setAttr("text", this.index_lt);
-            elem.setAttr("fill", this._color);
-            elem.setAttr("fontFamily", this.font_family);
+            elem.setAttr("fill", this._style.color);
+            elem.setAttr("fontFamily", this._style.family);
             elem.setAttr("fontSize", index_font_size);
             elem.setAttr("fontStyle", `${this.controller?.stylesheet.index_font_weight}`);
             elem.setAttr("x", 0);
-            elem.setAttr("y", this.font_size_px / 2 - index_font_size);
-            this._top_boundary = this.font_size_px / 2 - index_font_size;
-            this._bottom_boundary =this.font_size_px / 2;
+            elem.setAttr("y",  this._style.size / 2 - index_font_size - superscript_offset_y);
+            this._top_boundary = this._style.size / 2 - index_font_size - superscript_offset_y;
+            this._bottom_boundary = this._style.size / 2 - superscript_offset_y;
             x += elem.getWidth();
             this._right_boundary = x;
             this.group.add(elem);
@@ -176,24 +199,33 @@ export class TextSegment extends Drawable {
         else if (elem)
             elem.destroy();
 
+        let first_letter_width = 0;
+        let last_letter_width = 0;
         elem = this.group?.findOne("#txt");
         if (this.text) {
             if (!elem)
                 elem = new Konva.Text({id : "txt"});
-            elem.setAttr("text", this.text);
-            elem.setAttr("fill", this._color);
-            elem.setAttr("fontFamily", this.font_family);
-            elem.setAttr("fontSize", this.font_size_px);
+            elem.setAttr("fill", this._style.color);
+            elem.setAttr("fontFamily", this._style.family);
+            elem.setAttr("fontSize", this._style.size);
             elem.setAttr("x", x);
             elem.setAttr("y", 0);
-            const txt_width = elem.getWidth();
-            const txt_height = elem.getHeight();
-            this._center_x = x + txt_width / 2;
-            this._center_y = txt_height / 2;
-            this._bottom_boundary =this.font_size_px;
-            this.group.add(elem);
-            x += txt_width;
+            elem.setAttr("text", this.text[0]);
+            first_letter_width = elem.getWidth();
+            if (this.text.length > 1) {
+                elem.setAttr("text", this.text[this.text.length-1]);
+                last_letter_width = elem.getWidth();
+                elem.setAttr("text", this.text);
+            }
+            else
+                last_letter_width = first_letter_width;
+
+            this._bottom_boundary =this._style.size;
+            this._first_letter_center_x = x + first_letter_width / 2;
+            x += elem.getWidth();
+            this._last_letter_center_x = x - last_letter_width / 2;
             this._right_boundary = x;
+            this.group.add(elem);
         }
         else if (elem)
             elem.destroy();
@@ -205,14 +237,14 @@ export class TextSegment extends Drawable {
             if (!elem)
                 elem = new Konva.Text({id : "rt"});
             elem.setAttr("text", this.index_rt);
-            elem.setAttr("fill", this._color);
-            elem.setAttr("fontFamily", this.font_family);
+            elem.setAttr("fill", this._style.color);
+            elem.setAttr("fontFamily", this._style.family);
             elem.setAttr("fontSize", index_font_size);
             elem.setAttr("fontStyle", `${this.controller?.stylesheet.index_font_weight}`);
             elem.setAttr("x", x);
-            elem.setAttr("y", this.font_size_px / 2 - index_font_size);
-            this._top_boundary = Math.min(this._top_boundary, this.font_size_px / 2 - index_font_size);
-            this._bottom_boundary =Math.max(this._bottom_boundary, this.font_size_px / 2);
+            elem.setAttr("y",  this._style.size / 2 - index_font_size - superscript_offset_y);
+            this._top_boundary = Math.min(this._top_boundary, this._style.size / 2 - index_font_size - superscript_offset_y);
+            this._bottom_boundary =Math.max(this._bottom_boundary, this._style.size / 2 - superscript_offset_y);
             this._right_boundary = x + elem.getWidth();
             this.group.add(elem);
         }
@@ -225,14 +257,14 @@ export class TextSegment extends Drawable {
             if (!elem)
                 elem = new Konva.Text({id : "rb"});
             elem.setAttr("text", this.index_rb);
-            elem.setAttr("fill", this._color);
-            elem.setAttr("fontFamily", this.font_family);
+            elem.setAttr("fill", this._style.color);
+            elem.setAttr("fontFamily", this._style.family);
             elem.setAttr("fontSize", index_font_size);
             elem.setAttr("fontStyle", `${this.controller?.stylesheet.index_font_weight}`);
             elem.setAttr("x", x);
-            elem.setAttr("y", this.font_size_px / 2);
-            this._top_boundary = Math.min(this._top_boundary, this.font_size_px / 2);
-            this._bottom_boundary = Math.max(this._bottom_boundary, this.font_size_px/2 + index_font_size);
+            elem.setAttr("y",  this._style.size / 2 + subscript_offset_y);
+            this._top_boundary = Math.min(this._top_boundary, this._style.size / 2 + subscript_offset_y);
+            this._bottom_boundary = Math.max(this._bottom_boundary, this._style.size / 2 + subscript_offset_y + index_font_size);
             this._right_boundary = Math.max(this._right_boundary, x + elem.getWidth());
             this.group.add(elem);
         }
@@ -250,11 +282,17 @@ export enum TextDirection {
     BOTTOM_TO_TOP
 }
 
+export enum TextAlignment {
+    FIRST_SEGMENT_FIRST_LETTER,
+    FIRST_SEGMENT_CENTER
+}
+
 
 export class SegmentedText extends Drawable {
 
     segments: TextSegment[] = [];
     _direction: TextDirection = TextDirection.LEFT_TO_RIGHT;
+    _alignment: TextAlignment = TextAlignment.FIRST_SEGMENT_FIRST_LETTER;
 
     constructor(segments: TextSegment[] = []) {
         super();
@@ -298,6 +336,10 @@ export class SegmentedText extends Drawable {
     }
 
 
+    format_linear_formula(linear: CompositeLinearFormulaFragment): void {
+        this.update_with_segments(linear.to_text_segments());
+    }
+
     format_text(text: string) : void {
         // this does not process charges by design
         const new_segments : TextSegment[] = [];
@@ -337,6 +379,17 @@ export class SegmentedText extends Drawable {
         this.update();
     }
 
+    public get alignment(): TextAlignment {
+        return this._alignment;
+    }
+
+    public set alignment(alignment: TextAlignment) {
+        if (this._alignment == alignment)
+            return;
+        this._alignment = alignment;
+        this.update();
+    }
+
     public get empty() {
         return this.segments.length == 0;
     }
@@ -356,15 +409,29 @@ export class SegmentedText extends Drawable {
     }
 
     update() {
-
-        if (this.segments.length > 0) {
-            this.segments[0].x = -this.segments[0].center_x;
-            this.segments[0].y = -this.segments[0].center_y;
+        if (this.segments.length == 1) {
+            const current = this.segments[0];
+            current.x = -current.first_letter_center_x;
+            current.y = -current.center_y;
         }
+        else if (this.segments.length > 1) {
+            const current = this.segments[0];
+            if ( (this._direction == TextDirection.LEFT_TO_RIGHT || this._direction == TextDirection.RIGHT_TO_LEFT)
+                    && this._alignment == TextAlignment.FIRST_SEGMENT_FIRST_LETTER)
+                current.x = -current.first_letter_center_x;
+            else
+                current.x = -current.center_x;
+            current.y = -current.center_y;
+        }
+
         for (let idx = 1; idx < this.segments.length; idx++) {
             const prev = this.segments[idx-1];
             const current = this.segments[idx];
-            switch (this._direction) {
+            let direction = this._direction;
+            if (current.nobreak) {
+                direction = TextDirection.LEFT_TO_RIGHT;
+            }
+            switch (direction) {
             case TextDirection.LEFT_TO_RIGHT:
                 current.x = prev.x + prev.right_boundary;
                 current.y = prev.y;
@@ -374,11 +441,11 @@ export class SegmentedText extends Drawable {
                 current.y = prev.y;
                 break;
             case TextDirection.BOTTOM_TO_TOP:
-                current.x = prev.x + (prev.center_x - current.center_x);
+                current.x = prev.x + (prev.first_letter_center_x - current.first_letter_center_x);
                 current.y = prev.y - current.bottom_boundary;
                 break;
             case TextDirection.TOP_TO_BOTTOM:
-                current.x = prev.x + (prev.center_x - current.center_x);
+                current.x = prev.x + (prev.first_letter_center_x - current.first_letter_center_x);
                 current.y = prev.y + prev.bottom_boundary;
             }
         }
@@ -405,20 +472,22 @@ export class SegmentedText extends Drawable {
         if (this.empty)
             return {x : 0, y: 0};
 
-        const rb = this.segments[0].right_boundary - this.segments[0].center_x;
-        const lb = this.segments[0].left_boundary - this.segments[0].center_x;
-        const tb = this.segments[0].top_boundary - this.segments[0].center_y;
-        const bb = this.segments[0].bottom_boundary - this.segments[0].center_y;
+        const rb = this.segments[0].right_boundary + this.segments[0].x;
+        const lb = this.segments[0].left_boundary + this.segments[0].x;
+        const tb = this.segments[0].top_boundary + this.segments[0].y;
+        const bb = this.segments[0].bottom_boundary + this.segments[0].y;
 
         // Calculate direction vector from the angle
-        const dx = Math.sin(Math.PI - alfa);
-        const dy = Math.cos(Math.PI - alfa);
+        const dx = Math.cos(alfa);
+        const dy = Math.sin(alfa);
+
 
         // check intersection with right and left side
         if (dx != 0) {
             const y = dy * ( (dx > 0 ? rb : lb) / dx);
-            if (y >= tb && y <= bb )
+            if (y >= tb && y <= bb ) {
                 return {x: (dx > 0 ? rb : lb), y: y};
+            }
         }
 
         // check intersection with top and bottom side

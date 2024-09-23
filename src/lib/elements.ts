@@ -7,7 +7,7 @@ class ChemicalElement {
     abundance: number;
     isotopes: Array<number>;
 
-   
+
 
     /**
      * Create instance of chemical element

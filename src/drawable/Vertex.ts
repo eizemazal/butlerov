@@ -3,12 +3,10 @@ import { KonvaEventObject } from "konva/lib/Node";
 import { ChemicalElement, ChemicalElements } from "../lib/elements";
 import { Drawable } from "./Drawable";
 import { Controller } from "../controller/Controller";
-import { SegmentedText, TextSegment, TextDirection } from "./SegmentedText";
+import { SegmentedText, TextSegment, TextDirection, TextAlignment } from "./SegmentedText";
+import {Coords, format_charge} from "../lib/common";
+import { CompositeLinearFormulaFragment } from "../lib/linear";
 
-type Coords = {
-    x: number;
-    y: number;
-}
 
 enum VertexTopology {
     Undefined = 0,
@@ -23,6 +21,12 @@ enum LabelAlignment {
     Bottom
 }
 
+export enum LabelType {
+    Atom,
+    Linear,
+    Custom
+}
+
 class Vertex extends Drawable {
     group: Konva.Group | null = null;
     protected text : SegmentedText = new SegmentedText();
@@ -31,11 +35,12 @@ class Vertex extends Drawable {
     protected _coords: Coords = { x: 0, y: 0 };
     protected _charge = 0;
     protected _isotope = 0;
-    protected _element: ChemicalElement | null = ChemicalElements["C"];
+    protected _element: ChemicalElement = ChemicalElements["C"];
+    protected _linear : CompositeLinearFormulaFragment = new CompositeLinearFormulaFragment();
     protected _h_count = 4;
     protected _custom_label = "";
-    protected _custom_label_auto_format = true;
     protected _label_alignment: LabelAlignment = LabelAlignment.Left;
+    protected _label_type: LabelType = LabelType.Atom;
     public topology: VertexTopology = VertexTopology.Undefined;
     public id = "";
 
@@ -47,7 +52,7 @@ class Vertex extends Drawable {
         v._isotope = this._isotope;
         v._h_count = this._h_count;
         v._custom_label = this._custom_label;
-        v._custom_label_auto_format = this._custom_label_auto_format;
+        v._label_type = this._label_type;
         v.id = this.id;
         v.topology = this.topology;
         return v;
@@ -61,6 +66,8 @@ class Vertex extends Drawable {
         this.group.y(this._coords.y);
         this.group.add(this.text.attach(controller));
         this.attach_events(controller);
+        this.compute_text();
+        this.update();
         return this.group;
     }
 
@@ -83,48 +90,98 @@ class Vertex extends Drawable {
     }
 
     public set active(active: boolean) {
+        if (!this.controller || !this.group)
+            return;
         this.is_active = active;
-        this.update();
+        this.text.color = this.is_active ? this.controller.stylesheet.atom_active_label_color : this.controller.stylesheet.atom_label_color;
+        this.group.findOne("#active_box")?.setAttr("strokeWidth", this.is_active ? 1 : 0);
+    }
+
+    public hide() {
+        this.group?.hide();
+    }
+
+    public show() {
+        this.group?.show();
+    }
+
+    public get label_type(): LabelType {
+        return this._label_type;
     }
 
     public get label(): string {
-        if (this.text.empty)
+        if (this._label_type == LabelType.Atom && this._element.symbol == "C" && this.neighbors.size && this._isotope == 0)
             return "";
-        return this.element ? this.element.symbol : this._custom_label;
+        if (this._label_type == LabelType.Atom)
+            return this._element.symbol;
+        if (this._label_type == LabelType.Linear)
+            return this._linear.as_string;
+        return this._custom_label;
     }
 
     public set label(label: string) {
         this._isotope = 0;
         if (label == "") {
+            this._label_type = LabelType.Atom;
             this._element = ChemicalElements["C"];
-            this._custom_label = "";
+            this.compute_h_count();
         }
         else if (label in ChemicalElements) {
+            this._label_type = LabelType.Atom;
             this._element = ChemicalElements[label];
-            this._custom_label = "";
+            this.compute_h_count();
         }
         else {
-            this._element = null;
-            this._custom_label = label;
+            try {
+                const linear = new CompositeLinearFormulaFragment();
+                linear.parse_string(label);
+                if (linear && linear.components.length) {
+                    this._label_type = LabelType.Linear;
+                    this._linear = linear;
+                }
+            }
+            catch {
+                this._label_type = LabelType.Custom;
+                this._custom_label = label;
+            }
         }
-        this.update_text();
+
+        this.compute_text();
         this.update();
     }
 
-    private update_text(): void {
-        if (this._custom_label) {
-            if (this._custom_label_auto_format)
-                return this.text.format_text(this._custom_label);
+    public get linear_formula(): CompositeLinearFormulaFragment | null {
+        if (this.label_type == LabelType.Linear)
+            return this._linear;
+        return null;
+    }
+
+    private compute_text(): void {
+
+        if (!this.controller)
+            return;
+
+        if (this._label_type == LabelType.Atom && this._element.symbol == "C" && this.neighbors.size && this._isotope == 0) {
+            if (this.charge) {
+                this.text.update_with_segments([new TextSegment("", "", format_charge(this._charge))]);
+            }
             else
-                return this.text.format_text("not implemented");
+                this.text.clear();
+            return;
         }
-        if (!this._element)
-            throw "Element undefined";
-        this.compute_h_count();
-        if (this._element.symbol == "C" && this.neighbors.size && this._isotope == 0)
-            return this.text.clear();
+
+        if (this._label_type == LabelType.Linear) {
+            this.text.format_linear_formula(this._linear);
+            return;
+        }
+
+        if (this._label_type == LabelType.Custom) {
+            this.text.format_text(this._custom_label);
+            return;
+        }
+
         const segments: TextSegment[] = [];
-        const atom_segment = new TextSegment(this._element?.symbol);
+        const atom_segment = new TextSegment(this._element.symbol);
         if (this._isotope)
             atom_segment.index_lt = this._isotope.toString();
         segments.push(atom_segment);
@@ -132,12 +189,7 @@ class Vertex extends Drawable {
             segments.push(new TextSegment("H", this.h_count > 1 ? this.h_count.toString() : ""));
         if (this.charge) {
             const last_segment = segments[segments.length - 1];
-            const abs_charge = Math.abs(this.charge);
-            last_segment.index_rt = abs_charge > 1 ? abs_charge.toString() : "";
-            if (this.charge > 0)
-                last_segment.index_rt += "+";
-            else
-                last_segment.index_rt += "–";
+            last_segment.index_rt = format_charge(this._charge);
         }
         this.text.update_with_segments(segments);
     }
@@ -149,7 +201,8 @@ class Vertex extends Drawable {
 
     public set charge(charge: number) {
         this._charge = charge;
-        this.update_text();
+        this.compute_h_count();
+        this.compute_text();
         this.update();
     }
 
@@ -159,7 +212,7 @@ class Vertex extends Drawable {
 
     public set isotope(isotope: number) {
         this._isotope = isotope;
-        this.update_text();
+        this.compute_text();
         this.update();
     }
 
@@ -178,7 +231,7 @@ class Vertex extends Drawable {
     }
 
     public get element(): ChemicalElement|null {
-        return this._element;
+        return this._label_type == LabelType.Atom ? this._element : null;
     }
 
     update() {
@@ -188,13 +241,6 @@ class Vertex extends Drawable {
         const stylesheet = this.controller.stylesheet;
         this.group.x(this._coords.x);
         this.group.y(this._coords.y);
-        if (stylesheet.debug_enable_atom_center_dots) {
-            const debug_circle = <Konva.Circle>this.group.findOne("#debug_circle") || new Konva.Circle({
-                radius: 2,
-                fill: "red",
-            });
-            this.group.add(debug_circle);
-        }
         if (this.text.empty) {
             // the circle is needed to mask intersections of edges when there is no label present
             const circle = <Konva.Circle>this.group.findOne("#circle") || new Konva.Circle({
@@ -216,36 +262,41 @@ class Vertex extends Drawable {
             this.group.add(active_box);
         }
         else {
-            const alfa = this.least_crowded_angle();
-            //   \   /
-            //     N
-            //     H
-            if (this.neighbors.size >= 1 && alfa > Math.PI / 4 && alfa <= 3*Math.PI/4) {
-                this.text.direction = TextDirection.TOP_TO_BOTTOM;
-            }
-            //     H
-            //     N
-            //   /   \
-            else if (this.neighbors.size >= 1 && alfa > 5*Math.PI / 4 && alfa <= 7*Math.PI/4) {
-                this.text.direction = TextDirection.BOTTOM_TO_TOP;
-            }
-            // -COOH
-            else if (
-                (this.neighbors.size >= 1 && (alfa > 7*Math.PI/4 || alfa <= Math.PI / 4)) ||
-                    (this.neighbors.size == 1 && (alfa < Math.PI/2 || alfa > 3 * Math.PI / 2))
-            ) {
+            if (this.label_type == LabelType.Custom)
                 this.text.direction = TextDirection.LEFT_TO_RIGHT;
-            }
-            // HOOC-
-            else if (
-                (this.neighbors.size >= 1 && alfa > 3*Math.PI/4 && alfa <= 5*Math.PI/4) ||
-                    (this.neighbors.size == 1 && (alfa >= Math.PI/2 && alfa <= 3 * Math.PI / 2))
-            ) {
-                this.text.direction = TextDirection.RIGHT_TO_LEFT;
+            else {
+                const alfa = this.least_crowded_angle();
+                //   \   /
+                //     N
+                //     H
+                if (this.neighbors.size > 1 && alfa > Math.PI / 4 && alfa <= 3*Math.PI/4) {
+                    this.text.direction = TextDirection.TOP_TO_BOTTOM;
+                }
+                //     H
+                //     N
+                //   /   \
+                else if (this.neighbors.size > 1 && alfa > 5*Math.PI / 4 && alfa <= 7*Math.PI/4) {
+                    this.text.direction = TextDirection.BOTTOM_TO_TOP;
+                }
+                // -COOH
+                else if (
+                    (this.neighbors.size > 1 && (alfa > 7*Math.PI/4 || alfa <= Math.PI / 4)) ||
+                        (this.neighbors.size == 1 && (alfa < Math.PI/2 || alfa > 3 * Math.PI / 2))
+                ) {
+                    this.text.direction = TextDirection.LEFT_TO_RIGHT;
+                }
+                // HOOC-
+                else if (
+                    (this.neighbors.size > 1 && alfa > 3*Math.PI/4 && alfa <= 5*Math.PI/4) ||
+                        (this.neighbors.size == 1 && (alfa >= Math.PI/2 && alfa <= 3 * Math.PI / 2))
+                ) {
+                    this.text.direction = TextDirection.RIGHT_TO_LEFT;
+                }
             }
             this.group.findOne("#circle")?.destroy();
             this.group.findOne("#active_box")?.destroy();
             this.text.color = this.active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color;
+            this.text.alignment = this.topology == VertexTopology.Ring ?  TextAlignment.FIRST_SEGMENT_FIRST_LETTER : TextAlignment.FIRST_SEGMENT_CENTER;
         }
         this.text.update();
         this.group.getStage() && this.group.draw();
@@ -340,13 +391,15 @@ class Vertex extends Drawable {
 
     public set_neighbor(vertex: Vertex, bond_order: number) {
         this._neighbors.set(vertex, bond_order);
-        this.update_text();
+        this.compute_h_count();
+        this.compute_text();
         this.update();
     }
 
     public remove_neighbor(vertex: Vertex) {
         this._neighbors.delete(vertex);
-        this.update_text();
+        this.compute_h_count();
+        this.compute_text();
         this.update();
     }
 
@@ -361,4 +414,4 @@ class Vertex extends Drawable {
     }
 }
 
-export { Vertex, Coords, VertexTopology };
+export { Vertex, VertexTopology };

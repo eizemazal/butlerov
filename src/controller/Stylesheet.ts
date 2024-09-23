@@ -11,7 +11,7 @@ class Stylesheet {
     atom_font_size_px: number;
     /**
      * Font family for atom labels
-     * @defaultValue `ButlerovSans`
+     * @defaultValue `Arial`
      */
     atom_font_family: string;
     /**
@@ -87,6 +87,16 @@ class Stylesheet {
      */
     index_font_weight: number;
     /**
+     * Superscript is offset up by font size * this value
+     * @defaultValue 0
+     */
+    superscript_offset_ratio : number;
+    /**
+     * Subscript is offset fown by font size * this value
+     * @defaultValue 0
+     */
+    subscript_offset_ratio : number;
+    /**
      * Default length of bond that is created on click, in screen pixels. Note that it is possible to create bonds of different length.
      * When mol file is loaded into editor, the bonds can also have different lengths
      * @defaultValue 25
@@ -147,16 +157,6 @@ class Stylesheet {
      * @defaultValue `white`
      */
     background_fill_color: string;
-    /**
-     * Enable debugging dots for atom centers. For performance reasons, changing this on the fly is not supported.
-     * * @defaultValue `false`
-     */
-    debug_enable_atom_center_dots: boolean;
-    /**
-     * Enable debugging rects around atom labels. For performance reasons, changing this on the fly is not supported.
-     * * @defaultValue `false`
-     */
-    debug_enable_label_rects: boolean;
 
     constructor() {
         this.atom_font_size_px = 14;
@@ -173,6 +173,8 @@ class Stylesheet {
         this.atom_active_label_color = "red";
         this.index_font_size_ratio = 0.8;
         this.index_font_weight = 600;
+        this.superscript_offset_ratio = 0;
+        this.subscript_offset_ratio = 0;
         this.bond_length_px = 25;
         this.bond_thickness_px = 2;
         this.bond_wedge_px = 6;
@@ -184,8 +186,6 @@ class Stylesheet {
         this.bond_hit_stroke_width = 10;
         this.bond_snap_degrees = 30;
         this.background_fill_color = "white";
-        this.debug_enable_atom_center_dots = false;
-        this.debug_enable_label_rects = false;
     }
 }
 

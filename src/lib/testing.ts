@@ -1,9 +1,13 @@
 import { MoleculeEditor } from "../controller/MoleculeEditor";
 import { fireEvent } from "@testing-library/dom";
+import { userEvent } from "@testing-library/user-event";
 import { Vector2d } from "konva/lib/types";
 import Konva from "konva";
+import { createEvent } from "konva/lib/PointerEvents";
 
 const wrapper = document.createElement("div");
+const body = document.getElementsByTagName("body")[0];
+body.appendChild(wrapper);
 const stage = new Konva.Stage({
     container: wrapper,
     width: 300,
@@ -79,7 +83,14 @@ function fire(pos: Vector2d, event_type: string, evt: EventMockObject | null = n
 
 function fire_key(key: string, key_obj: KeyMockObject = {}) {
     key_obj.key = key;
-    fireEvent.keyDown(wrapper, key_obj);
+
+    const target = document.activeElement || document.body;
+
+    fireEvent.keyDown(target, key_obj);
+    fireEvent.keyPress(target, key_obj);
+    fireEvent.keyUp(target, key_obj);
+    //fireEvent.input(target, new Event("input"));
+
 }
 
 export { fire_key, fire, editor };
