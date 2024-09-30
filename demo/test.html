@@ -10,6 +10,7 @@
             //eslint-disable-next-line
             function init() {
                 d = window.butlerov.MoleculeEditor.from_html_element(document.getElementById("chemical"));
+                d.onchange = onChange;
                 smiles_converter = new window.butlerov.SmilesConverter();
                 mol_converter = new window.butlerov.MolConverter();
                 for (const el of document.querySelectorAll("[id^=\"style-\"]")) {
@@ -20,6 +21,13 @@
                     else
                         el.value = d.stylesheet[prop_name];
                 }
+            }
+
+            function onChange() {
+                const mw = new window.butlerov.MW(d.graph).compute();
+                document.getElementById("mw").innerHTML = mw ? `Molecular weight: ${mw.toFixed(2)}` : "";
+                const composition = new window.butlerov.Composition(d.graph).compute_as_html();
+                document.getElementById("composition").innerHTML = composition ? `Composition: ${composition}` : "";
             }
             //eslint-disable-next-line
             function clearDrawing() {
@@ -79,7 +87,7 @@
         <style type="text/css">
             .wrapper {
                 width: 600px;
-                margin: 50px 5px;
+                margin: 20px 5px;
             }
             p {
                 font-family: "Arial", Helvetica, sans-serif;
@@ -122,6 +130,11 @@
             h2 {
                 font: small-caps 12pt "Arial";
             }
+            p.descriptors {
+                font: 10pt "Arial";
+                padding: 0;
+                margin: 10px 0 0 0;
+            }
             label {
                 display: inline-block;
                 font: 10pt "Arial";
@@ -150,6 +163,10 @@
                 <p>Use mouse. Hover over the atoms, bonds, or empty space, and press spacebar - context menu will open.</p>
                 <button onclick="clearDrawing()">Clear</button>
                 <input type="checkbox" onchange="readonlyChange()" id="readonly-chkbx" name="readonly"/><label for="readonly">Read only</label>
+                <p class="descriptors">
+                    <span id="mw"></span><br />
+                    <span id="composition"></span>
+                </p>
                 <div class="wrapper">
                     <div id="chemical"></div>
                 </div>

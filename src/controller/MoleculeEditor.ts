@@ -210,6 +210,8 @@ class MoleculeEditor extends Controller {
         this.center_view();
         this.graph.update();
         this.update_background();
+        if (this._on_change)
+            this._on_change();
     }
 
     save(converter: Converter): string {

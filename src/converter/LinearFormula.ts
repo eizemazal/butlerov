@@ -12,7 +12,7 @@ export class LinearFormulaConverter extends Converter {
     graph : Graph = new Graph();
     fragments: LinearFormulaFragment[] = [];
 
-    from_string(s: string, graph: Graph | null): Graph {
+    from_string(s: string, graph: Graph | null = null): Graph {
         this.graph = graph ? graph : new Graph();
         const controller = this.graph.controller;
         if (controller)

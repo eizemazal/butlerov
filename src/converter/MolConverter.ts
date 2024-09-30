@@ -12,7 +12,7 @@ export class MolConverter extends Converter {
      * Load string of CTAB (Chemical tabular format aka .mol file) into @see Graph
      * @param s string with CTAB, for example, .mol file that is read from disk
      */
-    from_string(s: string, graph: Graph | null): Graph {
+    from_string(s: string, graph: Graph | null = null): Graph {
         graph = graph ? graph : new Graph();
         graph.clear();
         const controller = graph.controller;

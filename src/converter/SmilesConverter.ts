@@ -16,7 +16,7 @@ export class SmilesConverter extends Converter {
     bond_order = 1;
     labels: { [key: string]: Vertex } = {};
 
-    from_string(s: string, graph: Graph | null): Graph {
+    from_string(s: string, graph: Graph | null = null): Graph {
         this.graph = graph ? graph : new Graph();
         const controller = this.graph.controller;
         if (controller)

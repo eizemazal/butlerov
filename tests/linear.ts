@@ -96,7 +96,6 @@ test("Convert linear to text segments", () => {
     lf.components[0].count = 5;
     const expected = [ {text:"(CH", index_rb: "2"},  {text:")", index_rb: "5"}, {text:"Br"}];
     const segments = lf.to_text_segments();
-    console.log(segments);
     expect(segments.length).toBe(expected.length);
     for (let i = 0; i < segments.length; i++) {
         const segment = segments[i];
