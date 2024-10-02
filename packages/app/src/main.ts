@@ -17,7 +17,7 @@ const createWindow = () => {
         }
     });
 
-    win.loadFile("../index.html");
+    win.loadFile("index.html");
     //win.webContents.openDevTools();
 
     const menu_template : MenuItemConstructorOptions[] = [

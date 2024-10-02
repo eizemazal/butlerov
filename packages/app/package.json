@@ -7,7 +7,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "lint": "eslint -c .eslintrc --ext .ts ./src",
-    "start": "electron-forge start",
+    "start": "npm run build && electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make"
   },
@@ -26,6 +26,7 @@
     "@electron-forge/maker-zip": "^7.5.0",
     "@electron-forge/plugin-auto-unpack-natives": "^7.5.0",
     "@electron-forge/plugin-fuses": "^7.5.0",
+    "@electron/asar": "3.2.13",
     "@electron/fuses": "^1.8.0",
     "electron": "^32.1.2"
   },

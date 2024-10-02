@@ -1,14 +1,14 @@
 {
     "name": "butlerov-workspaces",
     "scripts": {
-      "clean": "rimraf -g \"packages/**/dist\" \"packages/**/*.tsbuildinfo\" \"packages/**/coverage\" \"packages/**/out\"",
-      "test": "npm run test --workspace=packages/butlerov",
-      "dev": "npm run dev --workspace=packages/butlerov"
+        "clean": "rimraf -g \"packages/**/dist\" \"packages/**/*.tsbuildinfo\" \"packages/**/coverage\" \"packages/**/out\"",
+        "test": "npm run test --workspace=packages/butlerov",
+        "dev": "npm run dev --workspace=packages/butlerov"
     },
     "devDependencies": {
-      "rimraf": "6.0.1"
+        "rimraf": "6.0.1"
     },
     "workspaces": [
-      "packages/*"
+        "packages/*"
     ]
-  }
+}

@@ -70,7 +70,7 @@ ipcRenderer.on("menu-file-save-as", async () => {
 filename_to_converter;
 
 const api = {
-    "bla": () => {console.log("cra!");},
+    //
 };
 
 
