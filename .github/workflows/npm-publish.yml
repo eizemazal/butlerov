@@ -12,8 +12,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm ci
-      - run: npm test
+      - run: npm --workspace=packages/butlerov ci
+      - run: npm --workspace=packages/butlerov test
 
   publish-npm:
     needs: build
@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org/
-      - run: npm ci
-      - run: npm publish
+      - run: npm --workspace=packages/butlerov ci
+      - run: npm --workspace=packages/butlerov publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}

@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "declaration": true,
-        "target": "es6",
+        "target": "es2017",
         "esModuleInterop": true,
         "moduleResolution": "node",
         "strict": true,
