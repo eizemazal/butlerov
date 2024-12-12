@@ -4,7 +4,7 @@ import { Edge, EdgeShape, BondType, EdgeOrientation } from "../drawable/Edge";
 import { Graph } from "../drawable/Graph";
 import { Stylesheet } from "./Stylesheet";
 import { Coords } from "../lib/common";
-import {Controller} from "./Controller";
+import { Controller } from "./Controller";
 import { LabelType, Vertex } from "../drawable/Vertex";
 import { ChemicalElements } from "../lib/elements";
 import { Menu } from "./Menu";
@@ -37,7 +37,7 @@ import { Drawable } from "../drawable/Drawable";
 import { TextBox } from "./TextBox";
 
 
-class MoleculeEditor extends Controller {
+export class MoleculeEditor extends Controller {
     stage: Konva.Stage;
     drawing_layer: Konva.Layer;
     background_layer: Konva.Layer;
@@ -71,11 +71,11 @@ class MoleculeEditor extends Controller {
         }));
         this.welcome_message = new Konva.Group();
         this.background_layer.add(this.welcome_message);
-        this.background_layer.on("click", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_click(evt); } );
-        this.background_layer.on("contextmenu", (evt:KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(); } );
-        this.background_layer.on("mousemove", (evt:KonvaEventObject<MouseEvent>) => { this.on_background_mousemove(evt); } );
-        this.background_layer.on("mouseover", () => { this.on_background_mouseover(); } );
-        this.stage.on("mouseleave", () => { this.on_stage_mouseleave(); } );
+        this.background_layer.on("click", (evt: KonvaEventObject<MouseEvent>) => { this.on_background_click(evt); });
+        this.background_layer.on("contextmenu", (evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(); });
+        this.background_layer.on("mousemove", (evt: KonvaEventObject<MouseEvent>) => { this.on_background_mousemove(evt); });
+        this.background_layer.on("mouseover", () => { this.on_background_mouseover(); });
+        this.stage.on("mouseleave", () => { this.on_stage_mouseleave(); });
         this.drawing_layer = new Konva.Layer();
         this.graph_group = this.graph.attach(this);
         this.drawing_layer.add(this.graph_group);
@@ -98,8 +98,13 @@ class MoleculeEditor extends Controller {
         this.actions_rolled_back = 0;
         this._readonly = false;
         this.panning = false;
-        this._viewport_offset = {x: 0, y: 0};
+        this._viewport_offset = { x: 0, y: 0 };
         this.text_box = new TextBox(this);
+        window.addEventListener("resize", () => {
+            stage.width(container.offsetWidth);
+            stage.height(container.offsetHeight);
+            this.update_background();
+        });
     }
 
     protected on_action(direction: ActionDirection): void {
@@ -139,8 +144,8 @@ class MoleculeEditor extends Controller {
 
     update_background() {
         const rect = this.background_layer.findOne("#background_rect");
-        rect.setAttr("width", this.stage.getAttr("width") / this.zoom);
-        rect.setAttr("height", this.stage.getAttr("height") / this.zoom);
+        rect?.setAttr("width", this.stage.getAttr("width") / this.zoom);
+        rect?.setAttr("height", this.stage.getAttr("height") / this.zoom);
         if (this.graph.vertices.length || this.graph.edges.length) {
             this.welcome_message.visible(false);
             this.graph.draw();
@@ -156,17 +161,17 @@ class MoleculeEditor extends Controller {
             The hotkeys are shown in the menu.
             `,
         });
-        txt.setAttr("fontSize", 14/this.zoom);
-        txt.setAttr("x", this.stage.width() / (2*this.zoom) - txt.width()/2 );
-        txt.setAttr("y", this.stage.height() / (2*this.zoom) - txt.height()/2 );
+        txt.setAttr("fontSize", 14 / this.zoom);
+        txt.setAttr("x", this.stage.width() / (2 * this.zoom) - txt.width() / 2);
+        txt.setAttr("y", this.stage.height() / (2 * this.zoom) - txt.height() / 2);
         this.welcome_message.add(<Konva.Text>txt);
     }
 
     center_view() {
         const rect = this.graph.get_molecule_rect();
         this.viewport_offset = {
-            x : this.stage.width() / (2*this.zoom) - (rect.x1 + rect.x2) / 2,
-            y : this.stage.height() / (2*this.zoom) - (rect.y1 + rect.y2) / 2,
+            x: this.stage.width() / (2 * this.zoom) - (rect.x1 + rect.x2) / 2,
+            y: this.stage.height() / (2 * this.zoom) - (rect.y1 + rect.y2) / 2,
         };
     }
 
@@ -177,12 +182,12 @@ class MoleculeEditor extends Controller {
      * The margins will remain blank. Specified as a proportion to width and height of the control. @default 0.05
      */
 
-    zoom_to_fit(overzoom = false, margins=0.05) {
+    zoom_to_fit(overzoom = false, margins = 0.05) {
         const rect = this.graph.get_molecule_rect();
-        const screen_w = (1+margins)*(rect.x2 - rect.x1);
-        const screen_h = (1+margins)*(rect.y2 - rect.y1);
+        const screen_w = (1 + margins) * (rect.x2 - rect.x1);
+        const screen_h = (1 + margins) * (rect.y2 - rect.y1);
         let zoom = Math.min(this.stage.width() / screen_w, this.stage.height() / screen_h);
-        if (zoom > 1 && !overzoom )
+        if (zoom > 1 && !overzoom)
             zoom = 1;
         this.zoom = zoom;
     }
@@ -233,7 +238,7 @@ class MoleculeEditor extends Controller {
             this.clear_actions();
             this.graph.clear();
         }
-        this.viewport_offset = {x: 0, y: 0};
+        this.viewport_offset = { x: 0, y: 0 };
         this.graph_group.x(0);
         this.graph_group.y(0);
         this.active_edge = null;
@@ -243,7 +248,7 @@ class MoleculeEditor extends Controller {
     get_next_element_label(label: string, key: string, reverse = false): string {
         const element_labels = Object.keys(ChemicalElements)
             .filter(e => e.toLowerCase()[0] == key.toLowerCase())
-            .sort((a,b) => {
+            .sort((a, b) => {
                 if (ChemicalElements[a].abundance != ChemicalElements[b].abundance)
                     return ChemicalElements[a].abundance < ChemicalElements[b].abundance ? -1 : 1;
                 return a < b ? -1 : 1;
@@ -255,10 +260,10 @@ class MoleculeEditor extends Controller {
         const index = element_labels.indexOf(label);
         if (index == -1)
             return reverse ? element_labels[element_labels.length - 1] : element_labels[0];
-        if (!reverse && index == element_labels.length - 1 )
+        if (!reverse && index == element_labels.length - 1)
             return element_labels[0];
-        if ( reverse && index == 0 )
-            return  element_labels[element_labels.length - 1];
+        if (reverse && index == 0)
+            return element_labels[element_labels.length - 1];
         return reverse ? element_labels[index - 1] : element_labels[index + 1];
     }
 
@@ -338,10 +343,10 @@ class MoleculeEditor extends Controller {
         if (this.active_edge) {
             this.menu.clear_buttons();
             const edge = this.active_edge;
-            this.menu.add_button( new MenuButton("1", "Single", () => {
+            this.menu.add_button(new MenuButton("1", "Single", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Single));
-            } ));
-            this.menu.add_button( new MenuButton("2", "Double", () => {
+            }));
+            this.menu.add_button(new MenuButton("2", "Double", () => {
                 if (edge.shape != EdgeShape.Double) {
                     this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double));
                 }
@@ -351,54 +356,54 @@ class MoleculeEditor extends Controller {
                     this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Center));
                 else
                     this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Right));
-            } ));
-            edge.bond_type != BondType.Triple && this.menu.add_button( new MenuButton("3", "Triple", () => {
+            }));
+            edge.bond_type != BondType.Triple && this.menu.add_button(new MenuButton("3", "Triple", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Triple));
-            } ));
-            this.menu.add_button( new MenuButton("w", "Wedged up", () => {
+            }));
+            this.menu.add_button(new MenuButton("w", "Wedged up", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleUp));
-            } ));
-            this.menu.add_button( new MenuButton("q", "Wedged down", () => {
+            }));
+            this.menu.add_button(new MenuButton("q", "Wedged down", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleDown));
-            } ));
-            this.menu.add_button( new MenuButton("e", "Single either", () => {
+            }));
+            this.menu.add_button(new MenuButton("e", "Single either", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleEither));
-            } ));
-            this.menu.add_button( new MenuButton("a", "Double either", () => {
+            }));
+            this.menu.add_button(new MenuButton("a", "Double either", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.DoubleEither));
-            } ));
-            this.menu.add_button( new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); } ));
-            if ( (edge.v1.neighbors.size == 1) != (edge.v2.neighbors.size == 1) )
-                this.menu.add_button( new MenuButton("S", "Symmetrize along", () => { this.commit_action(new SymmetrizeAlongEdgeAction(this.graph, edge)); } ));
-            this.menu.add_button( new MenuButton("x", "Delete", () =>  {
+            }));
+            this.menu.add_button(new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); }));
+            if ((edge.v1.neighbors.size == 1) != (edge.v2.neighbors.size == 1))
+                this.menu.add_button(new MenuButton("S", "Symmetrize along", () => { this.commit_action(new SymmetrizeAlongEdgeAction(this.graph, edge)); }));
+            this.menu.add_button(new MenuButton("x", "Delete", () => {
                 this.commit_action(new DeleteEdgeAction(this.graph, edge));
-            } ));
+            }));
         }
         else if (this.active_vertex) {
             this.menu.clear_buttons();
             const vertex = this.active_vertex;
-            this.menu.add_button( new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); } ));
-            this.menu.add_button( new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); } ));
-            this.menu.add_button( new MenuButton("E", "Edit", () => { this.edit_vertex_label(vertex); } ) );
+            this.menu.add_button(new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); }));
+            this.menu.add_button(new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); }));
+            this.menu.add_button(new MenuButton("E", "Edit", () => { this.edit_vertex_label(vertex); }));
             if (vertex.label_type == LabelType.Atom && vertex.element?.isotopes.length != 0) {
-                this.menu.add_button( new MenuButton("I", "Isotopes", () => { this.menu_isotopes(vertex); } ));
+                this.menu.add_button(new MenuButton("I", "Isotopes", () => { this.menu_isotopes(vertex); }));
             }
             if (vertex.label_type == LabelType.Linear && vertex.neighbors.size == 1) {
-                this.menu.add_button( new MenuButton("P", "Expand", () => { this.commit_action(new ExpandLinearAction(this.graph, vertex)); } ));
+                this.menu.add_button(new MenuButton("P", "Expand", () => { this.commit_action(new ExpandLinearAction(this.graph, vertex)); }));
             }
             if (vertex.neighbors.size == 1)
-                this.menu.add_button( new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); } ));
-            this.menu.add_button( new MenuButton("x", "Delete", () => {
+                this.menu.add_button(new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); }));
+            this.menu.add_button(new MenuButton("x", "Delete", () => {
                 this.commit_action(new DeleteVertexAction(this.graph, vertex));
-            } ));
+            }));
         }
         else {
             this.menu.clear_buttons();
-            this.menu.add_button( new MenuButton("c", "Center view", () => { this.center_view(); } ));
-            this.menu.add_button( new MenuButton("z", "Zoom", () => { this.menu_zoom(); } ));
-            this.menu.add_button( new MenuButton("f", "Zoom to fit", () => { this.zoom_to_fit(); } ));
-            this.menu.add_button( new MenuButton("h", "Strip hydrogens", () => { this.commit_action(new StripHAction(this.graph)); } ));
-            this.menu.add_button( new MenuButton("x", "Clear drawing", () => { this.menu_confirm_clear(); } ));
+            this.menu.add_button(new MenuButton("c", "Center view", () => { this.center_view(); }));
+            this.menu.add_button(new MenuButton("z", "Zoom", () => { this.menu_zoom(); }));
+            this.menu.add_button(new MenuButton("f", "Zoom to fit", () => { this.zoom_to_fit(); }));
+            this.menu.add_button(new MenuButton("h", "Strip hydrogens", () => { this.commit_action(new StripHAction(this.graph)); }));
+            this.menu.add_button(new MenuButton("x", "Clear drawing", () => { this.menu_confirm_clear(); }));
         }
 
         if (this.stage.pointerPos) {
@@ -426,64 +431,64 @@ class MoleculeEditor extends Controller {
 
     menu_zoom() {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("a", "50%", () => { this.zoom = 0.5;  } ));
-        this.menu.add_button( new MenuButton("q", "75%", () => { this.zoom = 0.75;  } ));
-        this.menu.add_button( new MenuButton("1", "100%", () => { this.zoom = 1; } ));
-        this.menu.add_button( new MenuButton("2", "200%", () => { this.zoom = 2;  } ));
+        this.menu.add_button(new MenuButton("a", "50%", () => { this.zoom = 0.5; }));
+        this.menu.add_button(new MenuButton("q", "75%", () => { this.zoom = 0.75; }));
+        this.menu.add_button(new MenuButton("1", "100%", () => { this.zoom = 1; }));
+        this.menu.add_button(new MenuButton("2", "200%", () => { this.zoom = 2; }));
         this.menu.visible = true;
     }
 
     menu_symmetry_vertex(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("2", "C2v / D2h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 2)); } ));
-        this.menu.add_button( new MenuButton("3", "C3v / D3h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 3)); } ));
-        this.menu.add_button( new MenuButton("4", "C4v / D4h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 4)); } ));
+        this.menu.add_button(new MenuButton("2", "C2v / D2h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 2)); }));
+        this.menu.add_button(new MenuButton("3", "C3v / D3h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 3)); }));
+        this.menu.add_button(new MenuButton("4", "C4v / D4h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 4)); }));
         this.menu.visible = true;
     }
 
     menu_attach_ring(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("p", "Phenyl", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 6, true)); } ));
-        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 3)); } ));
-        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 4)); } ));
-        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 5)); } ));
-        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 6)); } ));
-        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 7)); } ));
-        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 8)); } ));
+        this.menu.add_button(new MenuButton("p", "Phenyl", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 6, true)); }));
+        this.menu.add_button(new MenuButton("3", "Cyclopropane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 3)); }));
+        this.menu.add_button(new MenuButton("4", "Cyclobutane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 4)); }));
+        this.menu.add_button(new MenuButton("5", "Cyclopentane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 5)); }));
+        this.menu.add_button(new MenuButton("6", "Cyclohexane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 6)); }));
+        this.menu.add_button(new MenuButton("7", "Cycloheptane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 7)); }));
+        this.menu.add_button(new MenuButton("8", "Cyclooctane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 8)); }));
         this.menu.visible = true;
     }
 
     menu_fuse_ring(edge: Edge) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("p", "Phenyl", () => { this.commit_action(new FuseRingAction(this.graph, edge, 6, true)); } ));
-        this.menu.add_button( new MenuButton("3", "Cyclopropane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 3)); } ));
-        this.menu.add_button( new MenuButton("4", "Cyclobutane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 4)); } ));
-        this.menu.add_button( new MenuButton("5", "Cyclopentane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 5)); } ));
-        this.menu.add_button( new MenuButton("6", "Cyclohexane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 6)); } ));
-        this.menu.add_button( new MenuButton("7", "Cycloheptane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 7)); } ));
-        this.menu.add_button( new MenuButton("8", "Cyclooctane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 8)); } ));
+        this.menu.add_button(new MenuButton("p", "Phenyl", () => { this.commit_action(new FuseRingAction(this.graph, edge, 6, true)); }));
+        this.menu.add_button(new MenuButton("3", "Cyclopropane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 3)); }));
+        this.menu.add_button(new MenuButton("4", "Cyclobutane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 4)); }));
+        this.menu.add_button(new MenuButton("5", "Cyclopentane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 5)); }));
+        this.menu.add_button(new MenuButton("6", "Cyclohexane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 6)); }));
+        this.menu.add_button(new MenuButton("7", "Cycloheptane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 7)); }));
+        this.menu.add_button(new MenuButton("8", "Cyclooctane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 8)); }));
         this.menu.visible = true;
     }
 
     menu_chain(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("1", "Methyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 1)); } ));
-        this.menu.add_button( new MenuButton("2", "Ethyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 2)); } ));
-        this.menu.add_button( new MenuButton("3", "Propyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 3)); } ));
-        this.menu.add_button( new MenuButton("4", "Butyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 4)); } ));
-        this.menu.add_button( new MenuButton("5", "Amyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 5)); } ));
-        this.menu.add_button( new MenuButton("6", "Hexyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 6)); } ));
-        this.menu.add_button( new MenuButton("7", "Heptyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 7)); } ));
-        this.menu.add_button( new MenuButton("8", "Octyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 8)); } ));
+        this.menu.add_button(new MenuButton("1", "Methyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 1)); }));
+        this.menu.add_button(new MenuButton("2", "Ethyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 2)); }));
+        this.menu.add_button(new MenuButton("3", "Propyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 3)); }));
+        this.menu.add_button(new MenuButton("4", "Butyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 4)); }));
+        this.menu.add_button(new MenuButton("5", "Amyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 5)); }));
+        this.menu.add_button(new MenuButton("6", "Hexyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 6)); }));
+        this.menu.add_button(new MenuButton("7", "Heptyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 7)); }));
+        this.menu.add_button(new MenuButton("8", "Octyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 8)); }));
         this.menu.visible = true;
     }
 
     menu_isotopes(vertex: Vertex) {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("x", "x", () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, 0)); } ));
+        this.menu.add_button(new MenuButton("x", "x", () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, 0)); }));
         if (vertex.element?.isotopes) {
             for (const [index, is] of vertex.element.isotopes.entries()) {
-                this.menu.add_button( new MenuButton(`${index + 1}`, `${is}${vertex.element.symbol}`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, is)); } ));
+                this.menu.add_button(new MenuButton(`${index + 1}`, `${is}${vertex.element.symbol}`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, is)); }));
             }
         }
         this.menu.visible = true;
@@ -491,9 +496,9 @@ class MoleculeEditor extends Controller {
 
     menu_confirm_clear() {
         this.menu.clear_buttons();
-        this.menu.add_button( new MenuButton("Y", "Really clear?", () => { this.clear(true); } ));
+        this.menu.add_button(new MenuButton("Y", "Really clear?", () => { this.clear(true); }));
         //eslint-disable-next-line
-        this.menu.add_button( new MenuButton("N", "Cancel", () => {} ));
+        this.menu.add_button(new MenuButton("N", "Cancel", () => { }));
         this.menu.visible = true;
     }
 
@@ -556,7 +561,7 @@ class MoleculeEditor extends Controller {
             this.rollback_actions(1);
             return;
         }
-        if (translated_key == "y" && (evt.metaKey || evt.ctrlKey) || (translated_key == "z" && (evt.metaKey || evt.ctrlKey) && evt.shiftKey) ) {
+        if (translated_key == "y" && (evt.metaKey || evt.ctrlKey) || (translated_key == "z" && (evt.metaKey || evt.ctrlKey) && evt.shiftKey)) {
             this.recommit_actions(1);
             return;
         }
@@ -653,6 +658,8 @@ class MoleculeEditor extends Controller {
             return;
         }
         const pos = this.background_layer.getRelativePointerPosition();
+        if (!pos)
+            return;
         pos.x -= this.viewport_offset.x;
         pos.y -= this.viewport_offset.y;
         if (evt.evt.ctrlKey || evt.evt.metaKey)
@@ -672,7 +679,7 @@ class MoleculeEditor extends Controller {
         this.viewport_offset = {
             x: this.viewport_offset.x + evt.evt.movementX / this.zoom,
             y: this.viewport_offset.y + evt.evt.movementY / this.zoom,
-        } ;
+        };
     }
 
     on_background_mouseover() {
@@ -736,5 +743,3 @@ class MoleculeEditor extends Controller {
         this.text_box.open();
     }
 }
-
-export { MoleculeEditor };

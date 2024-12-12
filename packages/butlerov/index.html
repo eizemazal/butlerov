@@ -2,16 +2,16 @@
 <html>
     <head>
         <title>Test chemical drawing</title>
-        <script src="../packages/butlerov/dist/butlerov.umd.cjs"></script>
-        <script>
+        <script type="module">
+            import {MoleculeEditor, SmilesConverter, MolConverter, MW, Composition } from "./src/main.ts";
             let d;
             let mol_converter;
             let smiles_converter;
             window.init = function() {
-                d = window.butlerov.MoleculeEditor.from_html_element(document.getElementById("chemical"));
+                d = MoleculeEditor.from_html_element(document.getElementById("chemical"));
                 d.onchange = onChange;
-                smiles_converter = new window.butlerov.SmilesConverter();
-                mol_converter = new window.butlerov.MolConverter();
+                smiles_converter = new SmilesConverter();
+                mol_converter = new MolConverter();
                 for (const el of document.querySelectorAll("[id^=\"style-\"]")) {
                     const prop_name = el.id.substring("style-".length).replaceAll("-", "_");
                     const prop_type = typeof(d.stylesheet[prop_name]);
@@ -23,9 +23,9 @@
             };
 
             function onChange() {
-                const mw = new window.butlerov.MW(d.graph).compute();
+                const mw = new MW(d.graph).compute();
                 document.getElementById("mw").innerHTML = mw ? `Molecular weight: ${mw.toFixed(2)}` : "";
-                const composition = new window.butlerov.Composition(d.graph).compute_as_html();
+                const composition = new Composition(d.graph).compute_as_html();
                 document.getElementById("composition").innerHTML = composition ? `Composition: ${composition}` : "";
             }
 

@@ -1,0 +1,39 @@
+{
+    "appId": "com.lumiprobe.butlerov.app",
+    "directories": {
+        "output": "dist"
+    },
+
+    "nsis": {
+        "oneClick": false,
+        "perMachine": false,
+        "allowToChangeInstallationDirectory": true,
+        "shortcutName": "Butlerov App"
+    },
+    "win": {
+        "target": "nsis"
+    },
+    "linux":  {
+        "target": ["appImage"]
+    },
+    "files": [
+        {
+            "from": "build/main",
+            "to": "main",
+            "filter": ["**/*"]
+        },
+        {
+            "from": "build/renderer",
+            "to": "renderer",
+            "filter": ["**/*"]
+        },
+        {
+            "from": "src/main/static",
+            "to": "static",
+            "filter": ["**/*"]
+        },
+	"!build",
+	"!dist",
+	"!scripts"
+    ]
+}

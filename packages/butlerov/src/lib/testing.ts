@@ -1,9 +1,9 @@
-import { MoleculeEditor } from "../controller/MoleculeEditor";
+import {MoleculeEditor} from "../controller/MoleculeEditor";
 import { fireEvent } from "@testing-library/dom";
-import { userEvent } from "@testing-library/user-event";
+//import { userEvent } from "@testing-library/user-event";
 import { Vector2d } from "konva/lib/types";
 import Konva from "konva";
-import { createEvent } from "konva/lib/PointerEvents";
+//import { createEvent } from "konva/lib/PointerEvents";
 
 const wrapper = document.createElement("div");
 const body = document.getElementsByTagName("body")[0];
@@ -13,6 +13,7 @@ const stage = new Konva.Stage({
     width: 300,
     height: 300,
 });
+
 const editor = new MoleculeEditor(stage);
 
 type EventMockObject = {

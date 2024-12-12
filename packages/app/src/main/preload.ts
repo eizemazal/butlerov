@@ -1,15 +1,15 @@
-import { MoleculeEditor, MW, Composition, MolConverter, SmilesConverter } from "butlerov";
-import { Converter } from "butlerov/dist/converter/Converter";
+import { MolConverter, SmilesConverter } from "butlerov";
 import { contextBridge, ipcRenderer } from "electron";
 
 
-let editor: MoleculeEditor;
+
+//let editor: MoleculeEditor;
 
 
-function filename_to_converter(filename: string): Converter | null {
+function filename_to_converter(filename: string) {
     const last_dot_idx = filename.lastIndexOf(".");
-    const extension = filename.slice(last_dot_idx+1).toLowerCase();
-    let converter: Converter | null = null;
+    const extension = filename.slice(last_dot_idx + 1).toLowerCase();
+    let converter = null;
     if (["sdf", "mol"].includes(extension))
         converter = new MolConverter();
     else if (extension == "smi")
@@ -17,10 +17,11 @@ function filename_to_converter(filename: string): Converter | null {
     return converter;
 }
 
-
+/*
 window.addEventListener("DOMContentLoaded", () => {
 
     const element = document.getElementById("chemical");
+    console.log("aaa");
 
     if (!element)
         throw "Unable to get DOM element";
@@ -35,9 +36,9 @@ window.addEventListener("DOMContentLoaded", () => {
         if (composition_elem)
             composition_elem.innerHTML = composition ? `Composition: ${composition}` : "";
     };
-});
+});*/
 
-ipcRenderer.on("menu-file-new", () => editor.clear());
+//ipcRenderer.on("menu-file-new", () => editor.clear());
 ipcRenderer.on("menu-file-open", async () => {
     const file_path = await ipcRenderer.invoke("dialog:file_open");
     if (!file_path)
@@ -50,7 +51,7 @@ ipcRenderer.on("menu-file-open", async () => {
         console.log("Unknown file type");
         return;
     }
-    editor.load(data, converter);
+    //editor.load(data, converter);
 });
 
 ipcRenderer.on("menu-file-save-as", async () => {
@@ -63,11 +64,10 @@ ipcRenderer.on("menu-file-save-as", async () => {
         console.log("Unknown file type");
         return;
     }
-    const data = editor.save(converter);
-    await ipcRenderer.invoke("write_file", file_path, data);
+    //const data = editor.save(converter);
+    //await ipcRenderer.invoke("write_file", file_path, data);
 });
 
-filename_to_converter;
 
 const api = {
     //
@@ -76,7 +76,7 @@ const api = {
 
 contextBridge.exposeInMainWorld("electronAPI", api);
 
-export type APIInterface = typeof api;
+type APIInterface = typeof api;
 
 declare global {
     interface Window {

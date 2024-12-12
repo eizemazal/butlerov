@@ -8,7 +8,7 @@ import { Converter } from "./Converter";
 /**
  * Converter class for SMILES
  */
-export class SmilesConverter extends Converter {
+export class SmilesConverter implements Converter {
     graph : Graph = new Graph();
     label = "";
     attachment_stack: Vertex[] = [];

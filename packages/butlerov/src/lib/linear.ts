@@ -2,9 +2,9 @@ import { ChemicalElement } from "./elements";
 import { Abbreviation } from "./abbreviations";
 import { LinearFormulaConverter } from "../converter/LinearFormula";
 import { TextSegment } from "../drawable/SegmentedText";
-import {format_charge } from "./common";
+import { format_charge } from "./common";
 import { Graph } from "../drawable/Graph";
-import { SmilesConverter } from "../main";
+import {SmilesConverter} from "../converter/SmilesConverter";
 import { BondType } from "../drawable/Edge";
 
 export class LinearFormulaFragment {
@@ -55,7 +55,7 @@ export class AtomicLinearFormulaFragment extends LinearFormulaFragment {
 
     to_graph(): Graph {
         const graph = new Graph();
-        graph.add_vertex({x: 0, y: 0}, this.element.symbol);
+        graph.add_vertex({ x: 0, y: 0 }, this.element.symbol);
         graph.vertices[0].charge = this.charge;
         return graph;
     }
@@ -112,7 +112,7 @@ export class CompositeLinearFormulaFragment extends LinearFormulaFragment {
             }
         }
         if (segments.length && this.charge)
-            segments[segments.length-1].index_rt = format_charge(this.charge);
+            segments[segments.length - 1].index_rt = format_charge(this.charge);
         return segments;
     }
 
@@ -129,7 +129,7 @@ export class CompositeLinearFormulaFragment extends LinearFormulaFragment {
         let i = 0;
         let graph;
         let last_vertex;
-        while(i < this.components.length) {
+        while (i < this.components.length) {
             graph = this.components[i].to_graph();
             if (graph.vertices.length) {
                 last_vertex = graph.vertices[0];
@@ -140,7 +140,7 @@ export class CompositeLinearFormulaFragment extends LinearFormulaFragment {
         if (!graph || !last_vertex)
             return new Graph();
 
-        for (let j = i+1; j < this.components.length; j++) {
+        for (let j = i + 1; j < this.components.length; j++) {
             const component_graph = this.components[j].to_graph();
             if (!component_graph.vertices.length)
                 continue;

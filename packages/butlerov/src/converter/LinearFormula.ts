@@ -8,7 +8,7 @@ import { Converter } from "./Converter";
  * Converter class for linear formulae like CF3SO2ONa
  * They are acyclic
  */
-export class LinearFormulaConverter extends Converter {
+export class LinearFormulaConverter implements Converter {
     graph : Graph = new Graph();
     fragments: LinearFormulaFragment[] = [];
 

@@ -131,20 +131,20 @@ class AddBoundVertexAction extends Action {
     commit() {
         if (this.added) {
             this.graph.add(this.added);
-            Array.from(this.vertex.neighbors.keys()).forEach( (e, idx) =>  e.coords = this.new_neighbor_coords[idx]);
+            Array.from(this.vertex.neighbors.keys()).forEach((e, idx) => e.coords = this.new_neighbor_coords[idx]);
             this.graph.update();
         }
         else {
-            this.old_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map( e => e.coords );
+            this.old_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map(e => e.coords);
             this.added = this.graph.add_bound_vertex_to(this.vertex);
-            this.new_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map( e => e.coords );
+            this.new_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map(e => e.coords);
         }
     }
     rollback() {
         if (!this.added)
             return;
         this.graph.remove(this.added);
-        Array.from(this.vertex.neighbors.keys()).forEach( (e, idx) =>  e.coords = this.old_neighbor_coords[idx]);
+        Array.from(this.vertex.neighbors.keys()).forEach((e, idx) => e.coords = this.old_neighbor_coords[idx]);
         this.graph.update();
     }
 }
@@ -155,7 +155,7 @@ class AddDefaultFragmentAction extends Action {
     y: number;
     added: Graph | null;
 
-    constructor(graph: Graph, x: number, y: number ) {
+    constructor(graph: Graph, x: number, y: number) {
         super();
         this.graph = graph;
         this.x = x;
@@ -167,7 +167,7 @@ class AddDefaultFragmentAction extends Action {
         if (this.added)
             this.graph.add(this.added);
         else
-            this.added = this.graph.add_default_fragment({x: this.x, y: this.y});
+            this.added = this.graph.add_default_fragment({ x: this.x, y: this.y });
     }
 
     rollback() {
@@ -184,7 +184,7 @@ class AddSingleVertexAction extends Action {
     y: number;
     added: Graph | null;
 
-    constructor(graph: Graph, x: number, y: number ) {
+    constructor(graph: Graph, x: number, y: number) {
         super();
         this.graph = graph;
         this.x = x;
@@ -196,7 +196,7 @@ class AddSingleVertexAction extends Action {
         if (this.added)
             this.graph.add(this.added);
         else
-            this.added = this.graph.add_vertex({x: this.x, y: this.y});
+            this.added = this.graph.add_vertex({ x: this.x, y: this.y });
     }
 
     rollback() {
@@ -427,7 +427,7 @@ class MoveVertexAction extends UpdatableAction {
         this.new_coords = this.vertex.coords;
     }
 
-    commit() : void {
+    commit(): void {
         this.vertex.coords = this.new_coords;
         this.vertex.update();
         for (const [vertex,] of this.vertex.neighbors)
@@ -443,7 +443,7 @@ class MoveVertexAction extends UpdatableAction {
         this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
     }
 
-    update(action: this) : boolean {
+    update(action: this): boolean {
         if (action.vertex != this.vertex)
             return false;
         this.new_coords = action.vertex.coords;
@@ -467,7 +467,7 @@ class IncrementAtomChargeAction extends UpdatableAction {
         this.increment = increment;
     }
 
-    commit() : void {
+    commit(): void {
         this.vertex.charge = this.old_charge + this.increment;
         this.vertex.update();
     }
@@ -477,7 +477,7 @@ class IncrementAtomChargeAction extends UpdatableAction {
         this.vertex.update();
     }
 
-    update(action: this) : boolean {
+    update(action: this): boolean {
         if (action.vertex != this.vertex)
             return false;
         this.increment += action.increment;
@@ -564,15 +564,20 @@ class ExpandLinearAction extends Action {
     commit() {
         this.vertex.active = false;
         const neighbor_vertex = this.vertex.neighbors.keys().next().value;
-        this.graph.edges.forEach( (e, idx) => {
+        this.graph.edges.forEach((e, idx) => {
             if (e.v1 == this.vertex || e.v2 == this.vertex)
                 this.edges_removed.set(idx, e);
         });
-        this.graph.edges = this.graph.edges.filter((_,idx) => idx in this.edges_removed);
+        this.graph.edges = this.graph.edges.filter((_, idx) => idx in this.edges_removed);
         this.edges_removed.forEach(e => e.detach());
-        this.graph.vertices = this.graph.vertices.filter( e => e != this.vertex);
+        this.graph.vertices = this.graph.vertices.filter(e => e != this.vertex);
         this.vertex.detach();
-        this.edge_added = this.graph.combind(this.expansion, neighbor_vertex, this.expansion.vertices[0]);
+        if (neighbor_vertex) {
+            this.edge_added = this.graph.combind(this.expansion, neighbor_vertex, this.expansion.vertices[0]);
+        }
+        else {
+            this.graph.add(this.expansion);
+        }
         this.graph.update();
     }
     rollback() {
@@ -582,7 +587,7 @@ class ExpandLinearAction extends Action {
         this.graph.vertices.splice(this.vertex_idx, 0, this.vertex);
         if (this.graph.controller)
             this.vertex.attach(this.graph.controller);
-        for ( const [idx, edge] of this.edges_removed) {
+        for (const [idx, edge] of this.edges_removed) {
             this.graph.edges.splice(idx, 0, edge);
             if (this.graph.controller)
                 edge.attach(this.graph.controller);

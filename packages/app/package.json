@@ -1,37 +1,27 @@
 {
-  "name": "app",
-  "version": "0.0.1",
-  "description": "Butlerov App is a 2D chemical structure drawing application.",
-  "main": "dist/main.js",
+  "name": "butlerov-app",
+  "version": "0.1.0",
+  "description": "2D chemistry drawing application",
+  "main": "main/main.js",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
-    "lint": "eslint -c .eslintrc --ext .ts ./src",
-    "start": "npm run build && electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make"
+    "dev": "node deploy/dev-server.cjs",
+    "build": "node deploy/build.cjs && electron-builder",
+    "build:win": "node deploy/build.cjs && electron-builder --win",
+    "build:mac": "node deploy/build.cjs && electron-builder --mac",
+    "build:linux": "node deploy/build.cjs && electron-builder --linux"
   },
-  "keywords": [
-    "chemistry",
-    "structure",
-    "2d"
-  ],
-  "author": "Butlerov team",
-  "license": "MIT",
+  "repository": "https://github.com/eizemazal/butlerov",
+  "author": {
+    "name": "Butlerov team"
+  },
   "devDependencies": {
-    "@electron-forge/cli": "^7.5.0",
-    "@electron-forge/maker-deb": "^7.5.0",
-    "@electron-forge/maker-rpm": "^7.5.0",
-    "@electron-forge/maker-squirrel": "^7.5.0",
-    "@electron-forge/maker-zip": "^7.5.0",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.5.0",
-    "@electron-forge/plugin-fuses": "^7.5.0",
-    "@electron/asar": "3.2.13",
-    "@electron/fuses": "^1.8.0",
-    "electron": "^32.1.2"
+    "@vitejs/plugin-vue": "^5.2.1",
+    "chalk": "^4.1.2",
+    "chokidar": "^4.0.1",
+    "electron": "33.2.1",
+    "electron-builder": "^25.1.8"
   },
   "dependencies": {
-    "butlerov": "^0.0.17",
-    "electron-squirrel-startup": "^1.0.1"
+    "vue": "^3.5.13"
   }
 }

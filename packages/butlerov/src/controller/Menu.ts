@@ -10,7 +10,7 @@ class Menu {
     last_zoom: number;
     constructor() {
         this._buttons = [];
-        this.group = new Konva.Group({"x": 0, "y": 0});
+        this.group = new Konva.Group({ "x": 0, "y": 0 });
         this.update();
         this.last_zoom = 1;
     }
@@ -31,12 +31,12 @@ class Menu {
         let y = BTN_SPACING / this.zoom;
         for (const button of this._buttons) {
             const button_group = button.as_group();
-            button_group.setAttr("x", HPADDING/this.zoom);
+            button_group.setAttr("x", HPADDING / this.zoom);
             button_group.setAttr("y", y);
-            y += button.height + BTN_SPACING/this.zoom;
+            y += button.height + BTN_SPACING / this.zoom;
             this.group.add(button_group);
         }
-        background.setAttr("width", this._buttons[0].width+2*HPADDING/this.zoom);
+        background.setAttr("width", this._buttons[0].width + 2 * HPADDING / this.zoom);
         background.setAttr("height", y);
     }
     public get x(): number {
@@ -55,12 +55,14 @@ class Menu {
         this.group.setAttr("y", y);
     }
 
-    public get width() : number {
-        return this.group.findOne("#background").width();
+    public get width(): number {
+        const bg = this.group.findOne("#background");
+        return bg ? bg.width() : 0;
     }
 
-    public get height() : number {
-        return this.group.findOne("#background").height();
+    public get height(): number {
+        const bg = this.group.findOne("#background");
+        return bg ? bg.height() : 0;
     }
 
     as_group() {
@@ -120,4 +122,4 @@ class Menu {
     }
 }
 
-export {Menu};
+export { Menu };

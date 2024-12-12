@@ -4,7 +4,7 @@ import { ChemicalElement, ChemicalElements } from "../lib/elements";
 import { Drawable } from "./Drawable";
 import { Controller } from "../controller/Controller";
 import { SegmentedText, TextSegment, TextDirection, TextAlignment } from "./SegmentedText";
-import {Coords, format_charge} from "../lib/common";
+import { Coords, format_charge } from "../lib/common";
 import { CompositeLinearFormulaFragment } from "../lib/linear";
 
 
@@ -29,14 +29,14 @@ export enum LabelType {
 
 class Vertex extends Drawable {
     group: Konva.Group | null = null;
-    protected text : SegmentedText = new SegmentedText();
+    protected text: SegmentedText = new SegmentedText();
     protected _neighbors: Map<Vertex, number> = new Map();
     protected is_active = false;
     protected _coords: Coords = { x: 0, y: 0 };
     protected _charge = 0;
     protected _isotope = 0;
     protected _element: ChemicalElement = ChemicalElements["C"];
-    protected _linear : CompositeLinearFormulaFragment = new CompositeLinearFormulaFragment();
+    protected _linear: CompositeLinearFormulaFragment = new CompositeLinearFormulaFragment();
     protected _h_count = 4;
     protected _custom_label = "";
     protected _label_alignment: LabelAlignment = LabelAlignment.Left;
@@ -230,7 +230,7 @@ class Vertex extends Drawable {
         this.group?.y(coords.y);
     }
 
-    public get element(): ChemicalElement|null {
+    public get element(): ChemicalElement | null {
         return this._label_type == LabelType.Atom ? this._element : null;
     }
 
@@ -247,7 +247,7 @@ class Vertex extends Drawable {
                 fill: stylesheet.bond_stroke_color,
                 id: "circle",
             });
-            circle.setAttr("radius", this._neighbors.size > 1 ? stylesheet.bond_thickness_px/2 : 0);
+            circle.setAttr("radius", this._neighbors.size > 1 ? stylesheet.bond_thickness_px / 2 : 0);
             this.group.add(circle);
             const active_box = <Konva.Rect>this.group.findOne("#active_box") || new Konva.Rect({
                 x: -5,
@@ -269,26 +269,26 @@ class Vertex extends Drawable {
                 //   \   /
                 //     N
                 //     H
-                if (this.neighbors.size > 1 && alfa > Math.PI / 4 && alfa <= 3*Math.PI/4) {
+                if (this.neighbors.size > 1 && alfa > Math.PI / 4 && alfa <= 3 * Math.PI / 4) {
                     this.text.direction = TextDirection.TOP_TO_BOTTOM;
                 }
                 //     H
                 //     N
                 //   /   \
-                else if (this.neighbors.size > 1 && alfa > 5*Math.PI / 4 && alfa <= 7*Math.PI/4) {
+                else if (this.neighbors.size > 1 && alfa > 5 * Math.PI / 4 && alfa <= 7 * Math.PI / 4) {
                     this.text.direction = TextDirection.BOTTOM_TO_TOP;
                 }
                 // -COOH
                 else if (
-                    (this.neighbors.size > 1 && (alfa > 7*Math.PI/4 || alfa <= Math.PI / 4)) ||
-                        (this.neighbors.size == 1 && (alfa < Math.PI/2 || alfa > 3 * Math.PI / 2))
+                    (this.neighbors.size > 1 && (alfa > 7 * Math.PI / 4 || alfa <= Math.PI / 4)) ||
+                    (this.neighbors.size == 1 && (alfa < Math.PI / 2 || alfa > 3 * Math.PI / 2))
                 ) {
                     this.text.direction = TextDirection.LEFT_TO_RIGHT;
                 }
                 // HOOC-
                 else if (
-                    (this.neighbors.size > 1 && alfa > 3*Math.PI/4 && alfa <= 5*Math.PI/4) ||
-                        (this.neighbors.size == 1 && (alfa >= Math.PI/2 && alfa <= 3 * Math.PI / 2))
+                    (this.neighbors.size > 1 && alfa > 3 * Math.PI / 4 && alfa <= 5 * Math.PI / 4) ||
+                    (this.neighbors.size == 1 && (alfa >= Math.PI / 2 && alfa <= 3 * Math.PI / 2))
                 ) {
                     this.text.direction = TextDirection.RIGHT_TO_LEFT;
                 }
@@ -296,7 +296,7 @@ class Vertex extends Drawable {
             this.group.findOne("#circle")?.destroy();
             this.group.findOne("#active_box")?.destroy();
             this.text.color = this.active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color;
-            this.text.alignment = this.topology == VertexTopology.Ring ?  TextAlignment.FIRST_SEGMENT_FIRST_LETTER : TextAlignment.FIRST_SEGMENT_CENTER;
+            this.text.alignment = this.topology == VertexTopology.Ring ? TextAlignment.FIRST_SEGMENT_FIRST_LETTER : TextAlignment.FIRST_SEGMENT_CENTER;
         }
         this.text.update();
         this.group.getStage() && this.group.draw();
@@ -310,21 +310,21 @@ class Vertex extends Drawable {
     least_crowded_angle() {
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         let angles: Array<number> = [];
-        angles = Array.from(this.neighbors.keys()).map(e => Math.atan2(e.coords.y-this.coords.y, e.coords.x-this.coords.x));
-        angles.sort( (a,b) => a > b ? 1 : -1);
+        angles = Array.from(this.neighbors.keys()).map(e => Math.atan2(e.coords.y - this.coords.y, e.coords.x - this.coords.x));
+        angles.sort((a, b) => a > b ? 1 : -1);
         let largest_diff = 0;
         let angle1 = 0;
         // find largest angle between adjacent neighbors
         for (let i = 0; i < angles.length; i++) {
-            const prev_idx = i == 0 ? angles.length-1 : i-1;
-            const diff = i == 0 ? angles[i] - angles[prev_idx] + 2*Math.PI: angles[i] - angles[prev_idx];
+            const prev_idx = i == 0 ? angles.length - 1 : i - 1;
+            const diff = i == 0 ? angles[i] - angles[prev_idx] + 2 * Math.PI : angles[i] - angles[prev_idx];
             if (diff > largest_diff) {
                 largest_diff = diff;
                 angle1 = angles[prev_idx];
             }
         }
-        angle1 = angle1 + largest_diff/2;
-        return (angle1 + 2*Math.PI) % (2*Math.PI);
+        angle1 = angle1 + largest_diff / 2;
+        return (angle1 + 2 * Math.PI) % (2 * Math.PI);
     }
 
 
@@ -336,17 +336,21 @@ class Vertex extends Drawable {
         if (this._neighbors.size != 1)
             return;
         const n_vertex = this._neighbors.keys().next().value;
+        if (n_vertex === undefined)
+            return;
         let alfa = Math.atan2(this.coords.y - n_vertex.coords.y, this.coords.x - n_vertex.coords.x);
         if (snap_to_angle) {
-            const alfa_rounded = Math.round((alfa * 180 / Math.PI) / stylesheet.bond_snap_degrees)*stylesheet.bond_snap_degrees * Math.PI/180;
+            const alfa_rounded = Math.round((alfa * 180 / Math.PI) / stylesheet.bond_snap_degrees) * stylesheet.bond_snap_degrees * Math.PI / 180;
             // if the pivot vertex has exactly two adjacents (one we are moving), allow to create 180 deg angle with the rest adjacent
-            if (n_vertex._neighbors.length == 2) {
+            if (n_vertex._neighbors.size == 2) {
                 const iter = n_vertex._neighbors.keys();
-                let n2_vertex:Vertex = iter.next().value;
-                if (n2_vertex == this)
+                let n2_vertex: Vertex | undefined = iter.next().value;
+                if (n2_vertex === this)
                     n2_vertex = iter.next().value;
+                if (n2_vertex === undefined)
+                    throw "this should not be";
                 const beta = Math.atan2(n_vertex.coords.y - n2_vertex.coords.y, n_vertex.coords.x - n2_vertex.coords.x);
-                if (Math.abs(alfa - beta)*180/Math.PI < stylesheet.bond_snap_degrees && Math.abs(alfa_rounded - alfa) > Math.abs(alfa - beta))
+                if (Math.abs(alfa - beta) * 180 / Math.PI < stylesheet.bond_snap_degrees && Math.abs(alfa_rounded - alfa) > Math.abs(alfa - beta))
                     alfa = beta;
                 else
                     alfa = alfa_rounded;
@@ -355,7 +359,7 @@ class Vertex extends Drawable {
                 alfa = alfa_rounded;
         }
         this.coords = {
-            x : n_vertex.coords.x + Math.cos(alfa) * stylesheet.bond_length_px,
+            x: n_vertex.coords.x + Math.cos(alfa) * stylesheet.bond_length_px,
             y: n_vertex.coords.y + Math.sin(alfa) * stylesheet.bond_length_px
         };
     }
@@ -407,9 +411,9 @@ class Vertex extends Drawable {
         return this._h_count;
     }
 
-    public get_boundary_offset_at(alfa: number) : Coords {
+    public get_boundary_offset_at(alfa: number): Coords {
         if (this.text.empty)
-            return {x : 0, y: 0};
+            return { x: 0, y: 0 };
         return this.text.get_boundary_offset_at(alfa);
     }
 }
