@@ -1,12 +1,12 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { ChemicalElement, ChemicalElements } from "../lib/elements";
-import { Drawable } from "./Drawable";
+import { DrawableBase } from "./Base";
 import { Controller } from "../controller/Controller";
-import { SegmentedText, TextSegment, TextDirection, TextAlignment } from "./SegmentedText";
-import { Coords, format_charge } from "../lib/common";
+import { DrawableSegmentedText, DrawableTextSegment, TextDirection, TextAlignment } from "./SegmentedText";
+import { format_charge } from "../lib/common";
 import { CompositeLinearFormulaFragment } from "../lib/linear";
-
+import { Coords, Vertex, LabelType } from "../types";
 
 enum VertexTopology {
     Undefined = 0,
@@ -21,16 +21,11 @@ enum LabelAlignment {
     Bottom
 }
 
-export enum LabelType {
-    Atom,
-    Linear,
-    Custom
-}
+class DrawableVertex extends DrawableBase implements Vertex {
 
-class Vertex extends Drawable {
     group: Konva.Group | null = null;
-    protected text: SegmentedText = new SegmentedText();
-    protected _neighbors: Map<Vertex, number> = new Map();
+    protected text: DrawableSegmentedText = new DrawableSegmentedText();
+    protected _neighbors = new Map<DrawableVertex, number>();
     protected is_active = false;
     protected _coords: Coords = { x: 0, y: 0 };
     protected _charge = 0;
@@ -42,10 +37,60 @@ class Vertex extends Drawable {
     protected _label_alignment: LabelAlignment = LabelAlignment.Left;
     protected _label_type: LabelType = LabelType.Atom;
     public topology: VertexTopology = VertexTopology.Undefined;
-    public id = "";
+    public id = 0;
 
-    copy(): Vertex {
-        const v = new Vertex();
+    constructor(v: Vertex | undefined = undefined) {
+        super();
+        if (v === undefined)
+            return;
+        this.coords = { x: v.x, y: v.y };
+        this.charge = v.charge;
+        if (v.label_type == LabelType.Atom) {
+            this._label_type = LabelType.Atom;
+            this._element = ChemicalElements[v.label];
+            if (v.isotope !== undefined)
+                this._isotope = v.isotope;
+            if (v.h_count !== undefined)
+                this._h_count = v.h_count;
+        }
+        else if (v.label_type == LabelType.Linear)
+            try {
+                const linear = new CompositeLinearFormulaFragment();
+                linear.parse_string(v.label);
+                if (linear && linear.components.length) {
+                    this._label_type = LabelType.Linear;
+                    this._linear = linear;
+                }
+            }
+            catch {
+                this._label_type = LabelType.Custom;
+                this._custom_label = v.label;
+            }
+        else {
+            this._label_type = LabelType.Custom;
+            this._custom_label = v.label;
+        }
+
+    }
+
+    read(): Vertex {
+        const v: Vertex = {
+            x: this.x,
+            y: this.y,
+            label_type: this.label_type,
+            label: this.label,
+            charge: this.charge
+        }
+        if (this.isotope)
+            v.isotope = this.isotope;
+        if (this.charge)
+            v.charge = this.charge;
+
+        return v;
+    }
+
+    copy(): DrawableVertex {
+        const v = new DrawableVertex();
         v._coords = { ...this._coords };
         v._element = this._element;
         v._charge = this._charge;
@@ -93,7 +138,7 @@ class Vertex extends Drawable {
         if (!this.controller || !this.group)
             return;
         this.is_active = active;
-        this.text.color = this.is_active ? this.controller.stylesheet.atom_active_label_color : this.controller.stylesheet.atom_label_color;
+        this.text.color = this.is_active ? this.controller.theme.atom_active_label_color : this.controller.theme.atom_label_color;
         this.group.findOne("#active_box")?.setAttr("strokeWidth", this.is_active ? 1 : 0);
     }
 
@@ -110,8 +155,6 @@ class Vertex extends Drawable {
     }
 
     public get label(): string {
-        if (this._label_type == LabelType.Atom && this._element.symbol == "C" && this.neighbors.size && this._isotope == 0)
-            return "";
         if (this._label_type == LabelType.Atom)
             return this._element.symbol;
         if (this._label_type == LabelType.Linear)
@@ -163,7 +206,7 @@ class Vertex extends Drawable {
 
         if (this._label_type == LabelType.Atom && this._element.symbol == "C" && this.neighbors.size && this._isotope == 0) {
             if (this.charge) {
-                this.text.update_with_segments([new TextSegment("", "", format_charge(this._charge))]);
+                this.text.update_with_segments([new DrawableTextSegment("", "", format_charge(this._charge))]);
             }
             else
                 this.text.clear();
@@ -180,18 +223,22 @@ class Vertex extends Drawable {
             return;
         }
 
-        const segments: TextSegment[] = [];
-        const atom_segment = new TextSegment(this._element.symbol);
+        const segments: DrawableTextSegment[] = [];
+        const atom_segment = new DrawableTextSegment(this._element.symbol);
         if (this._isotope)
             atom_segment.index_lt = this._isotope.toString();
         segments.push(atom_segment);
         if (this.h_count)
-            segments.push(new TextSegment("H", this.h_count > 1 ? this.h_count.toString() : ""));
+            segments.push(new DrawableTextSegment("H", this.h_count > 1 ? this.h_count.toString() : ""));
         if (this.charge) {
             const last_segment = segments[segments.length - 1];
             last_segment.index_rt = format_charge(this._charge);
         }
         this.text.update_with_segments(segments);
+    }
+
+    public get visible_text(): string {
+        return this.text.segments.reduce((a, e) => a + e.text, "");
     }
 
 
@@ -230,6 +277,14 @@ class Vertex extends Drawable {
         this.group?.y(coords.y);
     }
 
+    public get x(): number {
+        return this._coords.x;
+    }
+
+    public get y(): number {
+        return this._coords.y;
+    }
+
     public get element(): ChemicalElement | null {
         return this._label_type == LabelType.Atom ? this._element : null;
     }
@@ -238,23 +293,23 @@ class Vertex extends Drawable {
         if (!this.group || !this.controller)
             return;
         this.group.draggable(this._neighbors.size <= 1);
-        const stylesheet = this.controller.stylesheet;
+        const stylesheet = this.controller.style;
         this.group.x(this._coords.x);
         this.group.y(this._coords.y);
         if (this.text.empty) {
             // the circle is needed to mask intersections of edges when there is no label present
-            const circle = <Konva.Circle>this.group.findOne("#circle") || new Konva.Circle({
-                fill: stylesheet.bond_stroke_color,
+            const circle: Konva.Circle = this.group.findOne("#circle") || new Konva.Circle({
+                fill: this.controller.theme.bond_stroke_color,
                 id: "circle",
             });
             circle.setAttr("radius", this._neighbors.size > 1 ? stylesheet.bond_thickness_px / 2 : 0);
             this.group.add(circle);
-            const active_box = <Konva.Rect>this.group.findOne("#active_box") || new Konva.Rect({
+            const active_box: Konva.Rect = this.group.findOne("#active_box") || new Konva.Rect({
                 x: -5,
                 y: -5,
                 width: 10,
                 height: 10,
-                stroke: stylesheet.atom_active_box_color,
+                stroke: this.controller.theme.atom_active_box_color,
                 strokeWidth: 1,
                 id: "active_box",
             });
@@ -295,11 +350,12 @@ class Vertex extends Drawable {
             }
             this.group.findOne("#circle")?.destroy();
             this.group.findOne("#active_box")?.destroy();
-            this.text.color = this.active ? stylesheet.atom_active_label_color : stylesheet.atom_label_color;
+            this.text.color = this.active ? this.controller.theme.atom_active_label_color : this.controller.theme.atom_label_color;
             this.text.alignment = this.topology == VertexTopology.Ring ? TextAlignment.FIRST_SEGMENT_FIRST_LETTER : TextAlignment.FIRST_SEGMENT_CENTER;
         }
         this.text.update();
-        this.group.getStage() && this.group.draw();
+        if (this.group.getStage())
+            this.group.draw();
     }
 
     /**
@@ -309,7 +365,7 @@ class Vertex extends Drawable {
      */
     least_crowded_angle() {
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
-        let angles: Array<number> = [];
+        let angles: number[] = [];
         angles = Array.from(this.neighbors.keys()).map(e => Math.atan2(e.coords.y - this.coords.y, e.coords.x - this.coords.x));
         angles.sort((a, b) => a > b ? 1 : -1);
         let largest_diff = 0;
@@ -332,7 +388,7 @@ class Vertex extends Drawable {
     on_drag(snap_to_angle: boolean) {
         if (!this.controller)
             throw Error("Vertex not attached to controller");
-        const stylesheet = this.controller.stylesheet;
+        const stylesheet = this.controller.style;
         if (this._neighbors.size != 1)
             return;
         const n_vertex = this._neighbors.keys().next().value;
@@ -344,7 +400,7 @@ class Vertex extends Drawable {
             // if the pivot vertex has exactly two adjacents (one we are moving), allow to create 180 deg angle with the rest adjacent
             if (n_vertex._neighbors.size == 2) {
                 const iter = n_vertex._neighbors.keys();
-                let n2_vertex: Vertex | undefined = iter.next().value;
+                let n2_vertex: DrawableVertex | undefined = iter.next().value;
                 if (n2_vertex === this)
                     n2_vertex = iter.next().value;
                 if (n2_vertex === undefined)
@@ -368,22 +424,27 @@ class Vertex extends Drawable {
         if (!this.controller)
             throw Error("Vertex not attached to controller");
         const text = this.group?.findOne("#text");
-        return text ? text.width() + this.controller.stylesheet.atom_label_horizontal_clearance_px : 0;
+        return text ? text.width() + this.controller.style.atom_label_horizontal_clearance_px : 0;
     }
 
     public get height() {
         if (!this.controller)
             throw Error("Vertex not attached to controller");
         const text = this.group?.findOne("#text");
-        return text ? text.height() + this.controller.stylesheet.atom_label_vertical_clearance_px : 0;
+        return text ? text.height() + this.controller.style.atom_label_vertical_clearance_px : 0;
     }
 
     private compute_h_count() {
-        if (this._element) {
+        if (this.label_type == LabelType.Atom) {
+            const element = ChemicalElements[this.label];
+            if (!element) {
+                this._h_count = 0;
+                return;
+            }
             let n_valent_bonds = 0;
             for (const [, bond_order] of this.neighbors)
                 n_valent_bonds += bond_order;
-            this._h_count = this._element.get_h_count(n_valent_bonds, this._charge);
+            this._h_count = element.get_h_count(n_valent_bonds, this._charge);
         }
         else
             this._h_count = 0;
@@ -393,14 +454,14 @@ class Vertex extends Drawable {
         return this._neighbors;
     }
 
-    public set_neighbor(vertex: Vertex, bond_order: number) {
+    public set_neighbor(vertex: DrawableVertex, bond_order: number) {
         this._neighbors.set(vertex, bond_order);
         this.compute_h_count();
         this.compute_text();
         this.update();
     }
 
-    public remove_neighbor(vertex: Vertex) {
+    public remove_neighbor(vertex: DrawableVertex) {
         this._neighbors.delete(vertex);
         this.compute_h_count();
         this.compute_text();
@@ -418,4 +479,4 @@ class Vertex extends Drawable {
     }
 }
 
-export { Vertex, VertexTopology };
+export { DrawableVertex, VertexTopology };

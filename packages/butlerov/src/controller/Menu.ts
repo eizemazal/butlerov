@@ -5,7 +5,7 @@ const HPADDING = 5;
 const BTN_SPACING = 5;
 
 class Menu {
-    _buttons: Array<MenuButton>;
+    _buttons: MenuButton[];
     group: Konva.Group;
     last_zoom: number;
     constructor() {

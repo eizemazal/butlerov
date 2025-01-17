@@ -1,4 +1,4 @@
-import { Graph } from "../drawable/Graph";
+import { Graph } from "../types";
 
 export class Descriptor {
     graph: Graph;

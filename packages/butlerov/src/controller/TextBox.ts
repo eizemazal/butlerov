@@ -1,4 +1,4 @@
-import { Coords } from "../lib/common";
+import { Coords } from "../types";
 import { Controller } from "./Controller";
 
 export class TextBox {
@@ -59,19 +59,15 @@ export class TextBox {
             stage_elem.append(this.input);
         }
         this.old_value = this.value;
-        const rect = stage_elem.getBoundingClientRect();
-        rect.x += window.scrollX;
-        rect.y += window.scrollY;
-        const x = rect.x  + this._x;
-        const y = rect.y + this._y;
-        const font_size = this.controller.stylesheet.atom_font_size_px;
-        const color = this.controller.stylesheet.atom_active_label_color;
+        const font_size = this.controller.style.atom_font_size_px;
+        const color = this.controller.theme.atom_active_label_color;
+        const bg_color = this.controller.theme.background_fill_color;
         const height = font_size + 2;
-        let style = `position: absolute; z-index: 2; left: ${x - font_size / 2}px; top: ${y - height/2}px;`;
+        let style = `position: absolute; z-index: 2; left: ${this._x - font_size / 2}px; top: ${this._y - height/2}px;`;
         style += `width: ${this.width}px; height: ${height}px;`;
-        style +=  `color: ${color}`;
+        style +=  `color: ${color}; background-color: ${bg_color};`;
         style += "border-color: 0; outline: 0;";
-        const font_family = this.controller.stylesheet.atom_font_family;
+        const font_family = this.controller.style.atom_font_family;
         style += `font-family: ${font_family}; font-size: ${font_size}`;
 
         this.input.setAttribute("style", style);

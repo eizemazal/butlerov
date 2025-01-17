@@ -1,12 +1,71 @@
-import { MoleculeEditor as me } from "./controller/MoleculeEditor";
-export const MoleculeEditor = me;
+import { MoleculeEditor } from "./controller/MoleculeEditor";
+import { DrawableGraph } from "./drawables/Graph";
+import { MolConverter } from "./converter/MolConverter";
+import { SmilesConverter } from "./converter/SmilesConverter";
+import { MW, Composition } from "./descriptor/mw";
+import { lightTheme, darkTheme, defaultStyle } from "./controller/Theme";
 
-import {MolConverter as mc} from "./converter/MolConverter";
-export const MolConverter = mc;
+export {
+    MoleculeEditor,
+    DrawableGraph,
+    MolConverter,
+    SmilesConverter,
+    MW,
+    Composition,
+    lightTheme,
+    darkTheme,
+    defaultStyle
+};
 
-import {SmilesConverter as smi_cnv } from "./converter/SmilesConverter";
-export const SmilesConverter = smi_cnv;
+import { ControllerSettings } from "./controller/Controller";
+import { Style, Theme } from "./controller/Theme";
+import {
+    Coords,
+    Rect,
+    LabelType,
+    Color,
+    TextSegment,
+    SegmentedText,
+    Vertex,
+    EdgeShape,
+    EdgeOrientation,
+    Edge,
+    Drawable,
+    Graph,
+    Caption,
+    Collection,
+    PolylinePoint,
+    ArrowShape,
+    Polyline,
+    DrawableObject,
+    DocumentMetadata,
+    Document,
+    Converter
+} from "./types";
 
-import { MW as descr_mw, Composition as descr_comp} from "./descriptor/mw";
-export const MW = descr_mw;
-export const Composition = descr_comp;
+export type {
+    ControllerSettings,
+    Theme,
+    Style,
+    Coords,
+    Rect,
+    LabelType,
+    Color,
+    TextSegment,
+    SegmentedText,
+    Vertex,
+    EdgeShape,
+    EdgeOrientation,
+    Edge,
+    Drawable,
+    Graph,
+    Caption,
+    Collection,
+    PolylinePoint,
+    ArrowShape,
+    Polyline,
+    DrawableObject,
+    DocumentMetadata,
+    Document,
+    Converter
+};

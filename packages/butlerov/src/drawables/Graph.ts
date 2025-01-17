@@ -1,67 +1,76 @@
 import Konva from "konva";
 import { Controller } from "../controller/Controller";
-import { BondType, Edge, EdgeOrientation, EdgeShape, EdgeTopology } from "./Edge";
-import { Coords } from "../lib/common";
-import { LabelType, Vertex, VertexTopology } from "./Vertex";
-import { Drawable } from "./Drawable";
+import { DrawableEdge, EdgeTopology } from "./Edge";
+import { DrawableVertex, VertexTopology } from "./Vertex";
+import { LabelType, Graph, EdgeOrientation, EdgeShape } from "../types";
+import { DrawableBase } from "./Base";
+import { Coords } from "../types";
 
 /**
- * Class to specify rectangle by two opposite points
- */
-type Rect = {
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-}
-
-/**
- * Graph is a representation molecular structure. It is undirected, disconnected graph consisting of vertices and edges,
+ * DrawableGraph is a representation molecular structure. It is undirected, disconnected graph consisting of vertices and edges,
  * representing atoms (or superatoms), and chemical bonds.
- * Graph can be attached to controller (that is responsible for UI), or detached (just to represent data).
- * Operations on Graph, such as addition and removal of vertices and edges, are implemented as methods that return
- * detached Graphs internally referring to the same @see Vertex and @see Edge objects that are present in original Graph.
+ * DrawableGraph can be attached to controller (that is responsible for UI), or detached (just to represent data).
+ * Operations on DrawableGraph, such as addition and removal of vertices and edges, are implemented as methods that return
+ * detached DrawableGraphs internally referring to the same @see DrawableVertex and @see DrawableEdge objects that are present in original DrawableGraph.
  * This allows to implement operation history (Undo and Redo) easily.
  */
-class Graph extends Drawable {
+class DrawableGraph extends DrawableBase implements Graph {
+
+    readonly type = "Graph";
+
     /**
-     * List of @see Vertex objects representing atoms
+     * List of @see DrawableVertex objects representing atoms
      */
-    vertices: Array<Vertex>;
+    vertices: DrawableVertex[];
     /**
-     * List of @see Edge objects representing bonds
+     * List of @see DrawableEdge objects representing bonds
      */
-    edges: Array<Edge>;
+    edges: DrawableEdge[];
     /**
      * Array of subgraphs representing ringsystems in the graph. This value is populated when @see update_topology is called.
      * @default []
      * This property is used internally to compute edge orientation for double bonds (i.e. in benzene all double bonds must be inside)
      */
-    ringsystems: Array<Graph>;
+    ringsystems: DrawableGraph[];
 
-    /**
-     * Screen coordinates are used internally, but usually something like atomic coords are written to mol file. This is a scaling factor.
-     * The value is updated when
-     * 1) controller is attached (in this case, it is set to 1.54 / default bond length, or
-     * 2) when mol file is read (to preserve existing coordinates from the file, set to average bond distance / default bond length)
-     * @default 1 when graph is created
-     */
-    mol_scaling_factor: number;
 
-    constructor() {
+    constructor(graph: Graph | undefined = undefined) {
         super();
         this.vertices = [];
         this.edges = [];
         this.ringsystems = [];
-        this.mol_scaling_factor = 1;
+        if (graph !== undefined)
+            this.write(graph);
+    }
+
+    read(): Graph {
+        return {
+            type: "Graph",
+            vertices: this.vertices.map(e => e.read()),
+            edges: this.edges.map(e => e.read())
+        }
+    }
+
+    write(graph: Graph) {
+        this.vertices = graph.vertices.map(e => new DrawableVertex(e));
+        this.edges = graph.edges.map(e => {
+            const edge = new DrawableEdge(this.vertices[e.vertices[0]], this.vertices[e.vertices[1]]);
+            edge.shape = e.shape;
+            if (e.orientation !== undefined)
+                edge.orientation = e.orientation;
+            return edge;
+        });
+        this.recompute_neighbors();
+        this.update_topology();
+        this.edges.forEach(e => { this.update_edge_orientation(e); });
     }
 
     /**
      * Provide a detached copy of the graph, maintaining connectivity and order of vertices and edges in the @see vertices and @see edges.
-     * @returns Copy constructed detached @see Graph
+     * @returns Copy constructed detached @see DrawableGraph
      */
     copy() {
-        const r = new Graph();
+        const r = new DrawableGraph();
         r.vertices = this.vertices.map(e => e.copy());
         r.edges = this.edges.map(e => {
             const v1 = r.vertices[this.vertices.findIndex(v => v == e.v1)];
@@ -73,28 +82,45 @@ class Graph extends Drawable {
             new_edge.v2 = v2;
             return new_edge;
         });
-        r.mol_scaling_factor = this.mol_scaling_factor;
         return r;
     }
 
+    recompute_neighbors() {
+        this.vertices.forEach(v => v.neighbors.clear());
+        this.edges.forEach(e => {
+            let bond_order = 1;
+            switch (e.shape) {
+                case EdgeShape.Double:
+                case EdgeShape.DoubleEither:
+                    bond_order = 2;
+                case EdgeShape.Triple:
+                    bond_order = 3;
+            }
+            e.v1.set_neighbor(e.v2, bond_order);
+            e.v2.set_neighbor(e.v1, bond_order);
+        })
+    }
+
     /**
-    * Attach @see Graph to controller.
+    * Attach @see DrawableGraph to controller.
     * @param controller an object of @see Controller class
-    * @returns an object of Konva.Group type depicting Graph
+    * @returns an object of Konva.Group type depicting DrawableGraph
     */
     attach(controller: Controller): Konva.Group {
         this.controller = controller;
         if (!this.group)
             this.group = new Konva.Group();
-        if (!this.vertices.length)
-            this.mol_scaling_factor = 1.54 / this.controller.stylesheet.bond_length_px;
+        const scaling_factor = this.get_average_bond_distance() / controller.style.bond_length_px;
+        this.vertices.forEach(e => {
+            e.coords = { x: e.coords.x / scaling_factor, y: e.coords.y / scaling_factor };
+        });
         this.vertices.forEach(e => this.group?.add(e.attach(controller)));
         this.edges.forEach(e => { this.group?.add(e.attach(controller)); e.z_index = 0; });
         return this.group;
     }
 
     /**
-     * Detach @see Graph from the controller.
+     * Detach @see DrawableGraph from the controller.
     */
     detach() {
         this.vertices.forEach(e => e.detach());
@@ -105,7 +131,7 @@ class Graph extends Drawable {
 
     /**
      * Compute average bond distance.
-     * For empty @see Graph, returns 1.54 (this is average CC bond in Angstrøms)
+     * For empty @see DrawableGraph, returns 1.54 (this is average CC bond in Angstrøms)
      * @returns average distance between bound vertices in whatever units are used
      */
     get_average_bond_distance(): number {
@@ -117,22 +143,11 @@ class Graph extends Drawable {
     }
 
     /**
-     * Compute rectangular area that contains all vertices of the @see Graph.
+     * Compute rectangular area that contains all vertices of the @see DrawableGraph.
      * If there are no vertices, arbitrary area {0,0,100,100} is returned.
      * @returns @see Rect
      */
-    get_molecule_rect(): Rect {
-        if (!this.vertices.length)
-            return { x1: 0, y1: 0, x2: 100, y2: 100 };
-        const x_coords = this.vertices.map(e => e.coords.x);
-        const y_coords = this.vertices.map(e => e.coords.y);
-        return {
-            x1: Math.min(...x_coords),
-            y1: Math.min(...y_coords),
-            x2: Math.max(...x_coords),
-            y2: Math.max(...y_coords),
-        };
-    }
+
 
     /**
      * Perform update operations of vertices and edges in the graph, i.e. minimalistic actions
@@ -148,12 +163,12 @@ class Graph extends Drawable {
     }
     /**
      * Add single vertex by screen coordinates. Used to add single atom to the drawing via UI.
-     * @param coords Screen coordinates for the new @see Vertex
+     * @param coords Screen coordinates for the new @see DrawableVertex
      * @param label Vertex label, @default `C` (carbon atoms are only rendered by default if not connected to other atoms)
-     * @returns @see Graph object containing added vertex
+     * @returns @see DrawableGraph object containing added vertex
      */
-    add_vertex(coords: Coords, label = "C"): Graph {
-        const graph = new Graph();
+    add_vertex(coords: Coords, label = "C"): DrawableGraph {
+        const graph = new DrawableGraph();
         graph.vertices = [this._add_vertex(coords, label)];
         this.update();
         return graph;
@@ -163,10 +178,10 @@ class Graph extends Drawable {
      * Internal function to add vertex to the graph. Attaches it to controller if the graph is attached.
      * @param coords Coordinates of the vertex
      * @param label Label of the vertex
-     * @returns object of @see Vertex class
+     * @returns object of @see DrawableVertex class
      */
-    private _add_vertex(coords: Coords, label = "C"): Vertex {
-        const vertex = new Vertex();
+    _add_vertex(coords: Coords, label = "C"): DrawableVertex {
+        const vertex = new DrawableVertex();
         this.vertices.push(vertex);
         vertex.coords = coords;
         vertex.label = label;
@@ -177,29 +192,29 @@ class Graph extends Drawable {
 
     /**
      * Find edges that are connected to the specified vertex
-     * @param vertex an object of @see Vertex class
-     * @returns an array of @see Edge class objects that are connected to the vertex
+     * @param vertex an object of @see DrawableVertex class
+     * @returns an array of @see DrawableEdge class objects that are connected to the vertex
      */
-    find_edges_by_vertex(vertex: Vertex): Array<Edge> {
+    find_edges_by_vertex(vertex: DrawableVertex): DrawableEdge[] {
         return this.edges.filter(e => e.v1 == vertex || e.v2 == vertex);
     }
 
     /**
      * Return array of edges that adjacent to given edge, i.e. edges of the edge.v1 and edge.v2 excluding given edge.
      * @param edge An edge in graph
-     * @returns Array of @see Edge.
+     * @returns Array of @see DrawableEdge.
      */
-    adjacent_edges(edge: Edge): Array<Edge> {
+    adjacent_edges(edge: DrawableEdge): DrawableEdge[] {
         return [...this.find_edges_by_vertex(edge.v1), ...this.find_edges_by_vertex(edge.v2)].filter(e => e != edge);
     }
 
     /**
      * Check if two vertices in the graph are connected.
-     * @param v1 Object of @see Vertex class
-     * @param v2 Another object of @see Vertex class
+     * @param v1 Object of @see DrawableVertex class
+     * @param v2 Another object of @see DrawableVertex class
      * @returns true if there is a bond connecting vertices, or false otherwise
      */
-    vertices_are_connected(v1: Vertex, v2: Vertex): boolean {
+    vertices_are_connected(v1: DrawableVertex, v2: DrawableVertex): boolean {
         return this.edges.findIndex(e => (e.v1 == v1 && e.v2 == v2) || (e.v1 == v2 && e.v2 == v1)) != -1;
     }
 
@@ -207,9 +222,9 @@ class Graph extends Drawable {
     /**
      * Merge another graph into current one. It will check for duplicates, and filter them out.
      * If the graph is attached, all the added vertices and edges will be attached.
-     * @param graph object of @see Graph class to merge into the current graph.
+     * @param graph object of @see DrawableGraph class to merge into the current graph.
      */
-    add(graph: Graph): void {
+    add(graph: DrawableGraph): void {
         this.vertices.push(...graph.vertices.filter(e => this.vertices.indexOf(e) == -1));
         this.edges.push(...graph.edges.filter(e => this.edges.indexOf(e) == -1));
         this.edges.forEach(e => { e.v1.set_neighbor(e.v2, e.bond_order); e.v2.set_neighbor(e.v1, e.bond_order); });
@@ -229,17 +244,17 @@ class Graph extends Drawable {
      * @param our_vertex vertex in our graph
      * @param their_vertex vertex in their graph
      */
-    combind(graph: Graph, our_vertex: Vertex, their_vertex: Vertex): Edge {
+    combind(graph: DrawableGraph, our_vertex: DrawableVertex, their_vertex: DrawableVertex): DrawableEdge {
         const our_added = this.add_bound_vertex_to(our_vertex);
         const their_added = graph.add_bound_vertex_to(their_vertex);
         const their_added_coords = their_added.vertices[0].coords;
         const our_added_coords = our_added.vertices[0].coords;
         const scale = this.get_average_bond_distance() / graph.get_average_bond_distance();
-        graph.scale(scale);
+        graph.apply_scaling(scale);
         const alfa = Math.atan2(their_added_coords.y - their_vertex.coords.y, their_added_coords.x - their_vertex.coords.x) - Math.atan2(our_vertex.coords.y - our_added_coords.y, our_vertex.coords.x - our_added_coords.x);
-        graph.rotate(their_added_coords, alfa);
+        graph.apply_rotation(their_added_coords, alfa);
         const translation: Coords = { x: our_vertex.coords.x - their_added_coords.x, y: our_vertex.coords.y - their_added_coords.y };
-        graph.translate(translation);
+        graph.apply_translation(translation);
         this.remove(our_added);
         graph.remove(their_added);
         this.add(graph);
@@ -250,7 +265,7 @@ class Graph extends Drawable {
      * Remove the specified subgraph from the Graph. All the vertices and edges will be detached.
      * @param graph subgraph to remove.
      */
-    remove(graph: Graph): void {
+    remove(graph: DrawableGraph): void {
         graph.vertices.forEach(e => e.detach());
         graph.edges.forEach(e => e.detach());
         this.vertices = this.vertices.filter(e => graph.vertices.indexOf(e) == -1);
@@ -262,13 +277,13 @@ class Graph extends Drawable {
     /**
      * Create an edge between vertices. The method is responsible for the update of neighbor properties of vertices.
      * If the graph is attached, the edge is also attached to controller, and topology of the graph is updated to recompute edge orientations.
-     * @param v1 first @see Vertex
-     * @param v2 second @see Vertex
+     * @param v1 first @see DrawableVertex
+     * @param v2 second @see DrawableVertex
      * @param edge_shape Shape of the edge, @see EdgeShape, @default EdgeShape.Single
-     * @returns newly created @see Edge
+     * @returns newly created @see DrawableEdge
      */
-    bind_vertices(v1: Vertex, v2: Vertex, edge_shape: EdgeShape = EdgeShape.Single): Edge {
-        const edge = new Edge(v1, v2);
+    bind_vertices(v1: DrawableVertex, v2: DrawableVertex, edge_shape: EdgeShape = EdgeShape.Single): DrawableEdge {
+        const edge = new DrawableEdge(v1, v2);
         edge.shape = edge_shape;
         v1.set_neighbor(v2, edge.bond_order);
         v2.set_neighbor(v1, edge.bond_order);
@@ -285,11 +300,11 @@ class Graph extends Drawable {
     /**
      * Delete vertex from graph. Removes all edges that are connected to this vertex. This may cause other vertices
      * to be removed as well (single dangling vertices will be removed too)
-     * @param vertex @see Vertex to remove
+     * @param vertex @see DrawableVertex to remove
      * @returns Graph with all removed vertices and edges.
      */
-    delete_vertex(vertex: Vertex): Graph {
-        const r: Graph = new Graph();
+    delete_vertex(vertex: DrawableVertex): DrawableGraph {
+        const r: DrawableGraph = new DrawableGraph();
         const edges = this.find_edges_by_vertex(vertex);
         edges.forEach(e => { const s = this.delete_edge(e); r.vertices.push(...s.vertices); r.edges.push(...s.edges); });
         vertex.detach();
@@ -299,12 +314,12 @@ class Graph extends Drawable {
 
     /**
      * Removes edge from the graph. The method is responsible for updating neighbors properties of the vertices.
-     * @param edge An @see Edge to remove.
+     * @param edge An @see DrawableEdge to remove.
      * @param drop_dangling_vertices whether it is needed to remove single dangling vertices after the removal of the edge. @default true
-     * @returns Graph containing all removed edges and vertices.
+     * @returns DrawableGraph containing all removed edges and vertices.
      */
-    delete_edge(edge: Edge, drop_dangling_vertices = true, skip_topology_update = true): Graph {
-        const r: Graph = new Graph();
+    delete_edge(edge: DrawableEdge, drop_dangling_vertices = true, skip_topology_update = true): DrawableGraph {
+        const r: DrawableGraph = new DrawableGraph();
         r.edges.push(edge);
         edge.detach();
         this.edges = this.edges.filter(e => e != edge);
@@ -328,11 +343,11 @@ class Graph extends Drawable {
 
     /**
      * Get a list of all vertices so that edges exist between each of them and the given vertex.
-     * @param vertex a @see Vertex to probe
-     * @returns an array of @see Vertex objects, each of them has an edge connecting it with the given vertex
+     * @param vertex a @see DrawableVertex to probe
+     * @returns an array of @see DrawableVertex objects, each of them has an edge connecting it with the given vertex
      */
-    neighboring_vertices(vertex: Vertex): Array<Vertex> {
-        const r: Array<Vertex> = [];
+    neighboring_vertices(vertex: DrawableVertex): DrawableVertex[] {
+        const r: DrawableVertex[] = [];
         this.edges.filter(e => e.v1 == vertex).forEach(e => r.push(e.v2));
         this.edges.filter(e => e.v2 == vertex).forEach(e => r.push(e.v1));
         return r;
@@ -348,7 +363,7 @@ class Graph extends Drawable {
      * of algorithms that will cause coalescence of new vertices with existing ones. @default 0.1. A value of 0 disables coalescence filtering.
      * @returns "repulsion potential" which is a sum of square distances to neighboring vertices
      */
-    private crowding_potential(point: Coords, filtering_factor = 3, coalesence_factor = 0.1): number {
+    crowding_potential(point: Coords, filtering_factor = 3, coalesence_factor = 0.1): number {
         const avg_bond_distance = this.get_average_bond_distance();
         // exclude distance calculation to remove vertices
         const proximate_vertices =
@@ -362,7 +377,7 @@ class Graph extends Drawable {
             const distance = Math.sqrt((e.coords.x - point.x) * (e.coords.x - point.x) + (e.coords.y - point.y) * (e.coords.y - point.y));
             return distance > coalesence_factor * avg_bond_distance ? acc + 1 / Math.pow(distance, 2) : acc;
         },
-        0);
+            0);
     }
 
     /**
@@ -371,7 +386,7 @@ class Graph extends Drawable {
      * @param points an array of @see Coords, each one representing 2D point
      * @returns one point selected from points, that is the most remote from the vertices of the graph
      */
-    least_crowded_point(points: Array<Coords>): Coords {
+    least_crowded_point(points: Coords[]): Coords {
         // garbage in garbage out
         if (!points.length)
             return { x: 0, y: 0 };
@@ -393,12 +408,12 @@ class Graph extends Drawable {
      * - least crowded, regular angles are selected
      * - other vertices around given vertex may be moved (only if they have no other neighbors other than the given vertex) to produce a good drawing
      * @param vertex A vertex to which attach a new edge and a vertex.
-     * @returns A Graph containing newly created @see Edge and @see Vertex.
+     * @returns A DrawableGraph containing newly created @see DrawableEdge and @see DrawableVertex.
      */
-    add_bound_vertex_to(vertex: Vertex): Graph {
-        const r = new Graph();
+    add_bound_vertex_to(vertex: DrawableVertex): DrawableGraph {
+        const r = new DrawableGraph();
         const neighbors = this.neighboring_vertices(vertex);
-        const bond_len = this.controller ? this.controller.stylesheet.bond_length_px : this.get_average_bond_distance();
+        const bond_len = this.controller ? this.controller.style.bond_length_px : this.get_average_bond_distance();
         if (neighbors.length == 0) {
             // make a new bond to 60 deg up and right
             const new_vertex = this._add_vertex({
@@ -445,7 +460,7 @@ class Graph extends Drawable {
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         if (!fixed_neighbors.length)
             fixed_neighbors.push(...movable_neighbors.splice(0, 1));
-        let angles: Array<number> = [];
+        let angles: number[] = [];
         if (fixed_neighbors.length > 2 || (fixed_neighbors.length == 2 && movable_neighbors.length > 1)) {
             fixed_neighbors = neighbors;
             movable_neighbors = [];
@@ -497,11 +512,11 @@ class Graph extends Drawable {
     /**
      * Add default fragment to the graph, i.e. two vertices bound by an edge. This is used when user clicks on empty space in drawing.
      * @param coords Coordinates of the first vertex
-     * @returns Graph containing newly created vertices and edge
+     * @returns DrawableGraph containing newly created vertices and edge
      */
-    add_default_fragment(coords: Coords): Graph {
+    add_default_fragment(coords: Coords): DrawableGraph {
         const vertex1 = this._add_vertex(coords);
-        const r = new Graph();
+        const r = new DrawableGraph();
         r.vertices = [vertex1];
         const frag = this.add_bound_vertex_to(vertex1);
         r.vertices = [...r.vertices, ...frag.vertices];
@@ -511,12 +526,12 @@ class Graph extends Drawable {
 
     /**
      * Attach normal chain of vertices and edges to specified vertex. Orientation of the chain is selected to be visually appealing.
-     * @param vertex an existing vertex pertaining to the Graph
+     * @param vertex an existing vertex pertaining to the DrawableGraph
      * @param nvertices number of vertices to add. Edges are added automatically.
-     * @returns a Graph consisting of newly created @see Edge and @see Vertex objects
+     * @returns a DrawableGraph consisting of newly created @see DrawableEdge and @see DrawableVertex objects
      */
-    add_chain(vertex: Vertex, nvertices: number): Graph {
-        const r = new Graph;
+    add_chain(vertex: DrawableVertex, nvertices: number): DrawableGraph {
+        const r = new DrawableGraph;
         r.vertices = [vertex];
         for (let i = 0; i < nvertices; i++) {
             const fragment = this.add_bound_vertex_to(r.vertices[r.vertices.length - 1]);
@@ -534,23 +549,23 @@ class Graph extends Drawable {
      * Fuse ring of given resulting size to the specified edge. The ring is drawn as a regular polygon of the given size.
      * Each of the edges has the same length as the specified edge.
      * There are two sides of edge, and the least crowded side is selected to fuse the ring.
-     * @param edge an @see Edge pertaining to the Graph
+     * @param edge an @see DrawableEdge pertaining to the DrawableGraph
      * @param nvertices number of vertices in the resulting ring
-     * @returns a Graph containing newly created edges and vertices
+     * @returns a DrawableGraph containing newly created edges and vertices
      */
-    fuse_ring(edge: Edge, nvertices: number, desaturate = false): Graph {
+    fuse_ring(edge: DrawableEdge, nvertices: number, desaturate = false): DrawableGraph {
         const alfa = Math.atan2(edge.v2.coords.y - edge.v1.coords.y, edge.v2.coords.x - edge.v1.coords.x);
         const beta = (nvertices - 2) * Math.PI / nvertices;
         const edge_len = Math.sqrt(Math.pow(edge.v1.coords.x - edge.v2.coords.x, 2) + Math.pow(edge.v1.coords.y - edge.v2.coords.y, 2));
         const h = edge_len * Math.tan(beta / 2) / 2;
         const l = edge_len / (2 * Math.cos(beta / 2));
-        type Ring = {
+        interface Ring {
             center_x: number,
             center_y: number,
-            coordinates: Array<Coords>,
+            coordinates: Coords[],
             crowding: number,
-            first_vertex: Vertex,
-            last_vertex: Vertex,
+            first_vertex: DrawableVertex,
+            last_vertex: DrawableVertex,
         }
         const ring1: Ring = {
             center_x: h * Math.sin(Math.PI - alfa) + (edge.v1.coords.x + edge.v2.coords.x) / 2,
@@ -578,7 +593,7 @@ class Graph extends Drawable {
             ring2.coordinates.push(coords2);
             ring2.crowding += this.crowding_potential(coords2);
         }
-        const r = new Graph();
+        const r = new DrawableGraph();
         const selected_ring = ring1.crowding < ring2.crowding ? ring1 : ring2;
         let last_vertex = selected_ring.first_vertex;
         let saturated = true;
@@ -600,26 +615,26 @@ class Graph extends Drawable {
 
     /**
      * Attach a ring to the specified vertex. The vertex becomes one of the vertices of the ring.
-     * @param vertex an exising vertex in the Graph
+     * @param vertex an exising vertex in the DrawableGraph
      * @param nvertices number of vertices in the resulting ring
-     * @returns a Graph containing newly created edges and vertices
+     * @returns a DrawableGraph containing newly created edges and vertices
      */
-    attach_ring(vertex: Vertex, nvertices: number, desaturate = false): Graph {
+    attach_ring(vertex: DrawableVertex, nvertices: number, desaturate = false): DrawableGraph {
         if (vertex.neighbors.size < 2) {
-            const r: Graph = this.add_bound_vertex_to(vertex);
+            const r: DrawableGraph = this.add_bound_vertex_to(vertex);
             const frag = this.fuse_ring(r.edges[0], nvertices, desaturate);
             r.vertices = [...r.vertices, ...frag.vertices];
             r.edges = [...r.edges, ...frag.edges];
             return r;
         }
-        const bond_len = this.controller ? this.controller.stylesheet.bond_length_px : this.get_average_bond_distance();
+        const bond_len = this.controller ? this.controller.style.bond_length_px : this.get_average_bond_distance();
         const least_crowded_angle = vertex.least_crowded_angle();
         const internal_angle = Math.PI * (nvertices - 2) / nvertices;
         const alfa = least_crowded_angle + internal_angle / 2;
         const vertex2 = this._add_vertex({ x: vertex.coords.x + bond_len * Math.cos(alfa), y: vertex.coords.y + bond_len * Math.sin(alfa) });
         const edge = this.bind_vertices(vertex, vertex2);
         const frag = this.fuse_ring(edge, nvertices, desaturate);
-        const r = new Graph();
+        const r = new DrawableGraph();
         r.vertices = [vertex2, ...frag.vertices];
         r.edges = [edge, ...frag.edges];
         return r;
@@ -629,23 +644,23 @@ class Graph extends Drawable {
      * Add numbering to the graph edges and vertices to make correlations between the vertices and edges in copy constructed graphs.
      */
     add_numbering(): void {
-        this.vertices.forEach((e, idx) => e.id = `${idx}`);
-        this.edges.forEach((e, idx) => e.id = `${idx}`);
+        this.vertices.forEach((e, idx) => e.id = idx);
+        this.edges.forEach((e, idx) => e.id = idx);
     }
 
     /**
      * Return an array of subgraphs of the graph, i.e. parts of graphs do not have connected paths between each other.
-     * @returns An array of Graphs, each containing subgraph of the current Graph
+     * @returns An array of DrawableGraphs, each containing subgraph of the current Graph
      */
-    subgraphs(): Array<Graph> {
-        const res: Array<Graph> = [];
-        const rest_vertices: Set<Vertex> = new Set(this.vertices);
+    subgraphs(): DrawableGraph[] {
+        const res: DrawableGraph[] = [];
+        const rest_vertices = new Set<DrawableVertex>(this.vertices);
         while (rest_vertices.size) {
-            const subgraph_vertices: Set<Vertex> = new Set();
+            const subgraph_vertices = new Set<DrawableVertex>();
             const next_value = rest_vertices.values().next().value;
             if (!next_value)
                 throw "this should not happen";
-            const to_visit: Set<Vertex> = new Set([next_value]);
+            const to_visit = new Set<DrawableVertex>([next_value]);
             while (to_visit.size) {
                 const vertex = to_visit.values().next().value;
                 if (!vertex)
@@ -659,7 +674,7 @@ class Graph extends Drawable {
                     to_visit.add(neighboring_vertex);
                 }
             }
-            const subgraph = new Graph();
+            const subgraph = new DrawableGraph();
             subgraph.vertices = [...subgraph_vertices];
             subgraph.edges = this.edges.filter(e => subgraph_vertices.has(e.v1));
             res.push(subgraph);
@@ -667,17 +682,17 @@ class Graph extends Drawable {
         return res;
     }
 
-    subgraph_with(vertex: Vertex): Graph {
+    subgraph_with(vertex: DrawableVertex): DrawableGraph {
         const subgraphs = this.subgraphs();
-        return subgraphs.find(g => g.vertices.find(v => v == vertex)) || new Graph();
+        return subgraphs.find(g => g.vertices.find(v => v == vertex)) || new DrawableGraph();
     }
 
     /**
      * For the given edge, obtain its topology - does it pertain to a ring or not.
-     * @param edge an @see Edge to probe
+     * @param edge an @see DrawableEdge to probe
      * @returns @see EdgeTopology, either EdgeTopology.Chain, or EdgeTopology.Ring
      */
-    edge_topology(edge: Edge): EdgeTopology {
+    edge_topology(edge: DrawableEdge): EdgeTopology {
         if (edge.v1.neighbors.size == 1 || edge.v2.neighbors.size == 1)
             return EdgeTopology.Chain;
         const edge_index = this.edges.findIndex(e => e == edge);
@@ -695,7 +710,7 @@ class Graph extends Drawable {
      * @param point A point to probe
      * @returns Boolean value
      */
-    is_to_left(edge: Edge, point: Coords): boolean {
+    is_to_left(edge: DrawableEdge, point: Coords): boolean {
         return ((edge.v2.coords.x - edge.v1.coords.x) * (point.y - edge.v1.coords.y) -
             (edge.v2.coords.y - edge.v1.coords.y) * (point.x - edge.v1.coords.x) < 0);
     }
@@ -707,7 +722,7 @@ class Graph extends Drawable {
      * @param update_view Whether to call edge.update() to update view. @default true
      * @returns void
      */
-    update_edge_orientation(edge: Edge, update_view = true): void {
+    update_edge_orientation(edge: DrawableEdge, update_view = true): void {
         if (!edge.is_asymmetric)
             return;
         for (const ringsystem of this.ringsystems) {
@@ -725,8 +740,8 @@ class Graph extends Drawable {
             }
             else {
                 // consider neighbors bound having double bonds
-                v1_neighbors = v1_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length);
-                v2_neighbors = v2_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [BondType.Double, BondType.Aromatic].includes(e.bond_type)).length);
+                v1_neighbors = v1_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [EdgeShape.Double, EdgeShape.Aromatic].includes(e.shape)).length);
+                v2_neighbors = v2_neighbors.filter(vertex => this.find_edges_by_vertex(vertex).filter(e => e != edge && [EdgeShape.Double, EdgeShape.Aromatic].includes(e.shape)).length);
                 const left_count = v1_neighbors.filter(e => this.is_to_left(edge, e.coords)).length + v2_neighbors.filter(e => this.is_to_left(edge, e.coords)).length;
                 const neighbor_count = v1_neighbors.length + v2_neighbors.length;
                 if (left_count > neighbor_count - left_count) {
@@ -736,23 +751,27 @@ class Graph extends Drawable {
                     edge.orientation = EdgeOrientation.Right;
                 }
             }
-            update_view && edge.update();
+            if (update_view)
+                edge.update();
             return;
         }
         // non-cyclic bond with heteroatoms - symmetrical
         if (edge.v1.label || edge.v2.label) {
             edge.orientation = EdgeOrientation.Center;
-            update_view && edge.update();
+            if (update_view)
+                edge.update();
             return;
         }
         // exocyclic double bond - draw symmetrical
         if (edge.v1.topology == VertexTopology.Ring || edge.v2.topology == VertexTopology.Ring) {
             edge.orientation = EdgeOrientation.Center;
-            update_view && edge.update();
+            if (update_view)
+                edge.update();
             return;
         }
         edge.orientation = EdgeOrientation.Left;
-        update_view && edge.update();
+        if (update_view)
+            edge.update();
     }
 
     update_topology(): void {
@@ -772,9 +791,9 @@ class Graph extends Drawable {
         graph_copy.vertices = graph_copy.vertices.filter(e => e.neighbors.size);
         this.ringsystems = [];
         for (const ringsystem_copy of graph_copy.subgraphs()) {
-            const ringsystem = new Graph();
-            ringsystem.vertices = <Array<Vertex>>ringsystem_copy.vertices.map(ce => this.vertices.find(e => e.id == ce.id)).filter(e => !!e);
-            ringsystem.edges = <Array<Edge>>ringsystem_copy.edges.map(ce => this.edges.find(e => e.id == ce.id)).filter(e => !!e);
+            const ringsystem = new DrawableGraph();
+            ringsystem.vertices = ringsystem_copy.vertices.map(ce => this.vertices.find(e => e.id == ce.id)).filter(e => !!e);
+            ringsystem.edges = ringsystem_copy.edges.map(ce => this.edges.find(e => e.id == ce.id)).filter(e => !!e);
             // for attached graph instance, recalculate bond orientations
             this.ringsystems.push(ringsystem);
         }
@@ -786,10 +805,10 @@ class Graph extends Drawable {
 
     /**
      * Removes explicit hydrogens from the graph by removing vertices labeled as `H`, and their edges.
-     * @returns a Graph containing removed vertices and edges.
+     * @returns a DrawableGraph containing removed vertices and edges.
      */
-    strip_hydrogens(): Graph {
-        const hs = new Graph();
+    strip_hydrogens(): DrawableGraph {
+        const hs = new DrawableGraph();
         hs.vertices = this.vertices.filter(e => e.element?.symbol == "H");
         hs.vertices.forEach(e => hs.edges.push(...this.find_edges_by_vertex(e)));
         this.remove(hs);
@@ -797,15 +816,15 @@ class Graph extends Drawable {
     }
 
     /**
-     * Add vertices and edges to make Graph symmetrical around center of symmetry coincident with the center of edge.
+     * Add vertices and edges to make DrawableGraph symmetrical around center of symmetry coincident with the center of edge.
      * For instance, this transfrormation applied to double bond of styrene will produce trans-stilbene from it.
      * @param edge Edge whose center will be coincident with center of symmetry
      * @returns Added vertices and edges
      */
 
-    symmetrize_along_edge(edge: Edge): Graph {
+    symmetrize_along_edge(edge: DrawableEdge): DrawableGraph {
         if ((edge.v1.neighbors.size == 1) == (edge.v2.neighbors.size == 1))
-            return new Graph();
+            return new DrawableGraph();
         const center: Coords = {
             x: (edge.v1.coords.x + edge.v2.coords.x) / 2,
             y: (edge.v1.coords.y + edge.v2.coords.y) / 2,
@@ -839,11 +858,11 @@ class Graph extends Drawable {
     }
 
     /**
-     * Apply rotation transformation to the graph
+     * Apply rotation transformation to the graph vertices themselves in local coordinate system.
      * @param origin coordinates of rotation origin
      * @param angle angle of rotation in radians, clockwise. Angle 0 is a vector collinear with positive x branch.
      */
-    rotate(origin: Coords, angle: number) {
+    apply_rotation(origin: Coords, angle: number) {
         this.vertices.forEach(e => {
             const dx = e.coords.x - origin.x;
             const dy = e.coords.y - origin.y;
@@ -855,10 +874,10 @@ class Graph extends Drawable {
     }
 
     /**
-     * Apply translation to the graph
+     * Apply translation to the graph vertices themselves in local coordinate system.
      * @param coords vector to add to all coordinates
      */
-    translate(coords: Coords) {
+    apply_translation(coords: Coords) {
         this.vertices.forEach(e => {
             e.coords.x += coords.x;
             e.coords.y += coords.y;
@@ -866,10 +885,10 @@ class Graph extends Drawable {
     }
 
     /**
-     * Apply scaling to the graph
+     * Apply scaling to the graph vertices themselves in local coordinate system.
      * @param factor Scaling factor
      */
-    scale(factor: number) {
+    apply_scaling(factor: number) {
         this.vertices.forEach(e => {
             e.coords.x *= factor;
             e.coords.y *= factor;
@@ -882,14 +901,14 @@ class Graph extends Drawable {
      * or tetraphenylmethane for order 4.
      * @param vertex Vertex which will be coincident with the center of rotational symmetry
      * @param order order of symmetry
-     * @returns Graph with all added elements
+     * @returns DrawableGraph with all added elements
      */
-    symmetrize_at_vertex(vertex: Vertex, order: number): Graph {
+    symmetrize_at_vertex(vertex: DrawableVertex, order: number): DrawableGraph {
         if ((vertex.neighbors.size != 1))
-            return new Graph();
+            return new DrawableGraph();
         this.add_numbering();
         const angle_increment = order == 2 ? 2 * Math.PI / 3 : 2 * Math.PI / order;
-        const r = new Graph();
+        const r = new DrawableGraph();
         const subgraph = this.subgraph_with(vertex).copy();
         subgraph.vertices = subgraph.vertices.filter(e => e.id != vertex.id);
         subgraph.edges = subgraph.edges.filter(e => e.v1.id != vertex.id && e.v2.id != vertex.id);
@@ -897,7 +916,7 @@ class Graph extends Drawable {
         subgraph.vertices.find(e => e.id === neighboring_vertex_id)?.remove_neighbor(vertex);
         for (let i = 1; i < order; i++) {
             const subgraph_copy = subgraph.copy();
-            subgraph_copy.rotate(vertex.coords, angle_increment * i);
+            subgraph_copy.apply_rotation(vertex.coords, angle_increment * i);
             const vertex_to_bind = subgraph_copy.vertices.find(e => e.id == neighboring_vertex_id);
             if (!vertex_to_bind)
                 throw "This should never happen";
@@ -910,4 +929,4 @@ class Graph extends Drawable {
     }
 }
 
-export { Graph };
+export { DrawableGraph };

@@ -5,6 +5,7 @@
   "main": "main/main.js",
   "scripts": {
     "dev": "node deploy/dev-server.cjs",
+    "lint": "eslint",
     "build": "node deploy/build.cjs && electron-builder",
     "build:win": "node deploy/build.cjs && electron-builder --win",
     "build:mac": "node deploy/build.cjs && electron-builder --mac",
@@ -15,13 +16,19 @@
     "name": "Butlerov team"
   },
   "devDependencies": {
+    "@eslint/js": "^9.18.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "chalk": "^4.1.2",
     "chokidar": "^4.0.1",
     "electron": "33.2.1",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-vue": "^9.32.0",
+    "typescript-eslint": "^8.20.0"
   },
   "dependencies": {
-    "vue": "^3.5.13"
+    "@mdi/font": "^7.4.47",
+    "vue": "^3.5.13",
+    "vuetify": "^3.7.5"
   }
 }

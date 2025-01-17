@@ -1,46 +1,54 @@
+<template>
+  <v-app>
+    <v-navigation-drawer
+      rail
+      permanent
+    >
+      <v-tabs
+        v-model="tool_tab"
+        direction="vertical"
+        :mandatory="false"
+      >
+        <v-tab value="properties"><v-icon size="x-large">mdi-molecule</v-icon></v-tab>
+        <v-tab value="style"><v-icon size="x-large">mdi-palette-swatch-variant</v-icon></v-tab>
+      </v-tabs>
+    </v-navigation-drawer>
+    <v-navigation-drawer
+      v-if="!!tool_tab"
+      permanent
+    >
+      <v-tabs-window v-model="tool_tab">
+        <v-tabs-window-item value="properties">
+          <SidebarProperties
+            :document="active_tab?.document"
+          />
+        </v-tabs-window-item>
+        <v-tabs-window-item value="style">
+          <SidebarStyle />
+        </v-tabs-window-item>
+      </v-tabs-window>
+    </v-navigation-drawer>
+    <v-main width="100%" height="100%">
+      <FileNotebook v-model:active_tab="active_tab" />
+    </v-main>
+  </v-app>
+</template>
 <script setup lang="ts">
+import {ref} from "vue";
 
-import Editor from './components/Editor.vue'
-import Properties from './components/Properties.vue';
-//import {MW} from "butlerov";
-//import("butlerov").catch(e => console.log(e))
+import SidebarStyle from "./components/SidebarStyle.vue";
+import SidebarProperties from "./components/SidebarProperties.vue";
+import FileNotebook from "./components/FileNotebook.vue";
+import { NotebookTab } from "./components/types";
+
+const active_tab = ref<NotebookTab>();
+
+const tool_tab = ref("properties");
+
 </script>
 
-<template>
-    <div class="wrapper">
-      <div class="main-col">
-        <Editor />
-      </div>
-      <div class="tools-col">
-        <Properties />
-      </div>
-    </div>
-</template>
-
-<style scoped>
-body {
-    margin: 0;
-    padding: 0;
-    font-family: "Arial", Helvetica, sans-serif;
-  }
-  .wrapper {
-    margin: 0;
-    padding: 0;
-    width: 100vw;
-    height: 100vh;
-    max-width: 100%;
-    max-height: 100%;
-    display: flex;
-  }
-  .main-col {
-    width: 100%;
-    height: 100%;
-    flex: 1;
-  }
-  .tools-col {
-    width: 250px;
-    border-left: solid 1px #bbb;
-    color: #555;
-    padding: 10px 0 0 10px;
-  }
+<style type="text/css">
+.v-tab {
+  text-transform: none !important;
+}
 </style>

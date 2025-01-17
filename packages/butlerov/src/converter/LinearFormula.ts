@@ -1,46 +1,34 @@
-import { Graph } from "../drawable/Graph";
+import { DrawableGraph } from "../drawables/Graph";
 import { Abbreviations } from "../lib/abbreviations";
 import { ChemicalElements } from "../lib/elements";
 import { AtomicLinearFormulaFragment, LinearFormulaFragment, AbbreviatedLinearFormulaFragment, CompositeLinearFormulaFragment } from "../lib/linear";
-import { Converter } from "./Converter";
+import { Converter } from "../types";
 
 /**
  * Converter class for linear formulae like CF3SO2ONa
  * They are acyclic
  */
 export class LinearFormulaConverter implements Converter {
-    graph : Graph = new Graph();
+    graph: DrawableGraph = new DrawableGraph();
     fragments: LinearFormulaFragment[] = [];
 
-    from_string(s: string, graph: Graph | null = null): Graph {
-        this.graph = graph ? graph : new Graph();
-        const controller = this.graph.controller;
-        if (controller)
-            this.graph.detach();
-        this.graph.clear();
+    graph_from_string(s: string): DrawableGraph {
+        this.graph = new DrawableGraph();
         this.fragments = [];
         this.fragments = this.tokenize(s);
         this.graph = this.build_graph(this.fragments);
-        if (controller) {
-            const scaling_factor = this.graph.get_average_bond_distance() / controller.stylesheet.bond_length_px;
-            this.graph.mol_scaling_factor = scaling_factor;
-            this.graph.vertices.forEach( e => {
-                e.coords = { x: e.coords.x / scaling_factor, y: e.coords.y / scaling_factor };
-            });
-            this.graph.attach(controller);
-        }
         this.graph.update_topology();
-        this.graph.edges.forEach(e => {this.graph.update_edge_orientation(e);});
+        this.graph.edges.forEach(e => { this.graph.update_edge_orientation(e); });
         return this.graph;
     }
 
-    build_graph(fragments: LinearFormulaFragment[]): Graph {
+    build_graph(fragments: LinearFormulaFragment[]): DrawableGraph {
         return new CompositeLinearFormulaFragment(fragments).to_graph();
     }
 
     tokenize(s: string): LinearFormulaFragment[] {
         const fragments = [];
-        const tokens = new Set(Object.keys(ChemicalElements).concat( Object.keys(Abbreviations)));
+        const tokens = new Set(Object.keys(ChemicalElements).concat(Object.keys(Abbreviations)));
         let max_token_length = 0;
         for (const token of tokens) {
             if (token.length > max_token_length)
@@ -50,8 +38,8 @@ export class LinearFormulaConverter implements Converter {
         let i = 0;
         while (i < s.length) {
             for (let j = Math.min(max_token_length, s.length - i); j > 0; j--) {
-                const chunk = s.substring(i, i+j);
-                if ( tokens.has(chunk)) {
+                const chunk = s.substring(i, i + j);
+                if (tokens.has(chunk)) {
                     let frag;
                     if (chunk in Abbreviations) {
                         frag = new AbbreviatedLinearFormulaFragment(Abbreviations[chunk], chunk);
@@ -112,7 +100,7 @@ export class LinearFormulaConverter implements Converter {
                             i += matches[0].length;
                             let charge = 0;
                             if (matches[1])
-                                charge = parseInt(matches[1].substring(1, matches[1].length -1));
+                                charge = parseInt(matches[1].substring(1, matches[1].length - 1));
                             else
                                 charge = 1;
                             charge *= (matches[2] == "+" ? 1 : -1);

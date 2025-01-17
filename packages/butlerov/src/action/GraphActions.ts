@@ -1,17 +1,17 @@
 import { Action, UpdatableAction } from "./Action";
-import { Edge, EdgeOrientation, EdgeShape } from "../drawable/Edge";
-import { Graph } from "../drawable/Graph";
-import { Vertex } from "../drawable/Vertex";
-import { Coords } from "../lib/common";
+import { DrawableEdge } from "../drawables/Edge";
+import { DrawableGraph } from "../drawables/Graph";
+import { DrawableVertex } from "../drawables/Vertex";
+import { Coords, EdgeOrientation, EdgeShape } from "../types";
 
 class UpdateEdgeShapeAction extends Action {
-    graph: Graph;
-    edge: Edge;
+    graph: DrawableGraph;
+    edge: DrawableEdge;
     old_shape: EdgeShape;
     new_shape: EdgeShape;
     old_orientation: EdgeOrientation;
     new_orientation: EdgeOrientation | null;
-    constructor(graph: Graph, edge: Edge, edge_shape: EdgeShape, orientation: EdgeOrientation | null = null) {
+    constructor(graph: DrawableGraph, edge: DrawableEdge, edge_shape: EdgeShape, orientation: EdgeOrientation | null = null) {
         super();
         this.graph = graph;
         this.edge = edge;
@@ -42,10 +42,10 @@ class UpdateEdgeShapeAction extends Action {
 }
 
 class ClearGraphAction extends Action {
-    graph: Graph;
-    vertices: Vertex[] = [];
-    edges: Edge[] = [];
-    constructor(graph: Graph) {
+    graph: DrawableGraph;
+    vertices: DrawableVertex[] = [];
+    edges: DrawableEdge[] = [];
+    constructor(graph: DrawableGraph) {
         super();
         this.graph = graph;
     }
@@ -56,7 +56,7 @@ class ClearGraphAction extends Action {
         this.graph.clear();
     }
     rollback() {
-        const copy = new Graph();
+        const copy = new DrawableGraph();
         copy.vertices = this.vertices;
         copy.edges = this.edges;
         // will re-attach everything
@@ -65,15 +65,15 @@ class ClearGraphAction extends Action {
 }
 
 class DeleteVertexAction extends Action {
-    graph: Graph;
-    vertex: Vertex;
-    removed: Graph;
+    graph: DrawableGraph;
+    vertex: DrawableVertex;
+    removed: DrawableGraph;
 
-    constructor(graph: Graph, vertex: Vertex) {
+    constructor(graph: DrawableGraph, vertex: DrawableVertex) {
         super();
         this.graph = graph;
         this.vertex = vertex;
-        this.removed = new Graph();
+        this.removed = new DrawableGraph();
     }
 
     commit() {
@@ -89,15 +89,15 @@ class DeleteVertexAction extends Action {
 }
 
 class DeleteEdgeAction extends Action {
-    graph: Graph;
-    edge: Edge;
-    removed: Graph;
+    graph: DrawableGraph;
+    edge: DrawableEdge;
+    removed: DrawableGraph;
 
-    constructor(graph: Graph, edge: Edge) {
+    constructor(graph: DrawableGraph, edge: DrawableEdge) {
         super();
         this.graph = graph;
         this.edge = edge;
-        this.removed = new Graph();
+        this.removed = new DrawableGraph();
     }
 
     commit() {
@@ -112,13 +112,13 @@ class DeleteEdgeAction extends Action {
 }
 
 class AddBoundVertexAction extends Action {
-    graph: Graph;
-    vertex: Vertex;
-    added: Graph | null;
-    old_neighbor_coords: Array<Coords>;
-    new_neighbor_coords: Array<Coords>;
+    graph: DrawableGraph;
+    vertex: DrawableVertex;
+    added: DrawableGraph | null;
+    old_neighbor_coords: Coords[];
+    new_neighbor_coords: Coords[];
 
-    constructor(graph: Graph, vertex: Vertex) {
+    constructor(graph: DrawableGraph, vertex: DrawableVertex) {
         super();
         this.graph = graph;
         this.vertex = vertex;
@@ -150,12 +150,12 @@ class AddBoundVertexAction extends Action {
 }
 
 class AddDefaultFragmentAction extends Action {
-    graph: Graph;
+    graph: DrawableGraph;
     x: number;
     y: number;
-    added: Graph | null;
+    added: DrawableGraph | null;
 
-    constructor(graph: Graph, x: number, y: number) {
+    constructor(graph: DrawableGraph, x: number, y: number) {
         super();
         this.graph = graph;
         this.x = x;
@@ -179,12 +179,12 @@ class AddDefaultFragmentAction extends Action {
 }
 
 class AddSingleVertexAction extends Action {
-    graph: Graph;
+    graph: DrawableGraph;
     x: number;
     y: number;
-    added: Graph | null;
+    added: DrawableGraph | null;
 
-    constructor(graph: Graph, x: number, y: number) {
+    constructor(graph: DrawableGraph, x: number, y: number) {
         super();
         this.graph = graph;
         this.x = x;
@@ -209,12 +209,12 @@ class AddSingleVertexAction extends Action {
 
 
 class BindVerticesAction extends Action {
-    graph: Graph;
-    v1: Vertex;
-    v2: Vertex;
-    edge: Edge | null;
+    graph: DrawableGraph;
+    v1: DrawableVertex;
+    v2: DrawableVertex;
+    edge: DrawableEdge | null;
 
-    constructor(graph: Graph, v1: Vertex, v2: Vertex) {
+    constructor(graph: DrawableGraph, v1: DrawableVertex, v2: DrawableVertex) {
         super();
         this.graph = graph;
         this.v1 = v1;
@@ -238,12 +238,12 @@ class BindVerticesAction extends Action {
 }
 
 class AddChainAction extends Action {
-    graph: Graph;
-    vertex: Vertex;
-    added: Graph | null;
+    graph: DrawableGraph;
+    vertex: DrawableVertex;
+    added: DrawableGraph | null;
     natoms: number;
 
-    constructor(graph: Graph, vertex: Vertex, natoms: number) {
+    constructor(graph: DrawableGraph, vertex: DrawableVertex, natoms: number) {
         super();
         this.graph = graph;
         this.vertex = vertex;
@@ -266,13 +266,13 @@ class AddChainAction extends Action {
 }
 
 class AttachRingAction extends Action {
-    graph: Graph;
-    vertex: Vertex;
-    added: Graph | null;
+    graph: DrawableGraph;
+    vertex: DrawableVertex;
+    added: DrawableGraph | null;
     natoms: number;
     desaturate: boolean;
 
-    constructor(graph: Graph, vertex: Vertex, natoms: number, desaturate = false) {
+    constructor(graph: DrawableGraph, vertex: DrawableVertex, natoms: number, desaturate = false) {
         super();
         this.graph = graph;
         this.vertex = vertex;
@@ -296,13 +296,13 @@ class AttachRingAction extends Action {
 }
 
 class FuseRingAction extends Action {
-    graph: Graph;
-    edge: Edge;
-    added: Graph | null;
+    graph: DrawableGraph;
+    edge: DrawableEdge;
+    added: DrawableGraph | null;
     natoms: number;
     desaturate: boolean;
 
-    constructor(graph: Graph, edge: Edge, natoms: number, desaturate = false) {
+    constructor(graph: DrawableGraph, edge: DrawableEdge, natoms: number, desaturate = false) {
         super();
         this.graph = graph;
         this.edge = edge;
@@ -326,10 +326,10 @@ class FuseRingAction extends Action {
 }
 
 class StripHAction extends Action {
-    graph: Graph;
-    removed: Graph | null;
+    graph: DrawableGraph;
+    removed: DrawableGraph | null;
 
-    constructor(graph: Graph) {
+    constructor(graph: DrawableGraph) {
         super();
         this.graph = graph;
         this.removed = null;
@@ -350,11 +350,11 @@ class StripHAction extends Action {
 }
 
 class ChangeVertexLabelAction extends UpdatableAction {
-    graph: Graph;
-    vertex: Vertex;
+    graph: DrawableGraph;
+    vertex: DrawableVertex;
     old_label: string;
     new_label: string;
-    constructor(graph: Graph, vertex: Vertex, label: string) {
+    constructor(graph: DrawableGraph, vertex: DrawableVertex, label: string) {
         super();
         this.graph = graph;
         this.vertex = vertex;
@@ -382,11 +382,11 @@ class ChangeVertexLabelAction extends UpdatableAction {
 }
 
 class ChangeVertexIsotopeAction extends UpdatableAction {
-    graph: Graph;
-    vertex: Vertex;
+    graph: DrawableGraph;
+    vertex: DrawableVertex;
     old_isotope: number;
     new_isotope: number;
-    constructor(graph: Graph, vertex: Vertex, isotope: number) {
+    constructor(graph: DrawableGraph, vertex: DrawableVertex, isotope: number) {
         super();
         this.graph = graph;
         this.vertex = vertex;
@@ -414,12 +414,12 @@ class ChangeVertexIsotopeAction extends UpdatableAction {
 }
 
 class MoveVertexAction extends UpdatableAction {
-    graph: Graph;
-    vertex: Vertex;
+    graph: DrawableGraph;
+    vertex: DrawableVertex;
     old_coords: Coords;
     new_coords: Coords;
 
-    constructor(graph: Graph, vertex: Vertex, original_coords: Coords | null) {
+    constructor(graph: DrawableGraph, vertex: DrawableVertex, original_coords: Coords | null) {
         super();
         this.graph = graph;
         this.vertex = vertex;
@@ -456,11 +456,11 @@ class MoveVertexAction extends UpdatableAction {
 }
 
 class IncrementAtomChargeAction extends UpdatableAction {
-    vertex: Vertex;
+    vertex: DrawableVertex;
     old_charge: number;
     increment: number;
 
-    constructor(vertex: Vertex, increment: number) {
+    constructor(vertex: DrawableVertex, increment: number) {
         super();
         this.vertex = vertex;
         this.old_charge = vertex.charge;
@@ -488,11 +488,11 @@ class IncrementAtomChargeAction extends UpdatableAction {
 }
 
 class SymmetrizeAlongEdgeAction extends Action {
-    graph: Graph;
-    edge: Edge;
-    added: Graph | null;
+    graph: DrawableGraph;
+    edge: DrawableEdge;
+    added: DrawableGraph | null;
 
-    constructor(graph: Graph, edge: Edge) {
+    constructor(graph: DrawableGraph, edge: DrawableEdge) {
         super();
         this.graph = graph;
         this.edge = edge;
@@ -515,12 +515,12 @@ class SymmetrizeAlongEdgeAction extends Action {
 
 
 class SymmetrizeAtVertexAction extends Action {
-    graph: Graph;
-    vertex: Vertex;
-    added: Graph | null;
+    graph: DrawableGraph;
+    vertex: DrawableVertex;
+    added: DrawableGraph | null;
     order: number;
 
-    constructor(graph: Graph, vertex: Vertex, order: number) {
+    constructor(graph: DrawableGraph, vertex: DrawableVertex, order: number) {
         super();
         this.graph = graph;
         this.vertex = vertex;
@@ -543,21 +543,21 @@ class SymmetrizeAtVertexAction extends Action {
 }
 
 class ExpandLinearAction extends Action {
-    graph: Graph;
-    vertex: Vertex;
+    graph: DrawableGraph;
+    vertex: DrawableVertex;
     vertex_idx = 0;
-    expansion: Graph;
-    edge_added: Edge | null = null;
-    edges_removed: Map<number, Edge>;
+    expansion: DrawableGraph;
+    edge_added: DrawableEdge | null = null;
+    edges_removed: Map<number, DrawableEdge>;
 
-    constructor(graph: Graph, vertex: Vertex) {
+    constructor(graph: DrawableGraph, vertex: DrawableVertex) {
         super();
         this.graph = graph;
         this.vertex = vertex;
         this.vertex_idx = this.graph.vertices.findIndex(e => e === vertex);
         this.edges_removed = new Map();
         if (!this.vertex.linear_formula)
-            this.expansion = new Graph();
+            this.expansion = new DrawableGraph();
         else
             this.expansion = this.vertex.linear_formula.to_graph();
     }

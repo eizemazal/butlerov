@@ -1,5 +1,5 @@
 import { ChemicalElements } from "../src/lib/elements";
-import {LinearFormulaConverter} from "../src/converter/LinearFormula";
+import { LinearFormulaConverter } from "../src/converter/LinearFormula";
 import { AtomicLinearFormulaFragment, CompositeLinearFormulaFragment } from "../src/lib/linear";
 
 // tokenization is needed to display abbreviated labels attached to structures
@@ -12,7 +12,7 @@ test("Tokenize linear formulae", () => {
         "K": ["K"],
         "Na+": ["Na+"],
         "Ca2+": ["Ca2+"],
-        "Boc" : ["Boc"],
+        "Boc": ["Boc"],
         "NHBoc": ["NH", "Boc"],
         "NHNH2": ["NH", "NH2"],
         "NHNH3+": ["NH", "NH3+"],
@@ -30,7 +30,7 @@ test("Tokenize linear formulae", () => {
 
     for (const [text, expected] of Object.entries(cases)) {
         const fragments = new LinearFormulaConverter().tokenize(text);
-        expect(fragments.map(e => e.text )).toStrictEqual(expected);
+        expect(fragments.map(e => e.text)).toStrictEqual(expected);
     }
 });
 
@@ -38,11 +38,11 @@ test("Tokenize linear formulae", () => {
 test("Read molecule from linear formulae", () => {
 
     const cases = {
-        "CH3CH2CH2CH2OH" : { edges: 4, vertices: 5, single: 4, elements: {C: 4, O: 1}, ringsystems: 0 }
+        "CH3CH2CH2CH2OH": { edges: 4, vertices: 5, single: 4, elements: { C: 4, O: 1 }, ringsystems: 0 }
     };
 
     for (const [linear, descriptors] of Object.entries(cases)) {
-        const graph = new LinearFormulaConverter().from_string(linear, null);
+        const graph = new LinearFormulaConverter().graph_from_string(linear);
         expect(graph.vertices.length).toBe(descriptors.vertices);
         expect(graph.edges.length).toBe(descriptors.edges);
         expect(graph.edges.filter(e => e.bond_order == 1).length).toBe(descriptors.single);
@@ -61,20 +61,20 @@ test("Read molecule from linear formulae", () => {
 
 test("Convert linear to text segments", () => {
 
-    type expectation = {
+    interface expectation {
         text: string;
         index_rb?: string;
         index_rt?: string;
     }
 
-    const cases : { [key:string]: expectation[]} = {
-        "OCH2CH2NH2": [ {text: "O"}, {text:"CH", index_rb: "2"},  {text:"CH", index_rb: "2"}, {text:"NH", index_rb: "2", index_rt: ""},],
-        "P+Ph3": [ {text: "P", index_rt: "+"}, {text:"Ph", index_rb: "3", index_rt: ""}],
+    const cases: Record<string, expectation[]> = {
+        "OCH2CH2NH2": [{ text: "O" }, { text: "CH", index_rb: "2" }, { text: "CH", index_rb: "2" }, { text: "NH", index_rb: "2", index_rt: "" },],
+        "P+Ph3": [{ text: "P", index_rt: "+" }, { text: "Ph", index_rb: "3", index_rt: "" }],
         // this does not work: NMe3+ etc
         //"PPh3+": [ {text: "P", index_rt: "+"}, {text:"Ph", index_rb: "3", index_rt: "+"}],
-        "COOH": [ {text: "C"}, {text: "O"}, {text: "O"}, {text: "H"} ],
-        "CO2Et": [ {text: "C"}, {text: "O", index_rb: "2"}, {text: "Et"} ],
-        "CN": [{text: "C"}, {"text": "N"}],
+        "COOH": [{ text: "C" }, { text: "O" }, { text: "O" }, { text: "H" }],
+        "CO2Et": [{ text: "C" }, { text: "O", index_rb: "2" }, { text: "Et" }],
+        "CN": [{ text: "C" }, { "text": "N" }],
     };
 
     for (const [str, expected] of Object.entries(cases)) {
@@ -94,7 +94,7 @@ test("Convert linear to text segments", () => {
     const lf = new CompositeLinearFormulaFragment([new AtomicLinearFormulaFragment(ChemicalElements["C"], "(CH2)5"), new AtomicLinearFormulaFragment(ChemicalElements["Br"], "Br")]);
     (lf.components[0] as AtomicLinearFormulaFragment).n_hydrogens = 2;
     lf.components[0].count = 5;
-    const expected = [ {text:"(CH", index_rb: "2"},  {text:")", index_rb: "5"}, {text:"Br"}];
+    const expected = [{ text: "(CH", index_rb: "2" }, { text: ")", index_rb: "5" }, { text: "Br" }];
     const segments = lf.to_text_segments();
     expect(segments.length).toBe(expected.length);
     for (let i = 0; i < segments.length; i++) {

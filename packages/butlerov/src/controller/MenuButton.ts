@@ -1,12 +1,12 @@
 import Konva from "konva";
 import { Menu } from "./Menu";
 
-const HPADDING=5;
-const VPADDING=5;
-const LABEL_FONT_SIZE=9;
-const KEY_FONT_SIZE=11;
-const BTN_WIDTH=100;
-const BTN_HEIGHT=20;
+const HPADDING = 5;
+const VPADDING = 5;
+const LABEL_FONT_SIZE = 9;
+const KEY_FONT_SIZE = 11;
+const BTN_WIDTH = 100;
+const BTN_HEIGHT = 20;
 
 class MenuButton {
     key: string;
@@ -15,16 +15,16 @@ class MenuButton {
     group: Konva.Group;
     _menu: Menu | null;
     _active: boolean;
-    constructor (key: string, label: string, callback: () => void) {
+    constructor(key: string, label: string, callback: () => void) {
         this.key = key;
         this.label = label;
         this.callback = callback;
         this._active = false;
         this._menu = null;
         this.group = new Konva.Group();
-        this.group.on("click", () => { this.fire(); } );
-        this.group.on("mouseover", () => { this.active = true; } );
-        this.group.on("mouseout", () => { this.active = false; } );
+        this.group.on("click", () => { this.fire(); });
+        this.group.on("mouseover", () => { this.active = true; });
+        this.group.on("mouseout", () => { this.active = false; });
     }
 
     update() {
@@ -49,21 +49,21 @@ class MenuButton {
         key_caption.setAttr("fontSize", KEY_FONT_SIZE / this.zoom);
         key_caption.setAttr("fill", this._active ? "#333" : "#444");
         key_caption.setAttr("text", this.key);
-        key_caption.setAttr("x", btn.getAttr("width") - key_caption.width() - VPADDING/this.zoom);
-        key_caption.setAttr("y", VPADDING/this.zoom);
+        key_caption.setAttr("x", btn.getAttr("width") - key_caption.width() - VPADDING / this.zoom);
+        key_caption.setAttr("y", VPADDING / this.zoom);
         const label = this.group.findOne("#label") || new Konva.Text({
             "id": "label",
             fill: "#444",
         });
-        label.setAttr("x", HPADDING/this.zoom);
+        label.setAttr("x", HPADDING / this.zoom);
         label.setAttr("fontSize", LABEL_FONT_SIZE / this.zoom);
         label.setAttr("text", this.label);
         label.setAttr("fill", this._active ? "#333" : "#444");
-        label.setAttr("x", HPADDING/this.zoom);
-        label.setAttr("y", (BTN_HEIGHT/this.zoom - label.height())/2 );
-        this.group.add(<Konva.Rect>btn);
-        this.group.add(<Konva.Text>key_caption);
-        this.group.add(<Konva.Text>label);
+        label.setAttr("x", HPADDING / this.zoom);
+        label.setAttr("y", (BTN_HEIGHT / this.zoom - label.height()) / 2);
+        this.group.add(btn as Konva.Rect);
+        this.group.add(key_caption as Konva.Text);
+        this.group.add(label as Konva.Text);
     }
 
     public get height(): number {

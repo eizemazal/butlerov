@@ -1,11 +1,11 @@
 import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import { Edge, EdgeShape, BondType, EdgeOrientation } from "../drawable/Edge";
-import { Graph } from "../drawable/Graph";
-import { Stylesheet } from "./Stylesheet";
-import { Coords } from "../lib/common";
-import { Controller } from "./Controller";
-import { LabelType, Vertex } from "../drawable/Vertex";
+import { DrawableEdge } from "../drawables/Edge";
+import { DrawableGraph } from "../drawables/Graph";
+import { Theme } from "./Theme";
+import { Coords, LabelType, EdgeShape, EdgeOrientation, Graph } from "../types";
+import { Controller, ControllerMode, ControllerSettings } from "./Controller";
+import { DrawableVertex } from "../drawables/Vertex";
 import { ChemicalElements } from "../lib/elements";
 import { Menu } from "./Menu";
 import { MenuButton } from "./MenuButton";
@@ -31,147 +31,153 @@ import {
     ExpandLinearAction
 } from "../action/GraphActions";
 import { ActionDirection } from "../action/Action";
-import { Converter } from "../converter/Converter";
+import { Converter, Document, DrawableObject } from "../types";
 import { MolConverter } from "../converter/MolConverter";
-import { Drawable } from "../drawable/Drawable";
+import { DrawableBase } from "../drawables/Base";
 import { TextBox } from "./TextBox";
+import { get_molecule_rect } from "../lib/graph";
+
+
+class DocumentContainer {
+    controller: Controller;
+    drawing_layer: Konva.Layer;
+    objects: DrawableBase[];
+    graph: DrawableGraph;
+
+    constructor(controller: Controller, drawing_layer: Konva.Layer, controller_mode: ControllerMode) {
+        this.controller = controller;
+        this.objects = [];
+        this.drawing_layer = drawing_layer;
+        this.graph = new DrawableGraph();
+        this.drawing_layer.add(this.graph.attach(this.controller));
+    }
+
+    clear() {
+        this.graph.detach();
+        this.objects.forEach(e => e.detach());
+        this.objects = [];
+    }
+
+    public get document(): Document {
+        return {
+            mime: "application/butlerov",
+            objects: [this.graph.read()]
+        }
+    }
+
+    public set document(d: Document) {
+        if (d.mime != "application/butlerov")
+            throw "Incorrect document format.";
+        const graphs: Graph[] = d.objects?.filter(e => e.type == "Graph") ?? [];
+        this.graph.detach();
+        this.graph = graphs.length ? new DrawableGraph(graphs[0]) : new DrawableGraph();
+        this.drawing_layer.add(this.graph.attach(this.controller));
+    }
+}
 
 
 export class MoleculeEditor extends Controller {
-    stage: Konva.Stage;
-    drawing_layer: Konva.Layer;
-    background_layer: Konva.Layer;
-    top_layer: Konva.Layer;
-    welcome_message: Konva.Group;
-    graph: Graph;
     menu: Menu;
-    stylesheet: Stylesheet;
-    active_edge: Edge | null;
-    active_vertex: Vertex | null;
-    downed_vertex: Vertex | null;
+    document_container: DocumentContainer;
+    active_edge: DrawableEdge | null;
+    active_vertex: DrawableVertex | null;
+    downed_vertex: DrawableVertex | null;
     downed_vertex_coords: Coords | null;
     _readonly: boolean;
     panning: boolean;
-    _viewport_offset: Coords;
-    graph_group: Konva.Group;
     text_box: TextBox;
-    constructor(stage: Konva.Stage, autofocus = true) {
-        super(stage, autofocus);
-        this.stage = stage;
-        this.stylesheet = new Stylesheet();
-        this.graph = new Graph();
-        this.background_layer = new Konva.Layer();
-        this.background_layer.add(new Konva.Rect({
-            id: "background_rect",
-            x: 0,
-            y: 0,
-            width: this.stage.getAttr("width"),
-            height: this.stage.getAttr("height"),
-            fill: this.stylesheet.background_fill_color,
-        }));
-        this.welcome_message = new Konva.Group();
-        this.background_layer.add(this.welcome_message);
+
+    constructor(settings: ControllerSettings) {
+        super(settings);
+        this.document_container = new DocumentContainer(this, this.drawing_layer, settings.mode);
         this.background_layer.on("click", (evt: KonvaEventObject<MouseEvent>) => { this.on_background_click(evt); });
         this.background_layer.on("contextmenu", (evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(); });
         this.background_layer.on("mousemove", (evt: KonvaEventObject<MouseEvent>) => { this.on_background_mousemove(evt); });
         this.background_layer.on("mouseover", () => { this.on_background_mouseover(); });
         this.stage.on("mouseleave", () => { this.on_stage_mouseleave(); });
-        this.drawing_layer = new Konva.Layer();
-        this.graph_group = this.graph.attach(this);
-        this.drawing_layer.add(this.graph_group);
         this.menu = new Menu();
         this.menu.visible = false;
-        this.top_layer = new Konva.Layer();
         this.top_layer.add(this.menu.as_group());
         this.active_edge = null;
         this.active_vertex = null;
         this.downed_vertex = null;
         this.downed_vertex_coords = null;
-        const container = this.stage.container();
-        container.addEventListener("keydown", (e) => { this.on_keydown(e); });
-        container.addEventListener("keyup", (e) => { this.on_keyup(e); });
-        this.stage.add(this.background_layer);
-        this.stage.add(this.drawing_layer);
-        this.stage.add(this.top_layer);
-        this.update_background();
+        this.stage.container().addEventListener("keydown", (e) => { this.on_keydown(e); });
+        this.stage.container().addEventListener("keyup", (e) => { this.on_keyup(e); });
         this.action_stack = [];
         this.actions_rolled_back = 0;
         this._readonly = false;
         this.panning = false;
-        this._viewport_offset = { x: 0, y: 0 };
         this.text_box = new TextBox(this);
-        window.addEventListener("resize", () => {
-            stage.width(container.offsetWidth);
-            stage.height(container.offsetHeight);
-            this.update_background();
-        });
     }
 
     protected on_action(direction: ActionDirection): void {
         if (direction == ActionDirection.UNDO || direction == ActionDirection.REDO)
             this.deactivate_edges_vertices();
-        this.update_background();
     }
 
-    public dispatch(entity: Drawable, evt: Konva.KonvaEventObject<MouseEvent>): void {
-        if (entity instanceof Vertex) {
-            switch (evt.type) {
-            case "dragmove": this.on_vertex_dragmove(entity, evt); break;
-            case "mouseover": this.on_vertex_mouseover(entity); break;
-            case "mouseout": this.on_vertex_mouseout(); break;
-            case "click": this.on_vertex_click(entity, evt); break;
-            case "contextmenu":
-                evt.evt.preventDefault();
-                this.toggle_menu();
-                break;
-            case "mousedown": this.on_vertex_mousedown(entity); break;
-            case "mouseup": this.on_vertex_mouseup(entity);
-            }
-        }
-        else if (entity instanceof Edge) {
-            switch (evt.type) {
-            case "mouseover": this.on_edge_mouseover(entity); break;
-            case "mouseout": this.on_edge_mouseout(); break;
-            case "click": this.on_edge_click(entity, evt); break;
-            case "contextmenu":
-                evt.evt.preventDefault();
-                this.toggle_menu();
-                break;
-            }
-        }
+    public get theme(): Theme {
+        return this._theme;
     }
 
+    public set theme(theme: Theme) {
+        this._theme = theme;
+        this.document_container.graph.update();
+        this.draw_background();
+    }
 
-    update_background() {
-        const rect = this.background_layer.findOne("#background_rect");
-        rect?.setAttr("width", this.stage.getAttr("width") / this.zoom);
-        rect?.setAttr("height", this.stage.getAttr("height") / this.zoom);
-        if (this.graph.vertices.length || this.graph.edges.length) {
-            this.welcome_message.visible(false);
-            this.graph.draw();
-            return;
+    public get graph(): Graph {
+        return this.document_container.graph;
+    }
+
+    public set graph(graph: Graph) {
+        this.clear_actions();
+        this.document_container.graph.write(graph)
+        this.draw_background();
+    }
+
+    public get document(): Document {
+        return this.document_container.document;
+    }
+
+    public set document(document: Document) {
+        this.document_container.document = document;
+
+    }
+
+    public dispatch(entity: DrawableBase, evt: Konva.KonvaEventObject<MouseEvent>): void {
+        if (entity instanceof DrawableVertex) {
+            switch (evt.type) {
+                case "dragmove": this.on_vertex_dragmove(entity, evt); break;
+                case "mouseover": this.on_vertex_mouseover(entity); break;
+                case "mouseout": this.on_vertex_mouseout(); break;
+                case "click": this.on_vertex_click(entity, evt); break;
+                case "contextmenu":
+                    evt.evt.preventDefault();
+                    this.toggle_menu();
+                    break;
+                case "mousedown": this.on_vertex_mousedown(entity); break;
+                case "mouseup": this.on_vertex_mouseup(entity);
+            }
         }
-        this.welcome_message.visible(true);
-        const txt = this.welcome_message.findOne("#welcome_text") || new Konva.Text({
-            id: "welcome_text",
-            fill: "#bbb",
-            align: "center",
-            text: `Butlerov - draw chemical structures in your browser. \n
-            Use 1) your mouse to draw, 2) Spacebar to open context menu.\n
-            The hotkeys are shown in the menu.
-            `,
-        });
-        txt.setAttr("fontSize", 14 / this.zoom);
-        txt.setAttr("x", this.stage.width() / (2 * this.zoom) - txt.width() / 2);
-        txt.setAttr("y", this.stage.height() / (2 * this.zoom) - txt.height() / 2);
-        this.welcome_message.add(<Konva.Text>txt);
+        else if (entity instanceof DrawableEdge) {
+            switch (evt.type) {
+                case "mouseover": this.on_edge_mouseover(entity); break;
+                case "mouseout": this.on_edge_mouseout(); break;
+                case "click": this.on_edge_click(entity, evt); break;
+                case "contextmenu":
+                    evt.evt.preventDefault();
+                    this.toggle_menu();
+                    break;
+            }
+        }
     }
 
     center_view() {
-        const rect = this.graph.get_molecule_rect();
+        const rect = get_molecule_rect(this.document_container.graph);
         this.viewport_offset = {
-            x: this.stage.width() / (2 * this.zoom) - (rect.x1 + rect.x2) / 2,
-            y: this.stage.height() / (2 * this.zoom) - (rect.y1 + rect.y2) / 2,
+            x: (rect.x1 + rect.x2) / 2 - this.stage.width() / (2 * this._zoom),
+            y: (rect.y1 + rect.y2) / 2 - this.stage.height() / (2 * this._zoom),
         };
     }
 
@@ -183,7 +189,7 @@ export class MoleculeEditor extends Controller {
      */
 
     zoom_to_fit(overzoom = false, margins = 0.05) {
-        const rect = this.graph.get_molecule_rect();
+        const rect = get_molecule_rect(this.document_container.graph);
         const screen_w = (1 + margins) * (rect.x2 - rect.x1);
         const screen_h = (1 + margins) * (rect.y2 - rect.y1);
         let zoom = Math.min(this.stage.width() / screen_w, this.stage.height() / screen_h);
@@ -210,18 +216,17 @@ export class MoleculeEditor extends Controller {
 
     load(s: string, converter: Converter) {
         this.clear_actions();
-        if (converter.from_string)
-            converter.from_string(s, this.graph);
+        if (converter.graph_from_string)
+            this.document_container.graph.write(converter.graph_from_string(s));
         this.center_view();
-        this.graph.update();
-        this.update_background();
+        this.draw_background();
         if (this._on_change)
             this._on_change();
     }
 
     save(converter: Converter): string {
-        if (converter.to_string)
-            return converter.to_string(this.graph);
+        if (converter.graph_to_string)
+            return converter.graph_to_string(this.document_container.graph);
         return "";
     }
 
@@ -233,14 +238,12 @@ export class MoleculeEditor extends Controller {
 
     clear(from_userspace = false) {
         if (from_userspace)
-            this.commit_action(new ClearGraphAction(this.graph));
+            this.commit_action(new ClearGraphAction(this.document_container.graph));
         else {
             this.clear_actions();
-            this.graph.clear();
+            this.document_container?.graph?.clear();
         }
         this.viewport_offset = { x: 0, y: 0 };
-        this.graph_group.x(0);
-        this.graph_group.y(0);
         this.active_edge = null;
         this.active_vertex = null;
     }
@@ -271,7 +274,7 @@ export class MoleculeEditor extends Controller {
         if (!this.active_vertex)
             return;
         if (evt.key == "Backspace" || evt.key == "Delete") {
-            this.commit_action(new DeleteVertexAction(this.graph, this.active_vertex));
+            this.commit_action(new DeleteVertexAction(this.document_container.graph, this.active_vertex));
             this.active_vertex = null;
             return;
         }
@@ -284,7 +287,7 @@ export class MoleculeEditor extends Controller {
             const new_label = this.get_next_element_label(this.active_vertex.label, translated_key, evt.shiftKey);
             if (new_label == "")
                 return;
-            this.commit_action(new ChangeVertexLabelAction(this.graph, this.active_vertex, new_label));
+            this.commit_action(new ChangeVertexLabelAction(this.document_container.graph, this.active_vertex, new_label));
         }
         if (evt.key == "+") {
             this.commit_action(new IncrementAtomChargeAction(this.active_vertex, 1));
@@ -301,36 +304,36 @@ export class MoleculeEditor extends Controller {
             return;
         const translated_key = this.translate_key_event(evt);
         switch (translated_key) {
-        case "1":
-            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Single));
-            break;
-        case "2":
-            if (this.active_edge.shape != EdgeShape.Double) {
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double));
-            }
-            else if (this.active_edge.orientation == EdgeOrientation.Right)
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Left));
-            else if (this.active_edge.orientation == EdgeOrientation.Left)
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Center));
-            else
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Right));
-            break;
-        case "3":
-            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.Triple));
-            break;
-        case "w":
-            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleUp));
-            break;
-        case "q":
-            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleDown));
-            break;
-        case "e":
-            this.commit_action(new UpdateEdgeShapeAction(this.graph, this.active_edge, EdgeShape.SingleEither));
-            break;
-        case "Backspace":
-        case "Delete":
-            this.commit_action(new DeleteEdgeAction(this.graph, this.active_edge));
-            this.deactivate_edges_vertices();
+            case "1":
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, this.active_edge, EdgeShape.Single));
+                break;
+            case "2":
+                if (this.active_edge.shape != EdgeShape.Double) {
+                    this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, this.active_edge, EdgeShape.Double));
+                }
+                else if (this.active_edge.orientation == EdgeOrientation.Right)
+                    this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Left));
+                else if (this.active_edge.orientation == EdgeOrientation.Left)
+                    this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Center));
+                else
+                    this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, this.active_edge, EdgeShape.Double, EdgeOrientation.Right));
+                break;
+            case "3":
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, this.active_edge, EdgeShape.Triple));
+                break;
+            case "w":
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, this.active_edge, EdgeShape.SingleUp));
+                break;
+            case "q":
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, this.active_edge, EdgeShape.SingleDown));
+                break;
+            case "e":
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, this.active_edge, EdgeShape.SingleEither));
+                break;
+            case "Backspace":
+            case "Delete":
+                this.commit_action(new DeleteEdgeAction(this.document_container.graph, this.active_edge));
+                this.deactivate_edges_vertices();
         }
     }
 
@@ -344,39 +347,40 @@ export class MoleculeEditor extends Controller {
             this.menu.clear_buttons();
             const edge = this.active_edge;
             this.menu.add_button(new MenuButton("1", "Single", () => {
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Single));
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Single));
             }));
             this.menu.add_button(new MenuButton("2", "Double", () => {
                 if (edge.shape != EdgeShape.Double) {
-                    this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double));
+                    this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Double));
                 }
                 else if (edge.orientation == EdgeOrientation.Right)
-                    this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Left));
+                    this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Double, EdgeOrientation.Left));
                 else if (edge.orientation == EdgeOrientation.Left)
-                    this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Center));
+                    this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Double, EdgeOrientation.Center));
                 else
-                    this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double, EdgeOrientation.Right));
+                    this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Double, EdgeOrientation.Right));
             }));
-            edge.bond_type != BondType.Triple && this.menu.add_button(new MenuButton("3", "Triple", () => {
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Triple));
-            }));
+            if (edge.shape != EdgeShape.Triple)
+                this.menu.add_button(new MenuButton("3", "Triple", () => {
+                    this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Triple));
+                }));
             this.menu.add_button(new MenuButton("w", "Wedged up", () => {
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleUp));
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.SingleUp));
             }));
             this.menu.add_button(new MenuButton("q", "Wedged down", () => {
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleDown));
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.SingleDown));
             }));
             this.menu.add_button(new MenuButton("e", "Single either", () => {
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.SingleEither));
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.SingleEither));
             }));
             this.menu.add_button(new MenuButton("a", "Double either", () => {
-                this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.DoubleEither));
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.DoubleEither));
             }));
             this.menu.add_button(new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); }));
             if ((edge.v1.neighbors.size == 1) != (edge.v2.neighbors.size == 1))
-                this.menu.add_button(new MenuButton("S", "Symmetrize along", () => { this.commit_action(new SymmetrizeAlongEdgeAction(this.graph, edge)); }));
+                this.menu.add_button(new MenuButton("S", "Symmetrize along", () => { this.commit_action(new SymmetrizeAlongEdgeAction(this.document_container.graph, edge)); }));
             this.menu.add_button(new MenuButton("x", "Delete", () => {
-                this.commit_action(new DeleteEdgeAction(this.graph, edge));
+                this.commit_action(new DeleteEdgeAction(this.document_container.graph, edge));
             }));
         }
         else if (this.active_vertex) {
@@ -389,12 +393,12 @@ export class MoleculeEditor extends Controller {
                 this.menu.add_button(new MenuButton("I", "Isotopes", () => { this.menu_isotopes(vertex); }));
             }
             if (vertex.label_type == LabelType.Linear && vertex.neighbors.size == 1) {
-                this.menu.add_button(new MenuButton("P", "Expand", () => { this.commit_action(new ExpandLinearAction(this.graph, vertex)); }));
+                this.menu.add_button(new MenuButton("P", "Expand", () => { this.commit_action(new ExpandLinearAction(this.document_container.graph, vertex)); }));
             }
             if (vertex.neighbors.size == 1)
                 this.menu.add_button(new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); }));
             this.menu.add_button(new MenuButton("x", "Delete", () => {
-                this.commit_action(new DeleteVertexAction(this.graph, vertex));
+                this.commit_action(new DeleteVertexAction(this.document_container.graph, vertex));
             }));
         }
         else {
@@ -402,7 +406,7 @@ export class MoleculeEditor extends Controller {
             this.menu.add_button(new MenuButton("c", "Center view", () => { this.center_view(); }));
             this.menu.add_button(new MenuButton("z", "Zoom", () => { this.menu_zoom(); }));
             this.menu.add_button(new MenuButton("f", "Zoom to fit", () => { this.zoom_to_fit(); }));
-            this.menu.add_button(new MenuButton("h", "Strip hydrogens", () => { this.commit_action(new StripHAction(this.graph)); }));
+            this.menu.add_button(new MenuButton("h", "Strip hydrogens", () => { this.commit_action(new StripHAction(this.document_container.graph)); }));
             this.menu.add_button(new MenuButton("x", "Clear drawing", () => { this.menu_confirm_clear(); }));
         }
 
@@ -418,17 +422,6 @@ export class MoleculeEditor extends Controller {
         this.menu.visible = true;
     }
 
-    public get zoom(): number {
-        return this.stage.scaleX();
-    }
-
-    public set zoom(zoom: number) {
-        this.stage.scaleX(zoom);
-        this.stage.scaleY(zoom);
-        this.center_view();
-        this.update_background();
-    }
-
     menu_zoom() {
         this.menu.clear_buttons();
         this.menu.add_button(new MenuButton("a", "50%", () => { this.zoom = 0.5; }));
@@ -438,57 +431,57 @@ export class MoleculeEditor extends Controller {
         this.menu.visible = true;
     }
 
-    menu_symmetry_vertex(vertex: Vertex) {
+    menu_symmetry_vertex(vertex: DrawableVertex) {
         this.menu.clear_buttons();
-        this.menu.add_button(new MenuButton("2", "C2v / D2h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 2)); }));
-        this.menu.add_button(new MenuButton("3", "C3v / D3h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 3)); }));
-        this.menu.add_button(new MenuButton("4", "C4v / D4h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.graph, vertex, 4)); }));
+        this.menu.add_button(new MenuButton("2", "C2v / D2h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.document_container.graph, vertex, 2)); }));
+        this.menu.add_button(new MenuButton("3", "C3v / D3h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.document_container.graph, vertex, 3)); }));
+        this.menu.add_button(new MenuButton("4", "C4v / D4h", () => { this.commit_action(new SymmetrizeAtVertexAction(this.document_container.graph, vertex, 4)); }));
         this.menu.visible = true;
     }
 
-    menu_attach_ring(vertex: Vertex) {
+    menu_attach_ring(vertex: DrawableVertex) {
         this.menu.clear_buttons();
-        this.menu.add_button(new MenuButton("p", "Phenyl", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 6, true)); }));
-        this.menu.add_button(new MenuButton("3", "Cyclopropane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 3)); }));
-        this.menu.add_button(new MenuButton("4", "Cyclobutane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 4)); }));
-        this.menu.add_button(new MenuButton("5", "Cyclopentane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 5)); }));
-        this.menu.add_button(new MenuButton("6", "Cyclohexane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 6)); }));
-        this.menu.add_button(new MenuButton("7", "Cycloheptane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 7)); }));
-        this.menu.add_button(new MenuButton("8", "Cyclooctane", () => { this.commit_action(new AttachRingAction(this.graph, vertex, 8)); }));
+        this.menu.add_button(new MenuButton("p", "Phenyl", () => { this.commit_action(new AttachRingAction(this.document_container.graph, vertex, 6, true)); }));
+        this.menu.add_button(new MenuButton("3", "Cyclopropane", () => { this.commit_action(new AttachRingAction(this.document_container.graph, vertex, 3)); }));
+        this.menu.add_button(new MenuButton("4", "Cyclobutane", () => { this.commit_action(new AttachRingAction(this.document_container.graph, vertex, 4)); }));
+        this.menu.add_button(new MenuButton("5", "Cyclopentane", () => { this.commit_action(new AttachRingAction(this.document_container.graph, vertex, 5)); }));
+        this.menu.add_button(new MenuButton("6", "Cyclohexane", () => { this.commit_action(new AttachRingAction(this.document_container.graph, vertex, 6)); }));
+        this.menu.add_button(new MenuButton("7", "Cycloheptane", () => { this.commit_action(new AttachRingAction(this.document_container.graph, vertex, 7)); }));
+        this.menu.add_button(new MenuButton("8", "Cyclooctane", () => { this.commit_action(new AttachRingAction(this.document_container.graph, vertex, 8)); }));
         this.menu.visible = true;
     }
 
-    menu_fuse_ring(edge: Edge) {
+    menu_fuse_ring(edge: DrawableEdge) {
         this.menu.clear_buttons();
-        this.menu.add_button(new MenuButton("p", "Phenyl", () => { this.commit_action(new FuseRingAction(this.graph, edge, 6, true)); }));
-        this.menu.add_button(new MenuButton("3", "Cyclopropane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 3)); }));
-        this.menu.add_button(new MenuButton("4", "Cyclobutane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 4)); }));
-        this.menu.add_button(new MenuButton("5", "Cyclopentane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 5)); }));
-        this.menu.add_button(new MenuButton("6", "Cyclohexane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 6)); }));
-        this.menu.add_button(new MenuButton("7", "Cycloheptane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 7)); }));
-        this.menu.add_button(new MenuButton("8", "Cyclooctane", () => { this.commit_action(new FuseRingAction(this.graph, edge, 8)); }));
+        this.menu.add_button(new MenuButton("p", "Phenyl", () => { this.commit_action(new FuseRingAction(this.document_container.graph, edge, 6, true)); }));
+        this.menu.add_button(new MenuButton("3", "Cyclopropane", () => { this.commit_action(new FuseRingAction(this.document_container.graph, edge, 3)); }));
+        this.menu.add_button(new MenuButton("4", "Cyclobutane", () => { this.commit_action(new FuseRingAction(this.document_container.graph, edge, 4)); }));
+        this.menu.add_button(new MenuButton("5", "Cyclopentane", () => { this.commit_action(new FuseRingAction(this.document_container.graph, edge, 5)); }));
+        this.menu.add_button(new MenuButton("6", "Cyclohexane", () => { this.commit_action(new FuseRingAction(this.document_container.graph, edge, 6)); }));
+        this.menu.add_button(new MenuButton("7", "Cycloheptane", () => { this.commit_action(new FuseRingAction(this.document_container.graph, edge, 7)); }));
+        this.menu.add_button(new MenuButton("8", "Cyclooctane", () => { this.commit_action(new FuseRingAction(this.document_container.graph, edge, 8)); }));
         this.menu.visible = true;
     }
 
-    menu_chain(vertex: Vertex) {
+    menu_chain(vertex: DrawableVertex) {
         this.menu.clear_buttons();
-        this.menu.add_button(new MenuButton("1", "Methyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 1)); }));
-        this.menu.add_button(new MenuButton("2", "Ethyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 2)); }));
-        this.menu.add_button(new MenuButton("3", "Propyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 3)); }));
-        this.menu.add_button(new MenuButton("4", "Butyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 4)); }));
-        this.menu.add_button(new MenuButton("5", "Amyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 5)); }));
-        this.menu.add_button(new MenuButton("6", "Hexyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 6)); }));
-        this.menu.add_button(new MenuButton("7", "Heptyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 7)); }));
-        this.menu.add_button(new MenuButton("8", "Octyl", () => { this.commit_action(new AddChainAction(this.graph, vertex, 8)); }));
+        this.menu.add_button(new MenuButton("1", "Methyl", () => { this.commit_action(new AddChainAction(this.document_container.graph, vertex, 1)); }));
+        this.menu.add_button(new MenuButton("2", "Ethyl", () => { this.commit_action(new AddChainAction(this.document_container.graph, vertex, 2)); }));
+        this.menu.add_button(new MenuButton("3", "Propyl", () => { this.commit_action(new AddChainAction(this.document_container.graph, vertex, 3)); }));
+        this.menu.add_button(new MenuButton("4", "Butyl", () => { this.commit_action(new AddChainAction(this.document_container.graph, vertex, 4)); }));
+        this.menu.add_button(new MenuButton("5", "Amyl", () => { this.commit_action(new AddChainAction(this.document_container.graph, vertex, 5)); }));
+        this.menu.add_button(new MenuButton("6", "Hexyl", () => { this.commit_action(new AddChainAction(this.document_container.graph, vertex, 6)); }));
+        this.menu.add_button(new MenuButton("7", "Heptyl", () => { this.commit_action(new AddChainAction(this.document_container.graph, vertex, 7)); }));
+        this.menu.add_button(new MenuButton("8", "Octyl", () => { this.commit_action(new AddChainAction(this.document_container.graph, vertex, 8)); }));
         this.menu.visible = true;
     }
 
-    menu_isotopes(vertex: Vertex) {
+    menu_isotopes(vertex: DrawableVertex) {
         this.menu.clear_buttons();
-        this.menu.add_button(new MenuButton("x", "x", () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, 0)); }));
+        this.menu.add_button(new MenuButton("x", "x", () => { this.commit_action(new ChangeVertexIsotopeAction(this.document_container.graph, vertex, 0)); }));
         if (vertex.element?.isotopes) {
             for (const [index, is] of vertex.element.isotopes.entries()) {
-                this.menu.add_button(new MenuButton(`${index + 1}`, `${is}${vertex.element.symbol}`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.graph, vertex, is)); }));
+                this.menu.add_button(new MenuButton(`${index + 1}`, `${is}${vertex.element.symbol}`, () => { this.commit_action(new ChangeVertexIsotopeAction(this.document_container.graph, vertex, is)); }));
             }
         }
         this.menu.visible = true;
@@ -497,8 +490,7 @@ export class MoleculeEditor extends Controller {
     menu_confirm_clear() {
         this.menu.clear_buttons();
         this.menu.add_button(new MenuButton("Y", "Really clear?", () => { this.clear(true); }));
-        //eslint-disable-next-line
-        this.menu.add_button(new MenuButton("N", "Cancel", () => { }));
+        this.menu.add_button(new MenuButton("N", "Cancel", () => { return; }));
         this.menu.visible = true;
     }
 
@@ -508,16 +500,6 @@ export class MoleculeEditor extends Controller {
         evt.preventDefault();
         if (evt.key == "Shift")
             this.stage.container().style.cursor = "default";
-    }
-
-    public get viewport_offset(): Coords {
-        return this._viewport_offset;
-    }
-
-    public set viewport_offset(offset: Coords) {
-        this._viewport_offset = offset;
-        this.graph_group.x(offset.x);
-        this.graph_group.y(offset.y);
     }
 
     on_keydown(evt: KeyboardEvent): void {
@@ -531,19 +513,19 @@ export class MoleculeEditor extends Controller {
             return;
         }
         if (evt.key == "ArrowUp") {
-            this.viewport_offset = { x: this.viewport_offset.x, y: this.viewport_offset.y + this.stage.height() / 20 };
-            return;
-        }
-        if (evt.key == "ArrowDown") {
             this.viewport_offset = { x: this.viewport_offset.x, y: this.viewport_offset.y - this.stage.height() / 20 };
             return;
         }
+        if (evt.key == "ArrowDown") {
+            this.viewport_offset = { x: this.viewport_offset.x, y: this.viewport_offset.y + this.stage.height() / 20 };
+            return;
+        }
         if (evt.key == "ArrowLeft") {
-            this.viewport_offset = { x: this.viewport_offset.x + this.stage.width() / 20, y: this.viewport_offset.y };
+            this.viewport_offset = { x: this.viewport_offset.x - this.stage.width() / 20, y: this.viewport_offset.y };
             return;
         }
         if (evt.key == "ArrowRight") {
-            this.viewport_offset = { x: this.viewport_offset.x - this.stage.width() / 20, y: this.viewport_offset.y };
+            this.viewport_offset = { x: this.viewport_offset.x + this.stage.width() / 20, y: this.viewport_offset.y };
             return;
         }
         if (this._readonly)
@@ -575,25 +557,25 @@ export class MoleculeEditor extends Controller {
         }
     }
 
-    on_edge_click(edge: Edge, evt: KonvaEventObject<MouseEvent>) {
+    on_edge_click(edge: DrawableEdge, evt: KonvaEventObject<MouseEvent>) {
         // disable right click processing
         if (evt.evt.button == 2)
             return;
-        switch (edge.bond_type) {
-        case BondType.Single:
-            this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Double));
-            break;
-        case BondType.Double:
-            this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Triple));
-            break;
-        case BondType.Triple:
-            this.commit_action(new UpdateEdgeShapeAction(this.graph, edge, EdgeShape.Single));
-            break;
+        switch (edge.shape) {
+            case EdgeShape.Single:
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Double));
+                break;
+            case EdgeShape.Double:
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Triple));
+                break;
+            case EdgeShape.Triple:
+                this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Single));
+                break;
         }
         edge.update();
     }
 
-    on_edge_mouseover(edge: Edge) {
+    on_edge_mouseover(edge: DrawableEdge) {
         this.stage.container().focus();
         this.deactivate_edges_vertices();
         this.active_edge = edge;
@@ -603,12 +585,12 @@ export class MoleculeEditor extends Controller {
         this.deactivate_edges_vertices();
     }
 
-    on_vertex_dragmove(vertex: Vertex, evt: KonvaEventObject<MouseEvent>) {
+    on_vertex_dragmove(vertex: DrawableVertex, evt: KonvaEventObject<MouseEvent>) {
         vertex.on_drag(!evt.evt.altKey);
-        this.commit_action(new MoveVertexAction(this.graph, vertex, this.downed_vertex_coords));
+        this.commit_action(new MoveVertexAction(this.document_container.graph, vertex, this.downed_vertex_coords));
     }
 
-    on_vertex_mouseover(vertex: Vertex) {
+    on_vertex_mouseover(vertex: DrawableVertex) {
         this.stage.container().focus();
         this.deactivate_edges_vertices();
         vertex.active = true;
@@ -619,23 +601,23 @@ export class MoleculeEditor extends Controller {
         this.deactivate_edges_vertices();
     }
 
-    on_vertex_click(vertex: Vertex, evt: KonvaEventObject<MouseEvent>) {
+    on_vertex_click(vertex: DrawableVertex, evt: KonvaEventObject<MouseEvent>) {
         // disable right click processing
         if (evt.evt.button == 2)
             return;
-        this.commit_action(new AddBoundVertexAction(this.graph, vertex));
+        this.commit_action(new AddBoundVertexAction(this.document_container.graph, vertex));
     }
 
-    on_vertex_mousedown(vertex: Vertex) {
+    on_vertex_mousedown(vertex: DrawableVertex) {
         this.downed_vertex = vertex;
         this.downed_vertex_coords = JSON.parse(JSON.stringify(vertex.coords));
     }
 
-    on_vertex_mouseup(vertex: Vertex) {
+    on_vertex_mouseup(vertex: DrawableVertex) {
         if (!this.downed_vertex)
             return;
-        if (vertex != this.downed_vertex && !this.graph.vertices_are_connected(vertex, this.downed_vertex)) {
-            this.commit_action(new BindVerticesAction(this.graph, this.downed_vertex, vertex));
+        if (vertex != this.downed_vertex && !this.document_container.graph.vertices_are_connected(vertex, this.downed_vertex)) {
+            this.commit_action(new BindVerticesAction(this.document_container.graph, this.downed_vertex, vertex));
         }
         this.downed_vertex = null;
     }
@@ -657,15 +639,13 @@ export class MoleculeEditor extends Controller {
             this.text_box.cancel();
             return;
         }
-        const pos = this.background_layer.getRelativePointerPosition();
+        const pos = this.drawing_layer.getRelativePointerPosition();
         if (!pos)
             return;
-        pos.x -= this.viewport_offset.x;
-        pos.y -= this.viewport_offset.y;
         if (evt.evt.ctrlKey || evt.evt.metaKey)
-            this.commit_action(new AddSingleVertexAction(this.graph, pos.x, pos.y));
+            this.commit_action(new AddSingleVertexAction(this.document_container.graph, pos.x, pos.y));
         else
-            this.commit_action(new AddDefaultFragmentAction(this.graph, pos.x, pos.y));
+            this.commit_action(new AddDefaultFragmentAction(this.document_container.graph, pos.x, pos.y));
     }
 
     on_background_mouseup() {
@@ -704,7 +684,7 @@ export class MoleculeEditor extends Controller {
     }
 
     public get empty(): boolean {
-        return this.graph.vertices.length == 0 && this.graph.edges.length == 0;
+        return !this.document_container || (this.document_container.graph.vertices.length == 0 && this.document_container.graph.edges.length == 0);
     }
 
     deactivate_edges_vertices() {
@@ -726,15 +706,18 @@ export class MoleculeEditor extends Controller {
         return evt.key;
     }
 
-    edit_vertex_label(vertex: Vertex) {
+    edit_vertex_label(vertex: DrawableVertex) {
         if (this.text_box.visible)
             this.text_box.close();
-        this.text_box.x = (vertex.coords.x - this._viewport_offset.x) / this.zoom;
-        this.text_box.y = (vertex.coords.y - this._viewport_offset.y) / this.zoom;
+        const transform = this.drawing_layer.getAbsoluteTransform().copy();
+        const pos = transform.point({ x: vertex.coords.x, y: vertex.coords.y });
+        this.drawing_layer.getPosition();
+        this.text_box.x = pos.x;
+        this.text_box.y = pos.y;
         this.text_box.value = vertex.label;
         vertex.hide();
         this.text_box.onchange = (value) => {
-            this.commit_action(new ChangeVertexLabelAction(this.graph, vertex, value));
+            this.commit_action(new ChangeVertexLabelAction(this.document_container.graph, vertex, value));
         };
         this.text_box.onclose = () => {
             vertex.show();

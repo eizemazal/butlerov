@@ -12,7 +12,7 @@ export class Abbreviation {
 
 }
 
-export const Abbreviations: { [key: string] :  Abbreviation } = {
+export const Abbreviations: Record<string, Abbreviation> = {
     // aliphatic groups
     "Me": new Abbreviation("Me", ["Methyl"], "C"),
     "Et": new Abbreviation("Et", ["Ethyl"], "CC"),

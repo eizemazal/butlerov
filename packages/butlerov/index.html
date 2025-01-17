@@ -8,17 +8,17 @@
             let mol_converter;
             let smiles_converter;
             window.init = function() {
-                d = MoleculeEditor.from_html_element(document.getElementById("chemical"));
+                d = new MoleculeEditor({stage: document.getElementById("chemical")});
                 d.onchange = onChange;
                 smiles_converter = new SmilesConverter();
                 mol_converter = new MolConverter();
                 for (const el of document.querySelectorAll("[id^=\"style-\"]")) {
                     const prop_name = el.id.substring("style-".length).replaceAll("-", "_");
-                    const prop_type = typeof(d.stylesheet[prop_name]);
+                    const prop_type = typeof(d.style[prop_name]);
                     if (prop_type == "boolean")
-                        el.checked = d.stylesheet[prop_name];
+                        el.checked = d.style[prop_name];
                     else
-                        el.value = d.stylesheet[prop_name];
+                        el.value = d.style[prop_name];
                 }
             };
 
@@ -111,6 +111,7 @@
                 width: 600px;
                 height: 600px;
                 border: solid 1px #ddd;
+                position:relative;
             }
             #moltxt {
                 width: 600px;

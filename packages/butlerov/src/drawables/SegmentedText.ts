@@ -1,7 +1,7 @@
 import Konva from "konva";
 import { Controller } from "../controller/Controller";
-import { Drawable } from "./Drawable";
-import { Coords } from "../lib/common";
+import { DrawableBase } from "./Base";
+import { Coords, SegmentedText, TextSegment } from "../types";
 import { CompositeLinearFormulaFragment } from "../lib/linear";
 
 export class FontStyle {
@@ -29,7 +29,7 @@ export class FontStyle {
  * TextSegment's group zero point is at left top corner of baseline text.
  * center_x and center_y props refer to the central point of baseline text.
  */
-export class TextSegment extends Drawable {
+export class DrawableTextSegment extends DrawableBase implements TextSegment{
     // baseline text
     text = "";
     // index at right bottom, i.e. count
@@ -101,9 +101,8 @@ export class TextSegment extends Drawable {
         this.group?.setAttr("y", value);
     }
 
-    public get left_boundary(): number {
-        return 0;
-    }
+    readonly left_boundary = 0;
+
     public get right_boundary(): number {
         return this._right_boundary;
     }
@@ -137,7 +136,7 @@ export class TextSegment extends Drawable {
      * @param ts another text segment
      * @returns whether redraw was required
      */
-    update_with(ts: TextSegment): boolean {
+    update_with(ts: DrawableTextSegment): boolean {
 
         this.nobreak = ts.nobreak;
 
@@ -174,9 +173,9 @@ export class TextSegment extends Drawable {
         this._bottom_boundary = 0;
         this._right_boundary = 0;
 
-        const index_font_size = this._style.size * this.controller?.stylesheet.index_font_size_ratio;
-        const superscript_offset_y = this.controller.stylesheet.superscript_offset_ratio * this._style.size;
-        const subscript_offset_y = this.controller.stylesheet.subscript_offset_ratio * this._style.size;
+        const index_font_size = this._style.size * this.controller?.style.index_font_size_ratio;
+        const superscript_offset_y = this.controller.style.superscript_offset_ratio * this._style.size;
+        const subscript_offset_y = this.controller.style.subscript_offset_ratio * this._style.size;
 
         // left top index
         let elem: Konva.Text | undefined = this.group.findOne("#lt");
@@ -187,7 +186,7 @@ export class TextSegment extends Drawable {
             elem.setAttr("fill", this._style.color);
             elem.setAttr("fontFamily", this._style.family);
             elem.setAttr("fontSize", index_font_size);
-            elem.setAttr("fontStyle", `${this.controller?.stylesheet.index_font_weight}`);
+            elem.setAttr("fontStyle", `${this.controller?.style.index_font_weight}`);
             elem.setAttr("x", 0);
             elem.setAttr("y", this._style.size / 2 - index_font_size - superscript_offset_y);
             this._top_boundary = this._style.size / 2 - index_font_size - superscript_offset_y;
@@ -240,7 +239,7 @@ export class TextSegment extends Drawable {
             elem.setAttr("fill", this._style.color);
             elem.setAttr("fontFamily", this._style.family);
             elem.setAttr("fontSize", index_font_size);
-            elem.setAttr("fontStyle", `${this.controller?.stylesheet.index_font_weight}`);
+            elem.setAttr("fontStyle", `${this.controller?.style.index_font_weight}`);
             elem.setAttr("x", x);
             elem.setAttr("y", this._style.size / 2 - index_font_size - superscript_offset_y);
             this._top_boundary = Math.min(this._top_boundary, this._style.size / 2 - index_font_size - superscript_offset_y);
@@ -260,7 +259,7 @@ export class TextSegment extends Drawable {
             elem.setAttr("fill", this._style.color);
             elem.setAttr("fontFamily", this._style.family);
             elem.setAttr("fontSize", index_font_size);
-            elem.setAttr("fontStyle", `${this.controller?.stylesheet.index_font_weight}`);
+            elem.setAttr("fontStyle", `${this.controller?.style.index_font_weight}`);
             elem.setAttr("x", x);
             elem.setAttr("y", this._style.size / 2 + subscript_offset_y);
             this._top_boundary = Math.min(this._top_boundary, this._style.size / 2 + subscript_offset_y);
@@ -288,13 +287,13 @@ export enum TextAlignment {
 }
 
 
-export class SegmentedText extends Drawable {
+export class DrawableSegmentedText extends DrawableBase implements SegmentedText {
 
-    segments: TextSegment[] = [];
+    segments: DrawableTextSegment[] = [];
     _direction: TextDirection = TextDirection.LEFT_TO_RIGHT;
     _alignment: TextAlignment = TextAlignment.FIRST_SEGMENT_FIRST_LETTER;
 
-    constructor(segments: TextSegment[] = []) {
+    constructor(segments: DrawableTextSegment[] = []) {
         super();
         this.segments = segments;
     }
@@ -317,7 +316,7 @@ export class SegmentedText extends Drawable {
         this.controller = null;
     }
 
-    update_with_segments(new_segments: TextSegment[]) {
+    update_with_segments(new_segments: DrawableTextSegment[]) {
         let j = 0;
         for (let i = 0; i < this.segments.length; i++) {
             if (j == new_segments.length) {
@@ -342,8 +341,8 @@ export class SegmentedText extends Drawable {
 
     format_text(text: string): void {
         // this does not process charges by design
-        const new_segments: TextSegment[] = [];
-        let next_segment = new TextSegment("");
+        const new_segments: DrawableTextSegment[] = [];
+        let next_segment = new DrawableTextSegment("");
         let was_digit = false;
         for (let i = 0; i < text.length; i++) {
             // is 0 to 9
@@ -356,7 +355,7 @@ export class SegmentedText extends Drawable {
             else {
                 if (was_digit) {
                     new_segments.push(next_segment);
-                    next_segment = new TextSegment(text[i]);
+                    next_segment = new DrawableTextSegment(text[i]);
                 }
                 else {
                     next_segment.text += text[i];

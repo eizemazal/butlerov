@@ -1,11 +1,11 @@
 import { ChemicalElement } from "./elements";
 import { Abbreviation } from "./abbreviations";
 import { LinearFormulaConverter } from "../converter/LinearFormula";
-import { TextSegment } from "../drawable/SegmentedText";
+import { DrawableTextSegment } from "../drawables/SegmentedText";
 import { format_charge } from "./common";
-import { Graph } from "../drawable/Graph";
-import {SmilesConverter} from "../converter/SmilesConverter";
-import { BondType } from "../drawable/Edge";
+import { DrawableGraph } from "../drawables/Graph";
+import { SmilesConverter } from "../converter/SmilesConverter";
+import { EdgeShape } from "../types";
 
 export class LinearFormulaFragment {
     text = "";
@@ -13,8 +13,8 @@ export class LinearFormulaFragment {
     charge = 0;
     bond_order = 1;
 
-    to_text_segments(): TextSegment[] { return []; }
-    to_graph(): Graph { return new Graph(); }
+    to_text_segments(): DrawableTextSegment[] { return []; }
+    to_graph(): DrawableGraph { return new DrawableGraph(); }
 }
 
 /**
@@ -30,13 +30,13 @@ export class AtomicLinearFormulaFragment extends LinearFormulaFragment {
         this.element = element;
     }
 
-    to_text_segments(): TextSegment[] {
-        const segment = new TextSegment("");
+    to_text_segments(): DrawableTextSegment[] {
+        const segment = new DrawableTextSegment("");
         segment.text = this.element.symbol;
         if (this.n_hydrogens > 1 && this.count > 1) {
             segment.text = `(${this.element.symbol}H`;
             segment.index_rb = `${this.n_hydrogens}`;
-            const segment2 = new TextSegment(")", `${this.count}`);
+            const segment2 = new DrawableTextSegment(")", `${this.count}`);
             segment2.nobreak = true;
             if (this.charge)
                 segment2.index_rt = `${this.charge}`;
@@ -53,8 +53,8 @@ export class AtomicLinearFormulaFragment extends LinearFormulaFragment {
         return [segment];
     }
 
-    to_graph(): Graph {
-        const graph = new Graph();
+    to_graph(): DrawableGraph {
+        const graph = new DrawableGraph();
         graph.add_vertex({ x: 0, y: 0 }, this.element.symbol);
         graph.vertices[0].charge = this.charge;
         return graph;
@@ -72,11 +72,11 @@ export class AbbreviatedLinearFormulaFragment extends LinearFormulaFragment {
         this.text = text;
         this.abbreviation = abbreviation;
     }
-    to_text_segments(): TextSegment[] {
-        return [new TextSegment(this.abbreviation.symbol, this.count == 1 ? "" : `${this.count}`)];
+    to_text_segments(): DrawableTextSegment[] {
+        return [new DrawableTextSegment(this.abbreviation.symbol, this.count == 1 ? "" : `${this.count}`)];
     }
-    to_graph(): Graph {
-        return new SmilesConverter().from_string(this.abbreviation.smiles, null);
+    to_graph(): DrawableGraph {
+        return new SmilesConverter().graph_from_string(this.abbreviation.smiles);
     }
 }
 
@@ -92,13 +92,13 @@ export class CompositeLinearFormulaFragment extends LinearFormulaFragment {
         this.components = components;
     }
 
-    to_text_segments(): TextSegment[] {
-        let segments: TextSegment[] = [];
+    to_text_segments(): DrawableTextSegment[] {
+        let segments: DrawableTextSegment[] = [];
         for (const component of this.components) {
             let embrace = false;
             if (component instanceof CompositeLinearFormulaFragment && component.count != 1) {
                 embrace = true;
-                const obrace = new TextSegment("(");
+                const obrace = new DrawableTextSegment("(");
                 segments.push(obrace);
             }
             const component_segments = component.to_text_segments();
@@ -106,7 +106,7 @@ export class CompositeLinearFormulaFragment extends LinearFormulaFragment {
                 component_segments.forEach(e => e.nobreak = true);
             segments = [...segments, ...component_segments];
             if (embrace) {
-                const cbrace = new TextSegment(")", `${this.count}`);
+                const cbrace = new DrawableTextSegment(")", `${this.count}`);
                 cbrace.nobreak = true;
                 segments.push(cbrace);
             }
@@ -125,7 +125,7 @@ export class CompositeLinearFormulaFragment extends LinearFormulaFragment {
         this.components = new LinearFormulaConverter().tokenize(text);
     }
 
-    to_graph(): Graph {
+    to_graph(): DrawableGraph {
         let i = 0;
         let graph;
         let last_vertex;
@@ -138,7 +138,7 @@ export class CompositeLinearFormulaFragment extends LinearFormulaFragment {
             i++;
         }
         if (!graph || !last_vertex)
-            return new Graph();
+            return new DrawableGraph();
 
         for (let j = i + 1; j < this.components.length; j++) {
             const component_graph = this.components[j].to_graph();
@@ -148,7 +148,7 @@ export class CompositeLinearFormulaFragment extends LinearFormulaFragment {
                 const new_last_vertex = component_graph.vertices[0];
                 const edge = graph.combind(component_graph, last_vertex, component_graph.vertices[0]);
                 if (this.components[j].bond_order == 2)
-                    edge.bond_type = BondType.Double;
+                    edge.shape = EdgeShape.Double;
                 last_vertex = new_last_vertex;
             }
             else
@@ -156,7 +156,7 @@ export class CompositeLinearFormulaFragment extends LinearFormulaFragment {
                     const copy = component_graph.copy();
                     const edge = graph.combind(copy, last_vertex, copy.vertices[0]);
                     if (this.components[j].bond_order == 2)
-                        edge.bond_type = BondType.Double;
+                        edge.shape = EdgeShape.Double;
                 }
 
         }

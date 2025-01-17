@@ -8,7 +8,7 @@
             let mol_converter;
             let smiles_converter;
             window.init = function() {
-                d = window.butlerov.MoleculeEditor.from_html_element(document.getElementById("chemical"));
+                d = window.butlerov.MoleculeEditor({stage: document.getElementById("chemical")});
                 d.onchange = onChange;
                 smiles_converter = new window.butlerov.SmilesConverter();
                 mol_converter = new window.butlerov.MolConverter();

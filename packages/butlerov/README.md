@@ -13,7 +13,7 @@ Then, import
 
 ```javascript
 import { MoleculeEditor, MW } from "butlerov";
-const editor = MoleculeEditor.from_html_element(document.getElementById("div-chemical"));
+const editor = MoleculeEditor({stage: document.getElementById("div-chemical")});
 editor.onchange = () => {
     const mw = new MW(editor.graph).compute();
     console.log(`Molecular weight: ${MW} Da`);
@@ -31,7 +31,7 @@ You need to put `butlerov.umd.js` universal module definition (UMD) file somewhe
         <!-- alternative option: -->
         <!-- <script src="https://unpkg.com/butlerov/dist/butlerov.umd.js"></script> -->
         <script type="text/javascript">
-            const editor = window.butlerov.MoleculeEditor.from_html_element(document.getElementById("div-chemical"));
+            const editor = window.butlerov.MoleculeEditor({stage: document.getElementById("div-chemical")});
             editor.onchange = () => {
                 const mw = new window.butlerov.MW(editor.graph).compute();
                 console.log(`Molecular weight: ${MW} Da`);
