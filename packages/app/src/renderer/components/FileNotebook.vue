@@ -59,29 +59,37 @@ tabs.value.push({document: {
   modified: false
 });
 
-tabs.value.push({document: {
-  mime: "application/butlerov",
-  objects: [
-    {
-      type: "Graph",
-      vertices:[], edges: []
-    }]
-  },
-  filename: "untitiled2",
-  modified: false
-});
+
+window.electronAPI.on('menu-file-new', () => {
+  tabs.value.push({document: {
+    mime: "application/butlerov",
+    objects: [
+      {
+        type: "Graph",
+        vertices:[], edges: []
+      }]
+    },
+    filename: "untitiled",
+    modified: false
+  });
+  active_tab_index.value = tabs.value.length - 1;
+})
+
+window.electronAPI.on('menu-file-close', () => closeActiveTab());
+
 
 const active_tab_index = defineModel<number>({default: 0});
 const active_tab = defineModel<NotebookTab>('active_tab');
 
 
 function closeActiveTab() {
-  //if (!active_tab.modified || confirm(`Are you sure to close ${active_tab.filename}?`)) {
-    tabs.value.splice(active_tab_index.value, 1);
-    active_tab_index.value -= 1;
-    if (active_tab_index.value < 0 && tabs.value.length)
+  if (!active_tab.value?.modified || confirm(`Are you sure to close ${active_tab.value.filename}?`)) {
+    let new_active_tab_index = active_tab_index.value - 1;
+    if (new_active_tab_index < 0 && tabs.value.length > 1)
       active_tab_index.value = 0;
-  //}
+    tabs.value.splice(active_tab_index.value, 1);
+    active_tab_index.value = new_active_tab_index;
+  }
 }
 
 function onTabChange() {

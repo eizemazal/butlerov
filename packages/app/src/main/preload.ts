@@ -40,6 +40,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
 //ipcRenderer.on("menu-file-new", () => editor.clear());
 ipcRenderer.on("menu-file-open", async () => {
+    ipcRenderer.send('electronMessage', 'testing');
     const file_path = await ipcRenderer.invoke("dialog:file_open");
     if (!file_path)
         return;
@@ -70,16 +71,23 @@ ipcRenderer.on("menu-file-save-as", async () => {
 
 
 const api = {
-    //
+    send: (channel: string, data: any) => {
+        let validChannels = ['clientMessage'] // <-- Array of all ipcRenderer Channels used in the client
+        if (validChannels.includes(channel)) {
+            ipcRenderer.send(channel, data)
+        }
+    },
+    //Main (Electron) to Render (Vue)
+    on: (channel: string, func: any) => {
+        let validChannels = ['electronMessage', 'menu-file-open', 'menu-file-new', 'menu-file-close'] // <-- Array of all ipcMain Channels used in the electron
+        if (validChannels.includes(channel)) {
+            // Deliberately strip event as it includes `sender`
+            ipcRenderer.on(channel, (event, ...args) => func(...args))
+        }
+    }
 };
 
 
 contextBridge.exposeInMainWorld("electronAPI", api);
 
-type APIInterface = typeof api;
-
-declare global {
-    interface Window {
-        electronAPI: APIInterface
-    }
-}
+export type APIInterface = typeof api;

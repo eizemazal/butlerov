@@ -54,13 +54,12 @@ class DrawableGraph extends DrawableBase implements Graph {
     write(graph: Graph) {
         this.vertices = graph.vertices.map(e => new DrawableVertex(e));
         this.edges = graph.edges.map(e => {
-            const edge = new DrawableEdge(this.vertices[e.vertices[0]], this.vertices[e.vertices[1]]);
+            const edge = this.bind_vertices(this.vertices[e.vertices[0]], this.vertices[e.vertices[1]], e.shape)
             edge.shape = e.shape;
             if (e.orientation !== undefined)
                 edge.orientation = e.orientation;
             return edge;
         });
-        this.recompute_neighbors();
         this.update_topology();
         this.edges.forEach(e => { this.update_edge_orientation(e); });
     }
@@ -83,22 +82,6 @@ class DrawableGraph extends DrawableBase implements Graph {
             return new_edge;
         });
         return r;
-    }
-
-    recompute_neighbors() {
-        this.vertices.forEach(v => v.neighbors.clear());
-        this.edges.forEach(e => {
-            let bond_order = 1;
-            switch (e.shape) {
-                case EdgeShape.Double:
-                case EdgeShape.DoubleEither:
-                    bond_order = 2;
-                case EdgeShape.Triple:
-                    bond_order = 3;
-            }
-            e.v1.set_neighbor(e.v2, bond_order);
-            e.v2.set_neighbor(e.v1, bond_order);
-        })
     }
 
     /**

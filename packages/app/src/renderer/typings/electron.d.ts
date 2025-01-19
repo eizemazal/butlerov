@@ -1,11 +1,12 @@
 /**
  * Should match main/preload.ts for typescript support in renderer
- *//*
-export default interface ElectronApi {
-}
+ */
+
+import { APIInterface } from "../../main/preload"
+
 
 declare global {
- interface Window {
-   electronAPI: ElectronApi,
- }
-}*/
+  interface Window {
+    electronAPI: APIInterface,
+  }
+}

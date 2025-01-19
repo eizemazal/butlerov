@@ -43,6 +43,7 @@ onMounted(() => {
       if (!model.value || !editor.value)
         return;
       model.value.document = editor.value.document;
+      model.value.modified = true;
     }
 })
 

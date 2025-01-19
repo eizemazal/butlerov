@@ -4,8 +4,8 @@ import fs from "node:fs";
 
 function createWindow() {
     const mainWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 1200,
+        height: 800,
         webPreferences: {
             preload: path.join(app.getAppPath(), "preload.js"),
             nodeIntegration: false,
@@ -32,6 +32,7 @@ function createWindow() {
                 { label: "Open...", "accelerator": "CommandOrControl+O", click: () => { mainWindow.webContents.send("menu-file-open"); } },
                 //{label: "Save", "accelerator": "CommandOrControl+S", },
                 { label: "Save as...", "accelerator": "CommandOrControl+Shift+S", click: () => { mainWindow.webContents.send("menu-file-save-as"); } },
+                { label: "Close", "accelerator": "CommandOrControl+W", click: () => { mainWindow.webContents.send('menu-file-close'); } },
                 //{label: "Overwrite", toolTip: "Export back in the same format" },
                 process.platform === "darwin" ? { role: "close" } : { role: "quit" }
             ]
@@ -71,7 +72,7 @@ app.on("window-all-closed", function () {
     if (process.platform !== "darwin") app.quit();
 });
 
-ipcMain.on("message", (event, message) => {
+ipcMain.on("clientMessage", (event, message) => {
     console.log(message);
 });
 
