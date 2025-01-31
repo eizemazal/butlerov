@@ -24,7 +24,7 @@
           />
         </v-tabs-window-item>
         <v-tabs-window-item value="style">
-          <SidebarStyle />
+          <SidebarStyle v-if="!!active_tab && active_tab.document.style" v-model="style"/>
         </v-tabs-window-item>
       </v-tabs-window>
     </v-navigation-drawer>
@@ -34,7 +34,7 @@
   </v-app>
 </template>
 <script setup lang="ts">
-import {ref} from "vue";
+import {ref, computed} from "vue";
 
 import SidebarStyle from "./components/SidebarStyle.vue";
 import SidebarProperties from "./components/SidebarProperties.vue";
@@ -43,8 +43,15 @@ import { NotebookTab } from "./components/types";
 
 const active_tab = ref<NotebookTab>();
 
-const tool_tab = ref("properties");
+const style = computed( {
+  get: () => active_tab?.value?.document.style,
+  set: (v) => {
+    if (active_tab.value)
+      active_tab.value.document.style = v;
+  }
+})
 
+const tool_tab = ref("properties");
 </script>
 
 <style type="text/css">

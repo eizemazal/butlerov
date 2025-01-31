@@ -4,7 +4,7 @@ import { DrawableEdge } from "../drawables/Edge";
 import { DrawableGraph } from "../drawables/Graph";
 import { Theme } from "./Theme";
 import { Coords, LabelType, EdgeShape, EdgeOrientation, Graph } from "../types";
-import { Controller, ControllerMode, ControllerSettings } from "./Controller";
+import { Controller, ControllerSettings } from "./Controller";
 import { DrawableVertex } from "../drawables/Vertex";
 import { ChemicalElements } from "../lib/elements";
 import { Menu } from "./Menu";
@@ -31,7 +31,7 @@ import {
     ExpandLinearAction
 } from "../action/GraphActions";
 import { ActionDirection } from "../action/Action";
-import { Converter, Document, DrawableObject } from "../types";
+import { Converter, Document } from "../types";
 import { MolConverter } from "../converter/MolConverter";
 import { DrawableBase } from "../drawables/Base";
 import { TextBox } from "./TextBox";
@@ -44,7 +44,7 @@ class DocumentContainer {
     objects: DrawableBase[];
     graph: DrawableGraph;
 
-    constructor(controller: Controller, drawing_layer: Konva.Layer, controller_mode: ControllerMode) {
+    constructor(controller: Controller, drawing_layer: Konva.Layer) {
         this.controller = controller;
         this.objects = [];
         this.drawing_layer = drawing_layer;
@@ -62,7 +62,7 @@ class DocumentContainer {
         return {
             mime: "application/butlerov",
             objects: [this.graph.read()]
-        }
+        };
     }
 
     public set document(d: Document) {
@@ -72,6 +72,10 @@ class DocumentContainer {
         this.graph.detach();
         this.graph = graphs.length ? new DrawableGraph(graphs[0]) : new DrawableGraph();
         this.drawing_layer.add(this.graph.attach(this.controller));
+    }
+
+    update() {
+        this.graph.update();
     }
 }
 
@@ -89,7 +93,7 @@ export class MoleculeEditor extends Controller {
 
     constructor(settings: ControllerSettings) {
         super(settings);
-        this.document_container = new DocumentContainer(this, this.drawing_layer, settings.mode);
+        this.document_container = new DocumentContainer(this, this.drawing_layer);
         this.background_layer.on("click", (evt: KonvaEventObject<MouseEvent>) => { this.on_background_click(evt); });
         this.background_layer.on("contextmenu", (evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(); });
         this.background_layer.on("mousemove", (evt: KonvaEventObject<MouseEvent>) => { this.on_background_mousemove(evt); });
@@ -132,7 +136,7 @@ export class MoleculeEditor extends Controller {
 
     public set graph(graph: Graph) {
         this.clear_actions();
-        this.document_container.graph.write(graph)
+        this.document_container.graph.write(graph);
         this.draw_background();
     }
 
@@ -142,6 +146,8 @@ export class MoleculeEditor extends Controller {
 
     public set document(document: Document) {
         this.document_container.document = document;
+        if (this.document.style)
+            this.style = this.document.style;
 
     }
 
@@ -507,6 +513,11 @@ export class MoleculeEditor extends Controller {
             this.text_box.handle_keydown(evt);
             return;
         }
+
+        // disable handling standard key combinations
+        if (["n", "s", "o", "w"].includes(this.translate_key_event(evt)) && (evt.metaKey || evt.ctrlKey))
+            return;
+
         evt.preventDefault();
         if (evt.key == "Shift") {
             this.stage.container().style.cursor = "move";
@@ -724,5 +735,9 @@ export class MoleculeEditor extends Controller {
             this.stage.container().focus();
         };
         this.text_box.open();
+    }
+
+    update() {
+        this.document_container.update();
     }
 }

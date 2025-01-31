@@ -1,4 +1,3 @@
-import { Graph } from "../src/types";
 import { ChemicalElements } from "../src/lib/elements";
 import { SmilesConverter } from "../src/converter/SmilesConverter";
 

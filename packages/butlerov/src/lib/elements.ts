@@ -1,3 +1,15 @@
+class Nuclide {
+    mass: number;
+    abundance: number;
+    name: string;
+    constructor(mass: number, abundance: number, name?: string) {
+        this.mass = mass;
+        this.abundance = abundance;
+        this.name = name ? name : `${mass.toFixed(0)}`;
+    }
+}
+
+
 class ChemicalElement {
     symbol: string;
     name: string;
@@ -6,6 +18,7 @@ class ChemicalElement {
     valences: number[];
     abundance: number;
     isotopes: number[];
+    nuclides?: Nuclide[];
 
 
 
@@ -18,7 +31,7 @@ class ChemicalElement {
      * @param valences Common valencies. Used to predict number of implicit hydrogens during drawing.
      * @param abundance Abundance of element on drawings. This is purely speculative but useful for optimal user experience
      */
-    constructor(symbol: string, name: string, n: number, atomic_mass: number, valences: number[], abundance: number, isotopes: number[]) {
+    constructor(symbol: string, name: string, n: number, atomic_mass: number, valences: number[], abundance: number, isotopes: number[], nuclides?: Nuclide[]) {
         this.symbol = symbol;
         this.name = name;
         this.n = n;
@@ -26,6 +39,7 @@ class ChemicalElement {
         this.valences = valences;
         this.abundance = abundance;
         this.isotopes = isotopes;
+        this.nuclides = nuclides;
     }
     /**
      * Suggest default implicit hydrogen count for atom of this element having specified number of valent bonds and charge
@@ -46,22 +60,24 @@ class ChemicalElement {
     }
 }
 
+
+// isotope masses and abundances in accordance with CIAAW; for
 const ChemicalElements: Record<string, ChemicalElement> = {
-    "H": new ChemicalElement("H", "Hydrogen", 1, 1.00794, [1], 1, [1, 2, 3]),
+    "H": new ChemicalElement("H", "Hydrogen", 1, 1.00794, [1], 1, [1, 2, 3], [new Nuclide(1.007825035, 0.999855), new Nuclide(2.014101779, 0.000145), new Nuclide(3.016049268, 0)]),
     "He": new ChemicalElement("He", "Helium", 2, 4.002602, [], 4, [3, 4]),
     "Li": new ChemicalElement("Li", "Lithium", 3, 6.941, [1], 2, [6, 7]),
     "Be": new ChemicalElement("Be", "Beryllium", 4, 9.012182, [2], 4, []),
     "B": new ChemicalElement("B", "Boron", 5, 10.811, [3], 2, [10, 11]),
-    "C": new ChemicalElement("C", "Carbon", 6, 12.011, [4], 1, [12, 13, 14]),
-    "N": new ChemicalElement("N", "Nitrogen", 7, 14.00674, [3], 1, [14, 15]),
-    "O": new ChemicalElement("O", "Oxygen", 8, 15.9994, [2], 1, [16, 17, 18]),
-    "F": new ChemicalElement("F", "Fluorine", 9, 18.9984032, [1], 1, [18, 19]),
+    "C": new ChemicalElement("C", "Carbon", 6, 12.011, [4], 1, [12, 13, 14], [new Nuclide(12.000, 0.9894), new Nuclide(13.003354826, 0.0106)]),
+    "N": new ChemicalElement("N", "Nitrogen", 7, 14.00674, [3], 1, [14, 15], [new Nuclide(14.003074002, 0.996205), new Nuclide(15.000108965, 0.003795)]),
+    "O": new ChemicalElement("O", "Oxygen", 8, 15.9994, [2], 1, [16, 17, 18], [new Nuclide(15.99491463, 0.99757), new Nuclide(16.99913122, 0.0003835), new Nuclide(17.9991603, 0.002045)]),
+    "F": new ChemicalElement("F", "Fluorine", 9, 18.9984032, [1], 1, [18, 19], [new Nuclide(18.998403224, 1)]),
     "Ne": new ChemicalElement("Ne", "Neon", 10, 20.1797, [], 4, [20, 21, 22]),
     "Na": new ChemicalElement("Na", "Sodium", 11, 22.989768, [1], 2, []),
     "Mg": new ChemicalElement("Mg", "Magnesium", 12, 24.305, [2], 2, [24, 25, 26]),
     "Al": new ChemicalElement("Al", "Aluminum", 13, 26.981539, [3], 2, []),
     "Si": new ChemicalElement("Si", "Silicon", 14, 28.0855, [4], 2, [28, 29, 30]),
-    "P": new ChemicalElement("P", "Phosphorus", 15, 30.973762, [3, 5], 1, [31, 32]),
+    "P": new ChemicalElement("P", "Phosphorus", 15, 30.973762, [3, 5], 1, [31, 32], [new Nuclide(30.97376199, 1)]),
     "S": new ChemicalElement("S", "Sulfur", 16, 32.066, [2, 4, 6], 1, [32, 33, 34, 36]),
     "Cl": new ChemicalElement("Cl", "Chlorine", 17, 35.4527, [1, 3, 4, 5, 7], 1, [35, 37]),
     "Ar": new ChemicalElement("Ar", "Argon", 18, 39.948, [2], 4, [36, 38, 40]),
@@ -152,4 +168,4 @@ const ChemicalElements: Record<string, ChemicalElement> = {
     "Lr": new ChemicalElement("Lr", "Lawrencium", 103, 262.1098, [3], 5, []),
 };
 
-export { ChemicalElement, ChemicalElements };
+export { ChemicalElement, Nuclide, ChemicalElements };

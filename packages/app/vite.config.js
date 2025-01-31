@@ -14,4 +14,8 @@ export default defineConfig({
         emptyOutDir: true,
     },
     plugins: [vuePlugin()],
+    test: {
+        environment: 'happy-dom',
+        pool: "vmThreads"
+    },
 });

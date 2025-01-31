@@ -44,14 +44,16 @@ class DrawableVertex extends DrawableBase implements Vertex {
         if (v === undefined)
             return;
         this.coords = { x: v.x, y: v.y };
-        this.charge = v.charge;
-        if (v.label_type == LabelType.Atom) {
+        this.charge = v.charge === undefined ? 0 : v.charge;
+        if (v.label_type === LabelType.Atom || v.label_type === undefined) {
             this._label_type = LabelType.Atom;
             this._element = ChemicalElements[v.label];
             if (v.isotope !== undefined)
                 this._isotope = v.isotope;
             if (v.h_count !== undefined)
                 this._h_count = v.h_count;
+            else
+                this.compute_h_count();
         }
         else if (v.label_type == LabelType.Linear)
             try {
@@ -77,10 +79,10 @@ class DrawableVertex extends DrawableBase implements Vertex {
         const v: Vertex = {
             x: this.x,
             y: this.y,
-            label_type: this.label_type,
+            label_type: this.label_type !== LabelType.Atom ? this.label_type : undefined,
             label: this.label,
-            charge: this.charge
-        }
+            charge: this.charge ? this.charge : undefined,
+        };
         if (this.isotope)
             v.isotope = this.isotope;
         if (this.charge)
@@ -299,10 +301,10 @@ class DrawableVertex extends DrawableBase implements Vertex {
         if (this.text.empty) {
             // the circle is needed to mask intersections of edges when there is no label present
             const circle: Konva.Circle = this.group.findOne("#circle") || new Konva.Circle({
-                fill: this.controller.theme.bond_stroke_color,
                 id: "circle",
             });
-            circle.setAttr("radius", this._neighbors.size > 1 ? stylesheet.bond_thickness_px / 2 : 0);
+            circle.fill(this.controller.theme.bond_stroke_color);
+            circle.radius(this._neighbors.size > 1 ? stylesheet.bond_thickness_px / 2 : 0);
             this.group.add(circle);
             const active_box: Konva.Rect = this.group.findOne("#active_box") || new Konva.Rect({
                 x: -5,
@@ -353,6 +355,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
             this.text.color = this.active ? this.controller.theme.atom_active_label_color : this.controller.theme.atom_label_color;
             this.text.alignment = this.topology == VertexTopology.Ring ? TextAlignment.FIRST_SEGMENT_FIRST_LETTER : TextAlignment.FIRST_SEGMENT_CENTER;
         }
+        this.text.font_size = this.controller.style.atom_font_size_px;
         this.text.update();
         if (this.group.getStage())
             this.group.draw();

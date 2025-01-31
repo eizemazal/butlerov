@@ -48,14 +48,14 @@ class DrawableGraph extends DrawableBase implements Graph {
             type: "Graph",
             vertices: this.vertices.map(e => e.read()),
             edges: this.edges.map(e => e.read())
-        }
+        };
     }
 
     write(graph: Graph) {
         this.vertices = graph.vertices.map(e => new DrawableVertex(e));
         this.edges = graph.edges.map(e => {
-            const edge = this.bind_vertices(this.vertices[e.vertices[0]], this.vertices[e.vertices[1]], e.shape)
-            edge.shape = e.shape;
+            const edge = this.bind_vertices(this.vertices[e.vertices[1]], this.vertices[e.vertices[0]], e.shape);
+            edge.shape = e.shape === undefined ? EdgeShape.Single : e.shape;
             if (e.orientation !== undefined)
                 edge.orientation = e.orientation;
             return edge;
@@ -739,7 +739,7 @@ class DrawableGraph extends DrawableBase implements Graph {
             return;
         }
         // non-cyclic bond with heteroatoms - symmetrical
-        if (edge.v1.label || edge.v2.label) {
+        if (edge.v1.visible_text != "" || edge.v2.visible_text != "") {
             edge.orientation = EdgeOrientation.Center;
             if (update_view)
                 edge.update();

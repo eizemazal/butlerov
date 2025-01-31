@@ -11,8 +11,6 @@ import * as directives from 'vuetify/directives'
 
 const app = createApp(App);
 
-window.electronAPI.send("clientMessage", "vue2electron");
-
 const vuetify = createVuetify({
   components,
   directives,

@@ -5,9 +5,12 @@ import tseslint from "typescript-eslint";
 import stylisticJs from "@stylistic/eslint-plugin-js";
 
 export default tseslint.config({
-  plugins: {
-    "@stylistic/js": stylisticJs
-  },
+    ignores: ["dist/", "coverage/"],
+    },
+    {
+    plugins: {
+        "@stylistic/js": stylisticJs
+    },
     extends: [
         eslint.configs.recommended,
         tseslint.configs.recommended,

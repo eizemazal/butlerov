@@ -2,6 +2,6 @@ import { Document } from "butlerov";
 
 export interface NotebookTab {
     document: Document;
-    filename: string;
+    filepath: string;
     modified: boolean;
 }

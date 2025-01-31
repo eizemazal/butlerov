@@ -3,15 +3,11 @@
         <v-list-item>
             <h5>Calculated properties</h5>
         </v-list-item>
-        <v-list-item>
-            <v-text-field
-                label="Molecular weight"
-                variant="underlined"
-                :model-value="mw"
-                :readonly="true"
-                append-icon="mdi-content-copy"
-            >
-            </v-text-field>
+        <v-list-item v-if="mw > 0.1 ">
+            <span>{{ mw.toFixed(2) }}</span>
+        </v-list-item>
+        <v-list-item v-if="exact_mass > 0.1 ">
+            <span>{{ mw.toFixed(5) }}</span>
         </v-list-item>
         <v-list-item>
             <span v-html="composition"></span>
@@ -21,7 +17,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { MW, Composition, Document } from 'butlerov';
+import { MW, ExactMass, Composition, Document } from 'butlerov';
 
 
 
@@ -35,8 +31,15 @@ const props = defineProps<PropInterface>()
 const mw = computed(() => {
     const graphs = props.document?.objects?.filter(e => e.type == "Graph");
     if (!graphs?.length)
-        return "";
-    return new MW(graphs[0]).compute().toFixed(2);
+        return 0.00;
+    return new MW(graphs[0]).compute();
+})
+
+const exact_mass = computed(() => {
+    const graphs = props.document?.objects?.filter(e => e.type == "Graph");
+    if (!graphs?.length)
+        return 0.00;
+    return new ExactMass(graphs[0]).compute();
 })
 
 const composition = computed(() => {

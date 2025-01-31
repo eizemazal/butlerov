@@ -77,8 +77,8 @@ class DrawableEdge extends DrawableBase implements Edge {
     public read(): Edge {
         const e: Edge = {
             vertices: this.vertices,
-            shape: this.shape
-        }
+            shape: this.shape === EdgeShape.Single ? undefined : this.shape,
+        };
         return e;
     }
 
@@ -187,19 +187,22 @@ class DrawableEdge extends DrawableBase implements Edge {
      * @returns array of lines
      */
     create_lines(count = 1): Konva.Line[] {
-        const stylesheet = this.controller?.style;
+        if (!this.controller)
+            return [];
+        const stylesheet = this.controller.style;
         const result: Konva.Line[] = [];
         if (!stylesheet)
             return result;
         for (let i = 0; i < count; i++) {
-            result.push(this.group?.findOne("#bond_line" + i) ||
+            const line: Konva.Line = this.group?.findOne("#bond_line" + i) ||
                 new Konva.Line({
-                    stroke: this.is_active ? this.controller?.theme.bond_active_color : this.controller?.theme.bond_stroke_color,
-                    fill: this.is_active ? this.controller?.theme.bond_active_color : this.controller?.theme.bond_stroke_color,
-                    id: "bond_line" + i,
-                    strokeWidth: stylesheet.bond_thickness_px,
-                    hitStrokeWidth: Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width),
-                }));
+                    id: "bond_line" + i
+                });
+            line.stroke(this.is_active ? this.controller.theme.bond_active_color : this.controller.theme.bond_stroke_color);
+            line.fill(this.is_active ? this.controller?.theme.bond_active_color : this.controller?.theme.bond_stroke_color);
+            line.strokeWidth(stylesheet.bond_thickness_px);
+            line.hitStrokeWidth(Math.max(stylesheet.bond_thickness_px, stylesheet.bond_hit_stroke_width));
+            result.push(line);
         }
         let i = count;
         let line;

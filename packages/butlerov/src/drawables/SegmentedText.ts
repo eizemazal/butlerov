@@ -29,7 +29,7 @@ export class FontStyle {
  * TextSegment's group zero point is at left top corner of baseline text.
  * center_x and center_y props refer to the central point of baseline text.
  */
-export class DrawableTextSegment extends DrawableBase implements TextSegment{
+export class DrawableTextSegment extends DrawableBase implements TextSegment {
     // baseline text
     text = "";
     // index at right bottom, i.e. count
@@ -82,6 +82,17 @@ export class DrawableTextSegment extends DrawableBase implements TextSegment{
      */
     public set font_style(style: FontStyle) {
         this._style = style;
+        this.update();
+    }
+
+    public get font_size(): number {
+        return this._style.size;
+    }
+
+    public set font_size(size: number) {
+        if (size == this._style.size)
+            return;
+        this._style.size = size;
         this.update();
     }
 
@@ -389,6 +400,19 @@ export class DrawableSegmentedText extends DrawableBase implements SegmentedText
         this.update();
     }
 
+    public set font_size(size: number) {
+        let modified = false;
+        for (const segment of this.segments) {
+            if (segment.font_size == size)
+                continue;
+            segment.font_size = size;
+            modified = true;
+        }
+        if (modified) {
+            this.update();
+        }
+    }
+
     public get empty() {
         return this.segments.length == 0;
     }
@@ -431,21 +455,21 @@ export class DrawableSegmentedText extends DrawableBase implements SegmentedText
                 direction = TextDirection.LEFT_TO_RIGHT;
             }
             switch (direction) {
-            case TextDirection.LEFT_TO_RIGHT:
-                current.x = prev.x + prev.right_boundary;
-                current.y = prev.y;
-                break;
-            case TextDirection.RIGHT_TO_LEFT:
-                current.x = prev.x - current.right_boundary;
-                current.y = prev.y;
-                break;
-            case TextDirection.BOTTOM_TO_TOP:
-                current.x = prev.x + (prev.first_letter_center_x - current.first_letter_center_x);
-                current.y = prev.y - current.bottom_boundary;
-                break;
-            case TextDirection.TOP_TO_BOTTOM:
-                current.x = prev.x + (prev.first_letter_center_x - current.first_letter_center_x);
-                current.y = prev.y + prev.bottom_boundary;
+                case TextDirection.LEFT_TO_RIGHT:
+                    current.x = prev.x + prev.right_boundary;
+                    current.y = prev.y;
+                    break;
+                case TextDirection.RIGHT_TO_LEFT:
+                    current.x = prev.x - current.right_boundary;
+                    current.y = prev.y;
+                    break;
+                case TextDirection.BOTTOM_TO_TOP:
+                    current.x = prev.x + (prev.first_letter_center_x - current.first_letter_center_x);
+                    current.y = prev.y - current.bottom_boundary;
+                    break;
+                case TextDirection.TOP_TO_BOTTOM:
+                    current.x = prev.x + (prev.first_letter_center_x - current.first_letter_center_x);
+                    current.y = prev.y + prev.bottom_boundary;
             }
         }
 

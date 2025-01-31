@@ -3,9 +3,13 @@ import { ChemicalElements } from "../lib/elements";
 import { Descriptor } from "./descriptor";
 import { DrawableGraph } from "../main";
 
+
+const H_MASS = ChemicalElements["H"].nuclides ? ChemicalElements["H"].nuclides[0].mass : 0;
+const ELECTRON_MASS = 0.0005486;
+
 export class MW extends Descriptor {
     compute(): number {
-        if (this.graph.vertices.some(e => e.label_type != LabelType.Atom))
+        if (this.graph.vertices.some(e => e.label_type != LabelType.Atom && e.label_type !== undefined))
             return NaN;
         /// FIXME - we need to recreate it from the model to compute h counts
         const dgraph = new DrawableGraph(this.graph);
@@ -21,9 +25,40 @@ export class MW extends Descriptor {
     }
 }
 
+export class ExactMass extends Descriptor {
+    compute(): number {
+        if (this.graph.vertices.some(e => e.label_type != LabelType.Atom && e.label_type !== undefined))
+            return NaN;
+        /// FIXME - we need to recreate it from the model to compute h counts
+        const dgraph = new DrawableGraph(this.graph);
+        return dgraph.vertices.map(e => {
+            if (e.label_type != LabelType.Atom)
+                return 0;
+            const element = ChemicalElements[e.label];
+            if (element === undefined || !element.nuclides)
+                return 0;
+
+            let matching_nuclide = null;
+            if (e.isotope) {
+                matching_nuclide = element.nuclides.find(nuclide => nuclide.name == `${e.isotope}`);
+                if (!matching_nuclide)
+                    return 0;
+            }
+            else {
+                const stable_nuclides = element.nuclides.filter(e => e.abundance > 0.0000000001);
+                if (stable_nuclides.length == 0)
+                    return 0;
+                matching_nuclide = stable_nuclides[0];
+            }
+            return matching_nuclide.mass + e.h_count * H_MASS - e.charge * ELECTRON_MASS;
+        }
+        ).reduce((sum, e) => sum + e, 0);
+    }
+}
+
 export class Composition extends Descriptor {
     compute(): Map<string, number> {
-        if (this.graph.vertices.some(e => e.label_type != LabelType.Atom))
+        if (this.graph.vertices.some(e => e.label_type != LabelType.Atom && e.label_type !== undefined))
             return new Map();
         /// FIXME - we need to recreate it from the model to compute h counts
         const dgraph = new DrawableGraph(this.graph);

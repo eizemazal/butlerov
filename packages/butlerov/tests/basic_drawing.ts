@@ -1,4 +1,3 @@
-import { ChemicalElements } from "../src/lib/elements";
 import { editor, fire_key, fire } from "../src/lib/testing";
 import userEvent from "@testing-library/user-event";
 

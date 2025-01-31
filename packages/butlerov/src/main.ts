@@ -2,7 +2,8 @@ import { MoleculeEditor } from "./controller/MoleculeEditor";
 import { DrawableGraph } from "./drawables/Graph";
 import { MolConverter } from "./converter/MolConverter";
 import { SmilesConverter } from "./converter/SmilesConverter";
-import { MW, Composition } from "./descriptor/mw";
+import { NativeConverter } from "./converter/NativeConverter";
+import { MW, ExactMass, Composition } from "./descriptor/mw";
 import { lightTheme, darkTheme, defaultStyle } from "./controller/Theme";
 
 export {
@@ -10,7 +11,9 @@ export {
     DrawableGraph,
     MolConverter,
     SmilesConverter,
+    NativeConverter,
     MW,
+    ExactMass,
     Composition,
     lightTheme,
     darkTheme,

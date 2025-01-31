@@ -47,7 +47,7 @@ export class Controller {
         this._document = {
             mime: "application/butlerov",
             objects: []
-        }
+        };
 
         this.mode = settings.mode;
 
@@ -199,6 +199,7 @@ export class Controller {
             this._theme_name = theme.name;
         }
         this.draw_background();
+        this.update();
     }
 
     public get style(): Style {
@@ -220,6 +221,7 @@ export class Controller {
             this._theme_name = this._theme.name;
         }
         this.draw_background();
+        this.update();
     }
 
 
@@ -324,4 +326,6 @@ export class Controller {
     public dispatch(entity: DrawableBase, evt: Konva.KonvaEventObject<MouseEvent>) {
         return;
     }
+
+    public update() { return; }
 }

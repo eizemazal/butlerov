@@ -36,7 +36,7 @@ function get_edge_shape(bond_type: BondType, stereo: StereoType): EdgeShape {
     return EdgeShape.Single;
 }
 
-function get_bond_type_stereo(es: EdgeShape): [BondType, StereoType] {
+function get_bond_type_stereo(es: EdgeShape | undefined): [BondType, StereoType] {
     switch (es) {
         case EdgeShape.Double:
             return [BondType.Double, StereoType.Default];

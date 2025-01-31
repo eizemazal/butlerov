@@ -1,3 +1,5 @@
+import { Style } from "./controller/Theme";
+
 export interface Coords {
     x: number;
     y: number;
@@ -33,9 +35,9 @@ export interface SegmentedText {
 export interface Vertex {
     x: number
     y: number
-    label_type: LabelType
+    label_type?: LabelType
     label: string
-    charge: number
+    charge?: number
     isotope?: number
     h_count?: number
 }
@@ -63,7 +65,7 @@ export enum EdgeOrientation {
 
 export interface Edge {
     vertices: number[]
-    shape: EdgeShape
+    shape?: EdgeShape
     orientation?: EdgeOrientation
 }
 
@@ -128,6 +130,7 @@ export interface Document {
     height?: number;
     objects?: DrawableObject[];
     collections?: Collection[];
+    style?: Style;
 }
 
 export interface Converter {

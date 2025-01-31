@@ -24,6 +24,8 @@ export class SmilesConverter implements Converter {
         return this.graph;
     }
 
+    graph_to_string = undefined;
+
     _parse(smiles: string): void {
         const lowercase_list = "(?:b|c|n|o|p|s)";
         const re_lowercase = /^(?:b|c|n|o|p|s)/;

@@ -7,7 +7,7 @@ function createWindow() {
         width: 1200,
         height: 800,
         webPreferences: {
-            preload: path.join(app.getAppPath(), "preload.js"),
+            preload: path.resolve(app.getAppPath(), app.isPackaged ? "main/preload.js" : "preload.js"),
             nodeIntegration: false,
             contextIsolation: true,
             sandbox: false,
@@ -30,10 +30,10 @@ function createWindow() {
             submenu: [
                 { label: "New", "accelerator": "CommandOrControl+N", click: () => { mainWindow.webContents.send("menu-file-new"); } },
                 { label: "Open...", "accelerator": "CommandOrControl+O", click: () => { mainWindow.webContents.send("menu-file-open"); } },
-                //{label: "Save", "accelerator": "CommandOrControl+S", },
+                { label: "Save", "accelerator": "CommandOrControl+S", click: () => { mainWindow.webContents.send("menu-file-save"); } },
                 { label: "Save as...", "accelerator": "CommandOrControl+Shift+S", click: () => { mainWindow.webContents.send("menu-file-save-as"); } },
                 { label: "Close", "accelerator": "CommandOrControl+W", click: () => { mainWindow.webContents.send('menu-file-close'); } },
-                //{label: "Overwrite", toolTip: "Export back in the same format" },
+                { label: "Export...", toolTip: "Export back in the same format", click: () => { mainWindow.webContents.send('menu-file-export-as'); } },
                 process.platform === "darwin" ? { role: "close" } : { role: "quit" }
             ]
         }
@@ -62,40 +62,43 @@ app.whenReady().then(() => {
             createWindow();
         }
     });
-    ipcMain.handle("dialog:file_open", handle_file_open);
-    ipcMain.handle("read_file", (evt, filename) => handle_read_file(filename));
-    ipcMain.handle("dialog:file_save_as", handle_file_save_as);
-    ipcMain.handle("write_file", (evt, filename, data) => handle_write_file(filename, data));
+    ipcMain.handle("dialog:file_open", show_open_dialog);
+    ipcMain.handle("read_file", (evt, filename) => read_from_file(filename));
+    ipcMain.handle("dialog:file_save_as", show_save_dialog);
+    ipcMain.handle("write_file", (evt, filename, data) => write_to_file(filename, data));
 });
 
 app.on("window-all-closed", function () {
     if (process.platform !== "darwin") app.quit();
 });
 
-ipcMain.on("clientMessage", (event, message) => {
-    console.log(message);
+ipcMain.on("write-file", (event, message) => {
+    fs.writeFile(message.path, message.data, () => console.log("Failed to write file"));
 });
 
 const file_filters = [
+    { name: "Butlerov JSON (*.json)", extensions: ["json"] },
     { name: "Molfiles (*.mol, *.sdf)", extensions: ["mol", "sdf"] },
     { name: "SMILES (*.smi)", extensions: ["smi"] },
 ];
 
-async function handle_file_open() {
+async function show_open_dialog() {
+    const all_extensions = { name: "All supported files", extensions: file_filters.reduce((a, b) => a.concat(b.extensions), [] as string[]) };
+    const filters_with_all = [all_extensions, ...file_filters]
     return dialog.showOpenDialog({
         properties: ["openFile"],
-        filters: file_filters
+        filters: filters_with_all,
     }).then(res => {
         if (!res.canceled)
             return res.filePaths[0];
     });
 }
 
-async function handle_read_file(filepath: string) {
+function read_from_file(filepath: string): string {
     return fs.readFileSync(filepath, "utf8");
 }
 
-async function handle_file_save_as() {
+async function show_save_dialog() {
     return dialog.showSaveDialog({
         properties: ["showOverwriteConfirmation", "createDirectory"],
         filters: file_filters
@@ -105,6 +108,12 @@ async function handle_file_save_as() {
     });
 }
 
-async function handle_write_file(filepath: string, data: string) {
-    return fs.writeFileSync(filepath, data, "utf8");
+function write_to_file(filepath: string, data: string): boolean {
+    try {
+        fs.writeFileSync(filepath, data, "utf8");
+    }
+    catch {
+        return false;
+    }
+    return true;
 }
