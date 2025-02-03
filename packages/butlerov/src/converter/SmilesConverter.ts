@@ -2,6 +2,7 @@ import { DrawableGraph } from "../drawables/Graph";
 import { DrawableVertex } from "../drawables/Vertex";
 import { ChemicalElements } from "../lib/elements";
 import { Converter, EdgeShape } from "../types";
+import { Graph } from "../types";
 
 
 /**
@@ -15,13 +16,13 @@ export class SmilesConverter implements Converter {
     bond_order = 1;
     labels: Record<string, DrawableVertex> = {};
 
-    graph_from_string(s: string): DrawableGraph {
+    graph_from_string(s: string): Graph {
         this.graph = new DrawableGraph();
         this.reset();
         this._parse(s);
         this.graph.update_topology();
         this.graph.edges.forEach(e => { this.graph.update_edge_orientation(e); });
-        return this.graph;
+        return this.graph.as_model();
     }
 
     graph_to_string = undefined;

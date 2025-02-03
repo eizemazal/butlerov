@@ -16,11 +16,6 @@ export class DrawableBase implements Drawable {
      */
     public group: Konva.Group | null = null;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    attach_events(controller: Controller) {
-        return;
-    }
-
     /**
      * Attach this instance to Controller.
      * @param controller Controller to which attach the instance
@@ -30,7 +25,7 @@ export class DrawableBase implements Drawable {
         this.controller = controller;
         if (!this.group)
             this.group = new Konva.Group();
-        this.attach_events(controller);
+        controller.on_attach(this);
         this.update();
         return this.group;
     }

@@ -14,9 +14,7 @@ import { Coords } from "../types";
  * detached DrawableGraphs internally referring to the same @see DrawableVertex and @see DrawableEdge objects that are present in original DrawableGraph.
  * This allows to implement operation history (Undo and Redo) easily.
  */
-class DrawableGraph extends DrawableBase implements Graph {
-
-    readonly type = "Graph";
+class DrawableGraph extends DrawableBase {
 
     /**
      * List of @see DrawableVertex objects representing atoms
@@ -31,27 +29,46 @@ class DrawableGraph extends DrawableBase implements Graph {
      * @default []
      * This property is used internally to compute edge orientation for double bonds (i.e. in benzene all double bonds must be inside)
      */
-    ringsystems: DrawableGraph[];
+    ringsystems: DrawableGraph[] = [];
 
 
-    constructor(graph: Graph | undefined = undefined) {
+    constructor(graph: DrawableGraph | Graph | undefined = undefined) {
         super();
+        if (graph instanceof DrawableGraph) {
+            this.vertices = graph.vertices.map(e => e.copy());
+            this.edges = graph.edges.map(e => {
+                const v1 = this.vertices[graph.vertices.findIndex(v => v == e.v1)];
+                const v2 = this.vertices[graph.vertices.findIndex(v => v == e.v2)];
+                v1.set_neighbor(v2, e.bond_order);
+                v2.set_neighbor(v1, e.bond_order);
+                const new_edge = e.copy();
+                new_edge.v1 = v1;
+                new_edge.v2 = v2;
+                return new_edge;
+            });
+            return;
+        }
         this.vertices = [];
         this.edges = [];
         this.ringsystems = [];
         if (graph !== undefined)
-            this.write(graph);
+            this.read_model(graph);
     }
 
-    read(): Graph {
+    as_model(): Graph {
         return {
             type: "Graph",
-            vertices: this.vertices.map(e => e.read()),
-            edges: this.edges.map(e => e.read())
+            vertices: this.vertices.map(e => e.as_model()),
+            edges: this.edges.map(e => {
+                return {
+                    ...e.as_model(),
+                    vertices: [this.vertices.findIndex(v=> v == e.v1), this.vertices.findIndex(v=> v == e.v2)],
+                };
+             })
         };
     }
 
-    write(graph: Graph) {
+    read_model(graph: Graph) {
         this.vertices = graph.vertices.map(e => new DrawableVertex(e));
         this.edges = graph.edges.map(e => {
             const edge = this.bind_vertices(this.vertices[e.vertices[1]], this.vertices[e.vertices[0]], e.shape);
@@ -69,19 +86,7 @@ class DrawableGraph extends DrawableBase implements Graph {
      * @returns Copy constructed detached @see DrawableGraph
      */
     copy() {
-        const r = new DrawableGraph();
-        r.vertices = this.vertices.map(e => e.copy());
-        r.edges = this.edges.map(e => {
-            const v1 = r.vertices[this.vertices.findIndex(v => v == e.v1)];
-            const v2 = r.vertices[this.vertices.findIndex(v => v == e.v2)];
-            v1.set_neighbor(v2, e.bond_order);
-            v2.set_neighbor(v1, e.bond_order);
-            const new_edge = e.copy();
-            new_edge.v1 = v1;
-            new_edge.v2 = v2;
-            return new_edge;
-        });
-        return r;
+        return new DrawableGraph(this);
     }
 
     /**

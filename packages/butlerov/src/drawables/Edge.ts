@@ -1,8 +1,6 @@
 import Konva from "konva";
-import { KonvaEventObject } from "konva/lib/Node";
 import { DrawableVertex } from "./Vertex";
 import { DrawableBase } from "./Base";
-import { Controller } from "../controller/Controller";
 import { Edge, EdgeOrientation, EdgeShape, Coords } from "../types";
 
 
@@ -16,7 +14,7 @@ enum EdgeTopology {
  * Class representing edges between Vertices. It is called Edge, not Bond, because there are multicenter bonds
  * that Edge does not represent. Edge always connects two Vertices, v1 and v2
  */
-class DrawableEdge extends DrawableBase implements Edge {
+class DrawableEdge extends DrawableBase {
     /**
      * First Vertex. There are Edges that are directed - they are directed from v1 to v2
      */
@@ -70,13 +68,13 @@ class DrawableEdge extends DrawableBase implements Edge {
         this.orientation = EdgeOrientation.Left;
     }
 
-    public get vertices(): number[] {
-        return [this.v1.id, this.v2.id];
-    }
-
-    public read(): Edge {
+    /**
+     * Return edge as model leaving vertices empty (indices must be computed for graph)
+     * @returns Edge as model with empty vertices = []
+     */
+    public as_model(): Edge {
         const e: Edge = {
-            vertices: this.vertices,
+            vertices: [],
             shape: this.shape === EdgeShape.Single ? undefined : this.shape,
         };
         return e;
@@ -88,13 +86,6 @@ class DrawableEdge extends DrawableBase implements Edge {
         r.topology = this.topology;
         r.id = this.id;
         return r;
-    }
-
-    attach_events(controller: Controller): void {
-        const event_names = ["click", "mouseover", "mouseout", "contextmenu"];
-        for (const event_name of event_names) {
-            this.group?.on(event_name, (evt: KonvaEventObject<MouseEvent>) => controller.dispatch(this, evt));
-        }
     }
 
     public get bond_order(): number {

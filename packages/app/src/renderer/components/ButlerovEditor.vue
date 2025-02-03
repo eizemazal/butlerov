@@ -60,7 +60,7 @@ onMounted(() => {
         return;
     }
     editor.value = new MoleculeEditor({stage: container.value, mode: "structure"});
-    editor.value.theme = darkTheme;
+    editor.value.theme = theme_name.value;
     editor.value.document = props.modelValue;
     setTimeout(() => editor.value?.center_view(), 100);
     editor.value.onchange = () => {

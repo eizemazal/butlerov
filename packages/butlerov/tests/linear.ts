@@ -1,6 +1,7 @@
 import { ChemicalElements } from "../src/lib/elements";
 import { LinearFormulaConverter } from "../src/converter/LinearFormula";
 import { AtomicLinearFormulaFragment, CompositeLinearFormulaFragment } from "../src/lib/linear";
+import { DrawableGraph } from "../src/drawables/Graph";
 
 // tokenization is needed to display abbreviated labels attached to structures
 // tokenization should break linear formulae into atomic fragments
@@ -42,7 +43,7 @@ test("Read molecule from linear formulae", () => {
     };
 
     for (const [linear, descriptors] of Object.entries(cases)) {
-        const graph = new LinearFormulaConverter().graph_from_string(linear);
+        const graph = new DrawableGraph(new LinearFormulaConverter().graph_from_string(linear));
         expect(graph.vertices.length).toBe(descriptors.vertices);
         expect(graph.edges.length).toBe(descriptors.edges);
         expect(graph.edges.filter(e => e.bond_order == 1).length).toBe(descriptors.single);

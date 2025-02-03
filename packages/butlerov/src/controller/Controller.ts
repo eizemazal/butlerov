@@ -1,8 +1,7 @@
 import Konva from "konva";
 import { Style, Theme, defaultStyle, darkTheme } from "./Theme";
 import { Action, UpdatableAction, ActionDirection } from "../action/Action";
-import { DrawableBase } from "../drawables/Base";
-import { Coords } from "../types";
+import { Coords, Drawable } from "../types";
 import { Document } from "../types";
 
 export interface DocumentSize {
@@ -184,6 +183,9 @@ export class Controller {
         return this._theme;
     }
 
+    /**
+     * Set theme using its name or Theme object.
+     */
     public set theme(theme: Theme | string) {
         if (theme === this._theme || theme === this._theme_name)
             return;
@@ -322,10 +324,10 @@ export class Controller {
         return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public dispatch(entity: DrawableBase, evt: Konva.KonvaEventObject<MouseEvent>) {
-        return;
-    }
 
+    // perform most economical redraw of the image
     public update() { return; }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    public on_attach(drawable: Drawable) { return; }
 }

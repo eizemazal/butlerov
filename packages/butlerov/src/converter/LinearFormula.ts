@@ -2,7 +2,7 @@ import { DrawableGraph } from "../drawables/Graph";
 import { Abbreviations } from "../lib/abbreviations";
 import { ChemicalElements } from "../lib/elements";
 import { AtomicLinearFormulaFragment, LinearFormulaFragment, AbbreviatedLinearFormulaFragment, CompositeLinearFormulaFragment } from "../lib/linear";
-import { Converter } from "../types";
+import { Converter, Graph } from "../types";
 
 /**
  * Converter class for linear formulae like CF3SO2ONa
@@ -12,14 +12,14 @@ export class LinearFormulaConverter implements Converter {
     graph: DrawableGraph = new DrawableGraph();
     fragments: LinearFormulaFragment[] = [];
 
-    graph_from_string(s: string): DrawableGraph {
+    graph_from_string(s: string): Graph {
         this.graph = new DrawableGraph();
         this.fragments = [];
         this.fragments = this.tokenize(s);
         this.graph = this.build_graph(this.fragments);
         this.graph.update_topology();
         this.graph.edges.forEach(e => { this.graph.update_edge_orientation(e); });
-        return this.graph;
+        return this.graph.as_model();
     }
 
     build_graph(fragments: LinearFormulaFragment[]): DrawableGraph {

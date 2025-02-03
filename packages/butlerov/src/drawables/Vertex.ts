@@ -1,5 +1,4 @@
 import Konva from "konva";
-import { KonvaEventObject } from "konva/lib/Node";
 import { ChemicalElement, ChemicalElements } from "../lib/elements";
 import { DrawableBase } from "./Base";
 import { Controller } from "../controller/Controller";
@@ -75,7 +74,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
 
     }
 
-    read(): Vertex {
+    as_model(): Vertex {
         const v: Vertex = {
             x: this.x,
             y: this.y,
@@ -106,31 +105,19 @@ class DrawableVertex extends DrawableBase implements Vertex {
     }
 
     attach(controller: Controller): Konva.Group {
-        this.controller = controller;
-        if (!this.group)
-            this.group = new Konva.Group();
+        this.compute_text();
+        this.group = super.attach(controller);
         this.group.x(this._coords.x);
         this.group.y(this._coords.y);
         this.group.add(this.text.attach(controller));
-        this.attach_events(controller);
-        this.compute_text();
         this.update();
         return this.group;
     }
 
     detach() {
         this.text.detach();
-        this.group?.destroyChildren();
-        this.controller = null;
+        super.detach();
     }
-
-    attach_events(controller: Controller): void {
-        const event_names = ["dragmove", "mouseover", "mouseout", "contextmenu", "click", "mousedown", "mouseup"];
-        for (const event_name of event_names) {
-            this.group?.on(event_name, (evt: KonvaEventObject<MouseEvent>) => controller.dispatch(this, evt));
-        }
-    }
-
 
     public get active() {
         return this.is_active;

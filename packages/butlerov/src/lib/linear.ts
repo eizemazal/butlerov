@@ -76,7 +76,7 @@ export class AbbreviatedLinearFormulaFragment extends LinearFormulaFragment {
         return [new DrawableTextSegment(this.abbreviation.symbol, this.count == 1 ? "" : `${this.count}`)];
     }
     to_graph(): DrawableGraph {
-        return new SmilesConverter().graph_from_string(this.abbreviation.smiles);
+        return new DrawableGraph(new SmilesConverter().graph_from_string(this.abbreviation.smiles));
     }
 }
 

@@ -1,5 +1,6 @@
 import { ChemicalElements } from "../src/lib/elements";
 import { SmilesConverter } from "../src/converter/SmilesConverter";
+import { DrawableGraph } from "../src/drawables/Graph";
 
 test("Read molecule from SMILES", () => {
 
@@ -13,7 +14,7 @@ test("Read molecule from SMILES", () => {
     };
 
     for (const [smiles, descriptors] of Object.entries(cases)) {
-        const graph = new SmilesConverter().graph_from_string(smiles);
+        const graph = new DrawableGraph(new SmilesConverter().graph_from_string(smiles));
         expect(graph.vertices.length).toBe(descriptors.vertices);
         expect(graph.edges.length).toBe(descriptors.edges);
         expect(graph.edges.filter(e => e.bond_order == 1).length).toBe(descriptors.single);

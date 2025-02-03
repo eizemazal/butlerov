@@ -2,8 +2,7 @@ import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { DrawableEdge } from "../drawables/Edge";
 import { DrawableGraph } from "../drawables/Graph";
-import { Theme } from "./Theme";
-import { Coords, LabelType, EdgeShape, EdgeOrientation, Graph } from "../types";
+import { Coords, LabelType, EdgeShape, EdgeOrientation, Graph, Drawable } from "../types";
 import { Controller, ControllerSettings } from "./Controller";
 import { DrawableVertex } from "../drawables/Vertex";
 import { ChemicalElements } from "../lib/elements";
@@ -32,7 +31,6 @@ import {
 } from "../action/GraphActions";
 import { ActionDirection } from "../action/Action";
 import { Converter, Document } from "../types";
-import { MolConverter } from "../converter/MolConverter";
 import { DrawableBase } from "../drawables/Base";
 import { TextBox } from "./TextBox";
 import { get_molecule_rect } from "../lib/graph";
@@ -61,7 +59,7 @@ class DocumentContainer {
     public get document(): Document {
         return {
             mime: "application/butlerov",
-            objects: [this.graph.read()]
+            objects: [this.graph.as_model()]
         };
     }
 
@@ -120,23 +118,13 @@ export class MoleculeEditor extends Controller {
             this.deactivate_edges_vertices();
     }
 
-    public get theme(): Theme {
-        return this._theme;
-    }
-
-    public set theme(theme: Theme) {
-        this._theme = theme;
-        this.document_container.graph.update();
-        this.draw_background();
-    }
-
     public get graph(): Graph {
-        return this.document_container.graph;
+        return this.document_container.graph.as_model();
     }
 
     public set graph(graph: Graph) {
         this.clear_actions();
-        this.document_container.graph.write(graph);
+        this.document_container.graph.read_model(graph);
         this.draw_background();
     }
 
@@ -151,36 +139,37 @@ export class MoleculeEditor extends Controller {
 
     }
 
-    public dispatch(entity: DrawableBase, evt: Konva.KonvaEventObject<MouseEvent>): void {
-        if (entity instanceof DrawableVertex) {
-            switch (evt.type) {
-                case "dragmove": this.on_vertex_dragmove(entity, evt); break;
-                case "mouseover": this.on_vertex_mouseover(entity); break;
-                case "mouseout": this.on_vertex_mouseout(); break;
-                case "click": this.on_vertex_click(entity, evt); break;
-                case "contextmenu":
-                    evt.evt.preventDefault();
-                    this.toggle_menu();
-                    break;
-                case "mousedown": this.on_vertex_mousedown(entity); break;
-                case "mouseup": this.on_vertex_mouseup(entity);
-            }
+
+    /**
+     * Callback function called by Drawables when they are attached to the controller. Installs event handlers.
+     * @param drawable object being attached to the controller
+     */
+    public on_attach(drawable: Drawable): void {
+        if (drawable instanceof DrawableVertex) {
+            drawable.group?.on("dragmove", (evt) => this.on_vertex_dragmove(drawable, evt));
+            drawable.group?.on("mouseover", () => this.on_vertex_mouseover(drawable));
+            drawable.group?.on("mouseout", () => this.on_vertex_mouseout());
+            drawable.group?.on("click", (evt) => this.on_vertex_click(drawable, evt));
+            drawable.group?.on("contextmenu", (evt) => {
+                evt.evt.preventDefault();
+                this.toggle_menu();
+            });
+            drawable.group?.on("mousedown", () => this.on_vertex_mousedown(drawable));
+            drawable.group?.on("mouseup", () => this.on_vertex_mouseup(drawable));
         }
-        else if (entity instanceof DrawableEdge) {
-            switch (evt.type) {
-                case "mouseover": this.on_edge_mouseover(entity); break;
-                case "mouseout": this.on_edge_mouseout(); break;
-                case "click": this.on_edge_click(entity, evt); break;
-                case "contextmenu":
-                    evt.evt.preventDefault();
-                    this.toggle_menu();
-                    break;
-            }
+        else if (drawable instanceof DrawableEdge) {
+            drawable.group?.on("mouseover", () => this.on_edge_mouseover(drawable));
+            drawable.group?.on("mouseout", () => this.on_edge_mouseout());
+            drawable.group?.on("click", (evt) => this.on_edge_click(drawable, evt));
+            drawable.group?.on("contextmenu", (evt) => {
+                evt.evt.preventDefault();
+                this.toggle_menu();
+            });
         }
     }
 
     center_view() {
-        const rect = get_molecule_rect(this.document_container.graph);
+        const rect = get_molecule_rect(this.document_container.graph.as_model());
         this.viewport_offset = {
             x: (rect.x1 + rect.x2) / 2 - this.stage.width() / (2 * this._zoom),
             y: (rect.y1 + rect.y2) / 2 - this.stage.height() / (2 * this._zoom),
@@ -195,7 +184,7 @@ export class MoleculeEditor extends Controller {
      */
 
     zoom_to_fit(overzoom = false, margins = 0.05) {
-        const rect = get_molecule_rect(this.document_container.graph);
+        const rect = get_molecule_rect(this.document_container.graph.as_model());
         const screen_w = (1 + margins) * (rect.x2 - rect.x1);
         const screen_h = (1 + margins) * (rect.y2 - rect.y1);
         let zoom = Math.min(this.stage.width() / screen_w, this.stage.height() / screen_h);
@@ -205,34 +194,28 @@ export class MoleculeEditor extends Controller {
     }
 
     /**
-     * @deprecated will be removed in favor of @see load
-     * @param mol_string
+     * Load document or graph supplied as string using specified converter.
+     * @param s string
+     * @param converter an instance of Converter
      */
-    load_mol_from_string(mol_string: string) {
-        this.load(mol_string, new MolConverter());
-    }
-
-    /**
-     * @deprecated will be removed in favor of @see save
-     * @param mol_string
-     */
-    get_mol_string() {
-        return this.save(new MolConverter());
-    }
-
     load(s: string, converter: Converter) {
         this.clear_actions();
         if (converter.graph_from_string)
-            this.document_container.graph.write(converter.graph_from_string(s));
+            this.document_container.graph.read_model(converter.graph_from_string(s));
         this.center_view();
         this.draw_background();
         if (this._on_change)
             this._on_change();
     }
 
+    /**
+     * Read document or graph as string using specified converter
+     * @param converter Converter instance
+     * @returns document as string
+     */
     save(converter: Converter): string {
         if (converter.graph_to_string)
-            return converter.graph_to_string(this.document_container.graph);
+            return converter.graph_to_string(this.document_container.graph.as_model());
         return "";
     }
 
@@ -254,7 +237,7 @@ export class MoleculeEditor extends Controller {
         this.active_vertex = null;
     }
 
-    get_next_element_label(label: string, key: string, reverse = false): string {
+    protected get_next_element_label(label: string, key: string, reverse = false): string {
         const element_labels = Object.keys(ChemicalElements)
             .filter(e => e.toLowerCase()[0] == key.toLowerCase())
             .sort((a, b) => {
@@ -276,7 +259,7 @@ export class MoleculeEditor extends Controller {
         return reverse ? element_labels[index - 1] : element_labels[index + 1];
     }
 
-    on_vertex_keydown(evt: KeyboardEvent) {
+    protected on_vertex_keydown(evt: KeyboardEvent) {
         if (!this.active_vertex)
             return;
         if (evt.key == "Backspace" || evt.key == "Delete") {
@@ -305,7 +288,7 @@ export class MoleculeEditor extends Controller {
         }
     }
 
-    on_edge_keydown(evt: KeyboardEvent) {
+    protected on_edge_keydown(evt: KeyboardEvent) {
         if (!this.active_edge)
             return;
         const translated_key = this.translate_key_event(evt);
@@ -500,7 +483,7 @@ export class MoleculeEditor extends Controller {
         this.menu.visible = true;
     }
 
-    on_keyup(evt: KeyboardEvent) {
+    protected on_keyup(evt: KeyboardEvent) {
         if (this.text_box.visible)
             return;
         evt.preventDefault();
@@ -508,7 +491,7 @@ export class MoleculeEditor extends Controller {
             this.stage.container().style.cursor = "default";
     }
 
-    on_keydown(evt: KeyboardEvent): void {
+    protected on_keydown(evt: KeyboardEvent): void {
         if (this.text_box.visible) {
             this.text_box.handle_keydown(evt);
             return;
@@ -568,7 +551,7 @@ export class MoleculeEditor extends Controller {
         }
     }
 
-    on_edge_click(edge: DrawableEdge, evt: KonvaEventObject<MouseEvent>) {
+    protected on_edge_click(edge: DrawableEdge, evt: KonvaEventObject<MouseEvent>) {
         // disable right click processing
         if (evt.evt.button == 2)
             return;
@@ -586,45 +569,46 @@ export class MoleculeEditor extends Controller {
         edge.update();
     }
 
-    on_edge_mouseover(edge: DrawableEdge) {
+    protected on_edge_mouseover(edge: DrawableEdge) {
         this.stage.container().focus();
         this.deactivate_edges_vertices();
         this.active_edge = edge;
         edge.active = true;
     }
-    on_edge_mouseout() {
+
+    protected on_edge_mouseout() {
         this.deactivate_edges_vertices();
     }
 
-    on_vertex_dragmove(vertex: DrawableVertex, evt: KonvaEventObject<MouseEvent>) {
+    protected on_vertex_dragmove(vertex: DrawableVertex, evt: KonvaEventObject<MouseEvent>) {
         vertex.on_drag(!evt.evt.altKey);
         this.commit_action(new MoveVertexAction(this.document_container.graph, vertex, this.downed_vertex_coords));
     }
 
-    on_vertex_mouseover(vertex: DrawableVertex) {
+    protected on_vertex_mouseover(vertex: DrawableVertex) {
         this.stage.container().focus();
         this.deactivate_edges_vertices();
         vertex.active = true;
         this.active_vertex = vertex;
     }
 
-    on_vertex_mouseout() {
+    protected on_vertex_mouseout() {
         this.deactivate_edges_vertices();
     }
 
-    on_vertex_click(vertex: DrawableVertex, evt: KonvaEventObject<MouseEvent>) {
+    protected on_vertex_click(vertex: DrawableVertex, evt: KonvaEventObject<MouseEvent>) {
         // disable right click processing
         if (evt.evt.button == 2)
             return;
         this.commit_action(new AddBoundVertexAction(this.document_container.graph, vertex));
     }
 
-    on_vertex_mousedown(vertex: DrawableVertex) {
+    protected on_vertex_mousedown(vertex: DrawableVertex) {
         this.downed_vertex = vertex;
         this.downed_vertex_coords = JSON.parse(JSON.stringify(vertex.coords));
     }
 
-    on_vertex_mouseup(vertex: DrawableVertex) {
+    protected on_vertex_mouseup(vertex: DrawableVertex) {
         if (!this.downed_vertex)
             return;
         if (vertex != this.downed_vertex && !this.document_container.graph.vertices_are_connected(vertex, this.downed_vertex)) {
@@ -633,7 +617,7 @@ export class MoleculeEditor extends Controller {
         this.downed_vertex = null;
     }
 
-    on_background_click(evt: KonvaEventObject<MouseEvent>) {
+    protected on_background_click(evt: KonvaEventObject<MouseEvent>) {
         // disable right click processing
         if (evt.evt.button == 2 || evt.evt.shiftKey)
             return;
@@ -659,11 +643,11 @@ export class MoleculeEditor extends Controller {
             this.commit_action(new AddDefaultFragmentAction(this.document_container.graph, pos.x, pos.y));
     }
 
-    on_background_mouseup() {
+    protected on_background_mouseup() {
         this.downed_vertex = null;
     }
 
-    on_background_mousemove(evt: KonvaEventObject<MouseEvent>) {
+    protected on_background_mousemove(evt: KonvaEventObject<MouseEvent>) {
         if (!evt.evt.shiftKey || evt.evt.button != 0 || evt.evt.buttons != 1)
             return;
         this.panning = true;
@@ -673,11 +657,11 @@ export class MoleculeEditor extends Controller {
         };
     }
 
-    on_background_mouseover() {
+    protected on_background_mouseover() {
         this.deactivate_edges_vertices();
     }
 
-    on_stage_mouseleave() {
+    protected on_stage_mouseleave() {
         this.panning = false;
         this.deactivate_edges_vertices();
         this.stage.container().style.cursor = "default";
@@ -698,7 +682,7 @@ export class MoleculeEditor extends Controller {
         return !this.document_container || (this.document_container.graph.vertices.length == 0 && this.document_container.graph.edges.length == 0);
     }
 
-    deactivate_edges_vertices() {
+    protected deactivate_edges_vertices() {
         if (this.active_edge) {
             this.active_edge.active = false;
             this.active_edge = null;
@@ -709,7 +693,7 @@ export class MoleculeEditor extends Controller {
         }
     }
 
-    private translate_key_event(evt: KeyboardEvent): string {
+    protected translate_key_event(evt: KeyboardEvent): string {
         if (evt.code.match(/Key(.+)/))
             return evt.code.substring(3).toLowerCase();
         if (evt.code.match(/Digit(\d+)/))
@@ -717,7 +701,7 @@ export class MoleculeEditor extends Controller {
         return evt.key;
     }
 
-    edit_vertex_label(vertex: DrawableVertex) {
+    protected edit_vertex_label(vertex: DrawableVertex) {
         if (this.text_box.visible)
             this.text_box.close();
         const transform = this.drawing_layer.getAbsoluteTransform().copy();

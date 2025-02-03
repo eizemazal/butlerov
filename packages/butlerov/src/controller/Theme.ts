@@ -184,7 +184,7 @@ export const darkTheme: Theme = {
 
 export const defaultStyle: Style = {
     name: "default",
-    atom_font_size_px: 14,
+    atom_font_size_px: 15.6,
     atom_font_family: "Arial",
     atom_label_horizontal_clearance_px: 0,
     atom_label_vertical_clearance_px: 0,
