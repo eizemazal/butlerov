@@ -34,6 +34,7 @@ export class DrawableBase implements Drawable {
      * Detach the instance from the controller. Only data will be kept, rendering will be destroyed.
      */
     detach() {
+        this.group?.off();
         this.group?.destroy();
         this.controller = null;
     }

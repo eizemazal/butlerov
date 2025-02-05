@@ -105,11 +105,11 @@ class DrawableVertex extends DrawableBase implements Vertex {
     }
 
     attach(controller: Controller): Konva.Group {
-        this.compute_text();
         this.group = super.attach(controller);
         this.group.x(this._coords.x);
         this.group.y(this._coords.y);
         this.group.add(this.text.attach(controller));
+        this.compute_text();
         this.update();
         return this.group;
     }

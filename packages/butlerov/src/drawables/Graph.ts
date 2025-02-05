@@ -62,9 +62,9 @@ class DrawableGraph extends DrawableBase {
             edges: this.edges.map(e => {
                 return {
                     ...e.as_model(),
-                    vertices: [this.vertices.findIndex(v=> v == e.v1), this.vertices.findIndex(v=> v == e.v2)],
+                    vertices: [this.vertices.findIndex(v => v == e.v1), this.vertices.findIndex(v => v == e.v2)],
                 };
-             })
+            })
         };
     }
 
@@ -294,9 +294,13 @@ class DrawableGraph extends DrawableBase {
     delete_vertex(vertex: DrawableVertex): DrawableGraph {
         const r: DrawableGraph = new DrawableGraph();
         const edges = this.find_edges_by_vertex(vertex);
-        edges.forEach(e => { const s = this.delete_edge(e); r.vertices.push(...s.vertices); r.edges.push(...s.edges); });
-        vertex.detach();
-        this.vertices = this.vertices.filter(e => e != vertex);
+        if (edges.length)
+            edges.forEach(e => { const s = this.delete_edge(e); r.vertices.push(...s.vertices); r.edges.push(...s.edges); });
+        else {
+            this.vertices = this.vertices.filter(e => e != vertex);
+            r.vertices = [vertex];
+            vertex.detach();
+        }
         return r;
     }
 
