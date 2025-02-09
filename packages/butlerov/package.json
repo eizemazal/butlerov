@@ -10,7 +10,7 @@
     "appId": "com.lumiprobe.butlerov.app"
   },
   "scripts": {
-    "build": "npm run clean && vite build",
+    "build": "vite build",
     "dev": "vite",
     "clean": "rimraf -g dist",
     "lint": "eslint",
