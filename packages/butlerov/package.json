@@ -1,6 +1,6 @@
 {
   "name": "butlerov",
-  "version": "0.0.17",
+  "version": "0.1.0",
   "description": "Draw chemical structures with js and Konva",
   "type": "module",
   "main": "dist/butlerov.umd.cjs",

@@ -5,8 +5,10 @@ on:
         paths:
             - 'packages/app/**'
 
+
 jobs:
-    lint:
+    lint_test:
+        name: Lint and test Butlerov app
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4

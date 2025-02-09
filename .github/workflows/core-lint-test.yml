@@ -7,6 +7,7 @@ on:
 
 jobs:
     lint:
+        name: Lint and test Butlerov core
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4

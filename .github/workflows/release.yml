@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+
+jobs:
+  lint_test_core:
+    name: Lint and test core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm --workspace=packages/butlerov ci
+      - run: npm --workspace=packages/butlerov lint
+      - run: npm --workspace=packages/butlerov test
+
+  lint_test_app:
+    name: Lint and test app
+    if: github.ref == 'core'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm --workspace=packages/app ci
+      - run: npm --workspace=packages/app lint
+    #  - run: npm --workspace=packages/app test
+
+
+  publish-npm:
+    name: Publish on NPM registry
+    if: github.ref == 'core'
+    needs: lint_test_core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+      - run: npm --workspace=packages/butlerov ci
+      - run: npm --workspace=packages/butlerov publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
+
+
+  build-deploy-app:
+    name: Build and deploy application
+    if: github.ref == 'app'
+    needs: [ lint_test_core, lint_test_app ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm --workspace=packages/butlerov ci
+      - run: npm --workspace=packages/app ci
+      - run: npm --workspace=packages/app run build:linux
+      - run: npm --workspace=packages/app run build:win
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            packages/app/dist/*.AppImage
+            packages/app/dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+
