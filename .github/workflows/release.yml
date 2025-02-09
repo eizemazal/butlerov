@@ -20,7 +20,7 @@ jobs:
 
   lint_test_app:
     name: Lint and test app
-    if: startsWith(github.ref, 'core')
+    if: startsWith(github.ref, 'refs/tags/core-')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +34,7 @@ jobs:
 
   publish-npm:
     name: Publish on NPM registry
-    if: startsWith(github.ref, 'core')
+    if: startsWith(github.ref, 'refs/tags/core-')
     needs: lint_test_core
     runs-on: ubuntu-latest
     steps:
@@ -51,7 +51,7 @@ jobs:
 
   build-deploy-app:
     name: Build and deploy application
-    if: startsWith(github.ref, 'app')
+    if: startsWith(github.ref, 'refs/tags/app-')
     needs: [ lint_test_core, lint_test_app ]
     runs-on: ubuntu-latest
     steps:
