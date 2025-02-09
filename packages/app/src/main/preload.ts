@@ -23,7 +23,7 @@ const api = {
         }
     },*/
     //Main (Electron) to Render (Vue)
-    //eslint-disable-next-line
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
     on: (channel: string, func: any) => {
         const validChannels = ['menu-file-open', 'menu-file-new', 'menu-file-close', 'menu-file-save', 'menu-file-save-as']
         if (validChannels.includes(channel)) {
@@ -61,7 +61,7 @@ const api = {
         }
         return await ipcRenderer.invoke("write_file", path, s);
     },
-    readFile: async (path: string): Promise<string|undefined> => {
+    readFile: async (path: string): Promise<string | undefined> => {
         const converter = filename_to_converter(path);
         if (!converter) {
             console.log("Unknown file type");

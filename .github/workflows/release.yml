@@ -20,7 +20,7 @@ jobs:
 
   lint_test_app:
     name: Lint and test app
-    if: startsWith(github.ref, 'refs/tags/core-')
+    if: startsWith(github.ref, 'refs/tags/app-')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
