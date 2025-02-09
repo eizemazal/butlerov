@@ -1,47 +1,17 @@
 {
-  "name": "butlerov",
-  "version": "0.0.17",
-  "description": "Draw chemical structures with js and Konva",
-  "main": "dist/butlerov.js",
-  "types": "dist/main.d.js",
-  "scripts": {
-    "build": "npm run clean && npx webpack --mode=production",
-    "dev": "npm run clean && npx webpack --mode=development",
-    "clean": "node build/clean.js",
-    "lint": "eslint --fix",
-    "test": "jest",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm run test"
-  },
-  "keywords": [
-    "chemistry",
-    "structure",
-    "2d"
-  ],
-  "author": "Project team",
-  "license": "MIT",
-  "devDependencies": {
-    "@testing-library/dom": "^8.14.0",
-    "@testing-library/user-event": "^14.5.2",
-    "@types/jest": "^28.1.3",
-    "@typescript-eslint/eslint-plugin": "^5.27.0",
-    "@typescript-eslint/parser": "^5.27.0",
-    "canvas": "^2.9.3",
-    "eslint": "^8.16.0",
-    "eslint-plugin-html": "^6.2.0",
-    "jest": "^28.1.2",
-    "jest-environment-jsdom": "^28.1.2",
-    "ts-jest": "^28.0.5",
-    "ts-loader": "^9.3.0",
-    "ts-node": "^10.8.1",
-    "typescript": "^4.7.2",
-    "webpack": "^5.72.1",
-    "webpack-cli": "^4.9.2"
-  },
-  "dependencies": {
-    "konva": "^8.3.9"
-  },
-  "files": [
-    "dist/**/*"
-  ]
+    "name": "butlerov-workspaces",
+    "scripts": {
+        "clean": "rimraf -g \"packages/**/dist\" \"packages/**/build\" \"packages/**/*.tsbuildinfo\" \"packages/**/coverage\"",
+        "test": "npm run test --workspace=packages/butlerov",
+        "start": "npm run start --workspace=packages/app",
+        "dev": "npm run dev --workspace=packages/butlerov"
+    },
+    "devDependencies": {
+        "rimraf": "6.0.1",
+        "typescript": "^5.7.2",
+        "vite": "^6.0.3"
+    },
+    "workspaces": [
+        "packages/*"
+    ]
 }

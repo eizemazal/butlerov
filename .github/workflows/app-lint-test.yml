@@ -1,0 +1,22 @@
+name: Lint and test core package
+
+on:
+    push:
+        paths:
+            - 'packages/app/**'
+
+
+jobs:
+    lint_test:
+        name: Lint and test Butlerov app
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            -
+                uses: actions/setup-node@v4
+                with:
+                    node-version: 20
+                    cache: npm
+            - run: npm --workspace=packages/app ci
+            - run: npm --workspace=packages/app run lint
+#            - run: npm --workspace=packages/app run test
