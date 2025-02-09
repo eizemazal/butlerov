@@ -15,8 +15,8 @@ jobs:
         with:
           node-version: 20
       - run: npm --workspace=packages/butlerov ci
-      - run: npm --workspace=packages/butlerov lint
-      - run: npm --workspace=packages/butlerov test
+      - run: npm --workspace=packages/butlerov run lint
+      - run: npm --workspace=packages/butlerov run test
 
   lint_test_app:
     name: Lint and test app
@@ -28,8 +28,8 @@ jobs:
         with:
           node-version: 20
       - run: npm --workspace=packages/app ci
-      - run: npm --workspace=packages/app lint
-    #  - run: npm --workspace=packages/app test
+      - run: npm --workspace=packages/app run lint
+    #  - run: npm --workspace=packages/app run test
 
 
   publish-npm:
