@@ -1,4 +1,4 @@
-import { MolConverter, SmilesConverter, NativeConverter, Graph } from "butlerov";
+import { MolConverter, SmilesConverter, NativeConverter, Graph } from "@butlerov-chemistry/core";
 import { contextBridge, ipcRenderer } from "electron";
 
 function filename_to_converter(filename: string) {

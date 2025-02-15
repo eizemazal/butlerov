@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, MenuItemConstructorOptions, dialog, ipcMain, session } from "electron";
 import path from "path";
 import fs from "node:fs";
+import { env } from "node:process";
 
 function createWindow() {
     const mainWindow = new BrowserWindow({
@@ -22,7 +23,8 @@ function createWindow() {
         mainWindow.loadFile(path.join(app.getAppPath(), "renderer", "index.html"));
     }
 
-    mainWindow.webContents.openDevTools();
+    if (env.IS_DEBUG)
+        mainWindow.webContents.openDevTools();
 
     const menu_template: MenuItemConstructorOptions[] = [
         {

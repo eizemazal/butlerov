@@ -9,11 +9,14 @@ const Electron = require("electron");
 const compileTs = require("./tsc.cjs");
 const FileSystem = require("fs");
 const { EOL } = require("os");
+const { env } = require("process");
 
 let viteServer = null;
 let electronProcess = null;
 let electronProcessLocker = false;
 let rendererPort = 0;
+
+env.IS_DEBUG = true;
 
 async function startRenderer() {
     viteServer = await createServer({

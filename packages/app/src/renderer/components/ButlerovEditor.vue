@@ -3,7 +3,7 @@
 </template>
 <script setup lang="ts">
 import { onMounted, useTemplateRef, ref, watch, computed } from 'vue';
-import { MoleculeEditor, darkTheme, Document, lightTheme } from 'butlerov';
+import { MoleculeEditor, darkTheme, Document, lightTheme } from '@butlerov-chemistry/core';
 import { useTheme } from 'vuetify';
 
 const container = useTemplateRef("container");

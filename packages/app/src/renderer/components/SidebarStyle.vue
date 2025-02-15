@@ -177,7 +177,7 @@
 <script setup lang="ts">
 
 import { useTheme } from 'vuetify';
-import { Style, defaultStyle } from 'butlerov';
+import { Style, defaultStyle } from '@butlerov-chemistry/core';
 
 const theme = useTheme();
 

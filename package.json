@@ -1,5 +1,5 @@
 {
-    "name": "butlerov-workspaces",
+    "name": "butlerov-chemistry",
     "scripts": {
         "clean": "rimraf -g \"packages/**/dist\" \"packages/**/build\" \"packages/**/*.tsbuildinfo\" \"packages/**/coverage\"",
         "test": "npm run test --workspace=packages/butlerov",
@@ -7,9 +7,16 @@
         "dev": "npm run dev --workspace=packages/butlerov"
     },
     "devDependencies": {
+        "@eslint/js": "^9.18.0",
         "rimraf": "6.0.1",
-        "typescript": "^5.7.2",
-        "vite": "^6.0.3"
+        "typescript": "^5.7.3",
+        "typescript-eslint": "^8.20.0",
+        "@typescript-eslint/eslint-plugin": "^8.18.0",
+        "@typescript-eslint/parser": "^8.18.0",
+        "eslint": "^9.18.0",
+        "eslint-plugin-html": "^8.1.2",
+        "eslint-config-prettier": "^10.0.1",
+        "vite": "^6.1.0"
     },
     "workspaces": [
         "packages/*"

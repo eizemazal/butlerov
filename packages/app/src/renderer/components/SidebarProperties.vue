@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { MW, ExactMass, Composition, Document } from 'butlerov';
+import { MW, ExactMass, Composition, Document } from '@butlerov-chemistry/core';
 
 
 

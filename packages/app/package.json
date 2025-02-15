@@ -1,5 +1,5 @@
 {
-  "name": "butlerov-app",
+  "name": "@butlerov-chemistry/app",
   "version": "0.1.0",
   "description": "2D chemistry drawing application",
   "main": "main/main.js",
@@ -17,20 +17,18 @@
     "name": "Butlerov team"
   },
   "devDependencies": {
-    "@eslint/js": "^9.18.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/test-utils": "^2.4.6",
     "chalk": "^4.1.2",
     "chokidar": "^4.0.1",
     "electron": "33.2.1",
     "electron-builder": "^25.1.8",
-    "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-vue": "^9.32.0",
     "happy-dom": "^16.6.0",
-    "typescript-eslint": "^8.20.0",
     "vitest": "^3.0.2"
   },
   "dependencies": {
+    "@butlerov-chemistry/core": "^0.1.0",
     "@mdi/font": "^7.4.47",
     "vue": "^3.5.13",
     "vuetify": "^3.7.5"
