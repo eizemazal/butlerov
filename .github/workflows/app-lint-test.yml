@@ -17,6 +17,6 @@ jobs:
                 with:
                     node-version: 20
                     cache: npm
-            - run: npm --workspace=packages/app ci
+            - run: npm ci
             - run: npm --workspace=packages/app run lint
 #            - run: npm --workspace=packages/app run test

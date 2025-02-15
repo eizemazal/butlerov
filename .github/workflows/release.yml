@@ -6,36 +6,10 @@ on:
 
 
 jobs:
-  lint_test_core:
-    name: Lint and test core
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm --workspace=packages/core ci
-      - run: npm --workspace=packages/core run lint
-      - run: npm --workspace=packages/core run test
-
-  lint_test_app:
-    name: Lint and test app
-    if: startsWith(github.ref, 'refs/tags/app-')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm --workspace=packages/app ci
-      - run: npm --workspace=packages/app run lint
-    #  - run: npm --workspace=packages/app run test
-
 
   publish-npm:
     name: Publish on NPM registry
     if: startsWith(github.ref, 'refs/tags/core-')
-    needs: lint_test_core
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +17,9 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org/
-      - run: npm --workspace=packages/core ci
+      - run: npm ci
+      - run: npm --workspace=packages/core run lint
+      - run: npm --workspace=packages/core run test
       - run: npm --workspace=packages/core publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}
@@ -52,7 +28,6 @@ jobs:
   build-deploy-app:
     name: Build and deploy application
     if: startsWith(github.ref, 'refs/tags/app-')
-    needs: [ lint_test_core, lint_test_app ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +35,10 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npm --workspace=packages/app ci
+      - run: npm --workspace=packages/core run lint
+      - run: npm --workspace=packages/core run test
+      - run: npm --workspace=packages/app run lint
+      # - run: npm --workspace=packages/app run test
       - run: npm --workspace=packages/app run build:linux
       - run: npm --workspace=packages/app run build:win
       - name: Upload to GitHub Release
