@@ -16,6 +16,6 @@ jobs:
                 with:
                     node-version: 20
                     cache: npm
-            - run: npm --workspace=packages/butlerov ci
-            - run: npm --workspace=packages/butlerov run lint
-            - run: npm --workspace=packages/butlerov run test
+            - run: npm --workspace=packages/core ci
+            - run: npm --workspace=packages/core run lint
+            - run: npm --workspace=packages/core run test

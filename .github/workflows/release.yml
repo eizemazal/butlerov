@@ -14,9 +14,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm --workspace=packages/butlerov ci
-      - run: npm --workspace=packages/butlerov run lint
-      - run: npm --workspace=packages/butlerov run test
+      - run: npm --workspace=packages/core ci
+      - run: npm --workspace=packages/core run lint
+      - run: npm --workspace=packages/core run test
 
   lint_test_app:
     name: Lint and test app
@@ -43,8 +43,8 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org/
-      - run: npm --workspace=packages/butlerov ci
-      - run: npm --workspace=packages/butlerov publish
+      - run: npm --workspace=packages/core ci
+      - run: npm --workspace=packages/core publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}
 
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm --workspace=packages/butlerov ci
+      - run: npm ci
       - run: npm --workspace=packages/app ci
       - run: npm --workspace=packages/app run build:linux
       - run: npm --workspace=packages/app run build:win
