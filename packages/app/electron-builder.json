@@ -12,13 +12,11 @@
         "shortcutName": "Butlerov App"
     },
     "win": {
-        "target": "nsis",
-        "publish": []
+        "target": "nsis"
     },
     "linux":  {
         "target": ["appImage"],
-        "category": "Science",
-        "publish": []
+        "category": "Science"
     },
     "files": [
         {

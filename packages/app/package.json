@@ -8,9 +8,9 @@
     "lint": "eslint",
     "test": "vitest",
     "build": "node deploy/build.cjs && electron-builder",
-    "build:win": "node deploy/build.cjs && electron-builder --win",
-    "build:mac": "node deploy/build.cjs && electron-builder --mac",
-    "build:linux": "node deploy/build.cjs && electron-builder --linux"
+    "build:win": "node deploy/build.cjs && electron-builder --win --publish never",
+    "build:mac": "node deploy/build.cjs && electron-builder --mac --publish never",
+    "build:linux": "node deploy/build.cjs && electron-builder --linux --publish never"
   },
   "repository": "https://github.com/eizemazal/butlerov",
   "author": {
