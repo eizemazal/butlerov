@@ -22,7 +22,7 @@
     "chalk": "^4.1.2",
     "chokidar": "^4.0.1",
     "electron": "33.2.1",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^26.0.6",
     "eslint-plugin-vue": "^9.32.0",
     "happy-dom": "^16.6.0",
     "vitest": "^3.0.2"

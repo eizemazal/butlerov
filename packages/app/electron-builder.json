@@ -15,7 +15,8 @@
         "target": "nsis"
     },
     "linux":  {
-        "target": ["appImage"]
+        "target": ["appImage"],
+        "category": "Science"
     },
     "files": [
         {
