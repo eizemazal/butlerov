@@ -1,6 +1,5 @@
 import { app, BrowserWindow, Menu, MenuItemConstructorOptions, dialog, ipcMain, session } from "electron";
 import path from "path";
-import fs from "node:fs";
 import { env } from "node:process";
 
 function createWindow() {
@@ -65,17 +64,11 @@ app.whenReady().then(() => {
         }
     });
     ipcMain.handle("dialog:file_open", show_open_dialog);
-    ipcMain.handle("read_file", (evt, filename) => read_from_file(filename));
     ipcMain.handle("dialog:file_save_as", show_save_dialog);
-    ipcMain.handle("write_file", (evt, filename, data) => write_to_file(filename, data));
 });
 
 app.on("window-all-closed", function () {
     if (process.platform !== "darwin") app.quit();
-});
-
-ipcMain.on("write-file", (event, message) => {
-    fs.writeFile(message.path, message.data, () => console.log("Failed to write file"));
 });
 
 const file_filters = [
@@ -96,10 +89,6 @@ async function show_open_dialog() {
     });
 }
 
-function read_from_file(filepath: string): string {
-    return fs.readFileSync(filepath, "utf8");
-}
-
 async function show_save_dialog() {
     return dialog.showSaveDialog({
         properties: ["showOverwriteConfirmation", "createDirectory"],
@@ -110,12 +99,4 @@ async function show_save_dialog() {
     });
 }
 
-function write_to_file(filepath: string, data: string): boolean {
-    try {
-        fs.writeFileSync(filepath, data, "utf8");
-    }
-    catch {
-        return false;
-    }
-    return true;
-}
+

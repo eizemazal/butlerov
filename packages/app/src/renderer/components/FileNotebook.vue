@@ -43,9 +43,11 @@
 
 
 <script setup lang="ts">
-import { watch, toRaw, ref, onBeforeUpdate, VNodeRef} from 'vue';
+import { watch, ref, onBeforeUpdate, VNodeRef} from 'vue';
 import ButlerovEditor from './ButlerovEditor.vue';
 import { NotebookTab } from './types';
+
+import { NativeConverter, MolConverter, SmilesConverter, Converter, Graph } from '@butlerov-chemistry/core/';
 
 const active_tab_index = ref<number>(0);
 const tabs = ref<NotebookTab[]>(
@@ -93,6 +95,39 @@ watch( tabs.value, (v) => {
     active_tab.value = v[active_tab_index.value];
 });
 
+function filename_to_converter(filename: string): Converter | null {
+    const last_dot_idx = filename.lastIndexOf(".");
+    const extension = filename.slice(last_dot_idx + 1).toLowerCase();
+    let converter = null;
+    if (extension == "json")
+        converter = new NativeConverter();
+    if (["sdf", "mol"].includes(extension))
+        converter = new MolConverter();
+    else if (extension == "smi")
+        converter = new SmilesConverter();
+    return converter;
+}
+
+function serialize_data(filepath: string): string | null {
+  const converter = filename_to_converter(filepath);
+  if (converter === null)
+    return null;
+  let data = null;
+  if (typeof converter.document_to_string === "function") {
+    data = converter.document_to_string(active_tab.value?.document);
+  }
+  else if (typeof converter.graph_to_string === "function") {
+    const graph: Graph = active_tab.value?.document.objects[0] as Graph;
+    if (graph === null)
+      return null;
+    data = converter.graph_to_string(graph);
+  }
+  else {
+    console.log("Converter for this file type does not support write");
+    return null;
+  }
+  return data;
+}
 
 window.electronAPI.on('menu-file-new', () => {
   tabs.value.push({document: {
@@ -116,7 +151,10 @@ window.electronAPI.on('menu-file-save', async () => {
   const filepath = active_tab.value.filepath !== "" ? active_tab.value.filepath : await window.electronAPI.showSaveAsDialog();
   if (!filepath)
     return;
-  if (await window.electronAPI.writeFile(filepath, JSON.stringify(active_tab.value.document))) {
+
+  const data = serialize_data(filepath);
+
+  if (data !== null && window.electronAPI.writeFile(filepath, data)) {
     active_tab.value.filepath = filepath;
     active_tab.value.modified = false;
   }
@@ -130,7 +168,9 @@ window.electronAPI.on('menu-file-save-as', async () => {
   if (!filepath)
     return;
 
-  if (await window.electronAPI.writeFile(filepath, JSON.stringify(toRaw(active_tab.value.document)))) {
+  const data = serialize_data(filepath);
+
+  if (data !== null && window.electronAPI.writeFile(filepath, data)) {
     active_tab.value.filepath = filepath;
     active_tab.value.modified = false;
   }
@@ -141,11 +181,36 @@ window.electronAPI.on('menu-file-open', async () => {
   if (!filepath)
     return;
 
+  const converter = filename_to_converter(filepath);
+
   const data = await window.electronAPI.readFile(filepath);
+
   if (data === undefined)
     return;
 
-  tabs.value.push({document: JSON.parse(data),
+  let doc = undefined;
+    //@ts-expect-error ts does not support function|undefined well
+    if (typeof converter.document_from_string === "function") {
+        //@ts-expect-error ts does not support function|undefined well
+        doc = converter.document_from_string(data);
+    }
+    //@ts-expect-error ts does not support function|undefined well
+    else if (typeof converter.graph_from_string === "function") {
+        //@ts-expect-error ts does not support function|undefined well
+        const graph: Graph = converter.graph_from_string(data)
+        doc = {
+            mime: "application/butlerov",
+            objects: [graph]
+        }
+    }
+    else {
+        console.log("Converter for this file type does not support read");
+        return;
+    }
+
+
+  tabs.value.push({
+    document: doc,
     filepath: filepath,
     modified: false
   });
