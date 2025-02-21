@@ -426,7 +426,7 @@ class DrawableGraph extends DrawableBase {
             if (this.find_edges_by_vertex(vertex)[0].bond_order == 3) {
                 coordinates = {
                     x: vertex.coords.x + bond_len * Math.cos(alfa + Math.PI),
-                    y: vertex.coords.y + bond_len * Math.sin(+Math.PI)
+                    y: vertex.coords.y + bond_len * Math.sin(alfa + Math.PI)
                 };
             }
             else {
