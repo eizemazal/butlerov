@@ -1,4 +1,5 @@
 import { editor, fire_key, fire } from "../src/lib/testing";
+import { Composition } from "../src/descriptor/mw";
 import userEvent from "@testing-library/user-event";
 
 beforeEach(() => {
@@ -249,4 +250,45 @@ test("Readonly control", () => {
     expect(editor.readonly).toBe(false);
     fire({ x: editor.graph.vertices[0].x, y: editor.graph.vertices[0].y }, "click");
     expect(editor.graph.vertices.length).toBe(3);
+});
+
+test("Condensed ring drawing", () => {
+    fire({ x: 100, y: 100 }, "click");
+    expect(editor.graph.vertices.length).toBe(2);
+    let edge_center = {
+        x: (editor.graph.vertices[0].x + editor.document_container.graph.vertices[1].coords.x) / 2,
+        y: (editor.graph.vertices[0].y + editor.document_container.graph.vertices[1].coords.y) / 2,
+    };
+    fire(edge_center, "mousemove");
+    expect(editor.document_container.graph.edges[0].active).toBe(true);
+    fire_key(" ");
+    fire_key("r");
+    fire_key("p");
+    expect(editor.graph.vertices.length).toBe(6);
+    expect(editor.graph.edges.length).toBe(6);
+    expect(new Composition(editor.graph).compute_as_string()).toBe("C6H6");
+    edge_center = {
+        x: (editor.graph.vertices[0].x + editor.document_container.graph.vertices[1].coords.x) / 2,
+        y: (editor.graph.vertices[0].y + editor.document_container.graph.vertices[1].coords.y) / 2,
+    };
+    fire(edge_center, "mousemove");
+    expect(editor.document_container.graph.edges[0].active).toBe(true);
+    fire_key(" ");
+    fire_key("r");
+    fire_key("p");
+    expect(editor.graph.vertices.length).toBe(10);
+    expect(editor.graph.edges.length).toBe(11);
+    expect(new Composition(editor.graph).compute_as_string()).toBe("C10H8");
+    edge_center = {
+        x: (editor.graph.vertices[1].x + editor.document_container.graph.vertices[2].coords.x) / 2,
+        y: (editor.graph.vertices[1].y + editor.document_container.graph.vertices[2].coords.y) / 2,
+    };
+    fire(edge_center, "mousemove");
+    expect(editor.document_container.graph.edges[1].active).toBe(true);
+    fire_key(" ");
+    fire_key("r");
+    fire_key("p");
+    expect(editor.graph.vertices.length).toBe(13);
+    expect(editor.graph.edges.length).toBe(15);
+    expect(new Composition(editor.graph).compute_as_string()).toBe("C13H10");
 });

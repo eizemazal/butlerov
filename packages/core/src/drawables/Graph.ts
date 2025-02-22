@@ -197,13 +197,13 @@ class DrawableGraph extends DrawableBase {
     }
 
     /**
-     * Check if two vertices in the graph are connected.
+     * Check if two vertices in the graph are connected, and return edge if they are.
      * @param v1 Object of @see DrawableVertex class
      * @param v2 Another object of @see DrawableVertex class
-     * @returns true if there is a bond connecting vertices, or false otherwise
+     * @returns DrawableEdge connecting vertices, or undefined otherwise
      */
-    vertices_are_connected(v1: DrawableVertex, v2: DrawableVertex): boolean {
-        return this.edges.findIndex(e => (e.v1 == v1 && e.v2 == v2) || (e.v1 == v2 && e.v2 == v1)) != -1;
+    get_edge_between_vertices(v1: DrawableVertex, v2: DrawableVertex): DrawableEdge | undefined {
+        return this.edges.find(e => (e.v1 == v1 && e.v2 == v2) || (e.v1 == v2 && e.v2 == v1));
     }
 
 
@@ -591,15 +591,37 @@ class DrawableGraph extends DrawableBase {
         let saturated = true;
         if (desaturate && edge.shape == EdgeShape.Single && edge.v1.h_count > 1)
             saturated = false;
+
+        const merger_distance_squared = Math.pow(this.get_average_bond_distance() * 0.3, 2);
         for (const coordinate of selected_ring.coordinates) {
-            const vertex = this._add_vertex(coordinate, "C");
-            r.vertices.push(vertex);
-            r.edges.push(this.bind_vertices(vertex, last_vertex, saturated ? EdgeShape.Single : EdgeShape.Double));
+            let vertex = null;
+            for (const v of this.vertices) {
+                if ((Math.pow(v.coords.x - coordinate.x, 2) + Math.pow(v.coords.y - coordinate.y, 2)) < merger_distance_squared) {
+                    vertex = v;
+                    break;
+                }
+            }
+            if (vertex == null) {
+                vertex = this._add_vertex(coordinate, "C");
+                r.vertices.push(vertex);
+            }
+
+            let connecting_edge = this.get_edge_between_vertices(vertex, last_vertex);
+            if (connecting_edge === undefined) {
+                const shape = !saturated && vertex.h_count >= 2 && last_vertex.h_count >= 2 ? EdgeShape.Double : EdgeShape.Single;
+                connecting_edge = this.bind_vertices(vertex, last_vertex, shape);
+                r.edges.push(connecting_edge);
+            }
             if (desaturate)
-                saturated = !saturated;
+                saturated = connecting_edge.shape == EdgeShape.Double;
             last_vertex = vertex;
         }
-        r.edges.push(this.bind_vertices(last_vertex, selected_ring.last_vertex, saturated ? EdgeShape.Single : EdgeShape.Double));
+        const connecting_edge = this.get_edge_between_vertices(last_vertex, selected_ring.last_vertex);
+        if (connecting_edge === undefined) {
+            const shape = !saturated && last_vertex.h_count >= 2 && selected_ring.last_vertex.h_count >= 2 ? EdgeShape.Double : EdgeShape.Single;
+            r.edges.push(this.bind_vertices(last_vertex, selected_ring.last_vertex, shape));
+        }
+
         r.vertices.forEach(e => e.update());
         r.edges.forEach(e => e.update());
         return r;

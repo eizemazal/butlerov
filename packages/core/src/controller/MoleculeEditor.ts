@@ -611,7 +611,7 @@ export class MoleculeEditor extends Controller {
     protected on_vertex_mouseup(vertex: DrawableVertex) {
         if (!this.downed_vertex)
             return;
-        if (vertex != this.downed_vertex && !this.document_container.graph.vertices_are_connected(vertex, this.downed_vertex)) {
+        if (vertex != this.downed_vertex && this.document_container.graph.get_edge_between_vertices(vertex, this.downed_vertex) === undefined) {
             this.commit_action(new BindVerticesAction(this.document_container.graph, this.downed_vertex, vertex));
         }
         this.downed_vertex = null;
