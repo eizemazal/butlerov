@@ -30,9 +30,10 @@
           :reverse-transition="false"
           class="h-100 w-100 p-0"
         >
-          <ButlerovEditor
+          <VueButlerov
             :ref="setEditorRef"
             v-model="tabs[tab_index].document"
+            mode="scheme"
             @update:model-value="tabs[tab_index].modified = true"
           />
         </v-tabs-window-item>
@@ -44,10 +45,12 @@
 
 <script setup lang="ts">
 import { watch, ref, onBeforeUpdate, VNodeRef} from 'vue';
-import ButlerovEditor from './ButlerovEditor.vue';
+//import ButlerovEditor from './ButlerovEditor.vue';
 import { NotebookTab } from './types';
 
-import { NativeConverter, MolConverter, SmilesConverter, Converter, Graph } from '@butlerov-chemistry/core/';
+import { NativeConverter, MolConverter, SmilesConverter, Converter, Graph } from '@butlerov-chemistry/core';
+import VueButlerov from "@butlerov-chemistry/vue"
+
 
 const active_tab_index = ref<number>(0);
 const tabs = ref<NotebookTab[]>(
@@ -123,7 +126,7 @@ function serialize_data(filepath: string): string | null {
     data = converter.graph_to_string(graph);
   }
   else {
-    console.log("Converter for this file type does not support write");
+    console.error("Converter for this file type does not support write");
     return null;
   }
   return data;
@@ -204,7 +207,7 @@ window.electronAPI.on('menu-file-open', async () => {
         }
     }
     else {
-        console.log("Converter for this file type does not support read");
+        console.error("Converter for this file type does not support read");
         return;
     }
 

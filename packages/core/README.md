@@ -6,7 +6,7 @@ Butlerov core web component - a control to edit and display chemical structures.
 When using in projects built by js package managers like npm / yarn, just install into your project:
 
 ```bash
-npm i butlerov
+npm i @butlerov-chemistry/core
 ```
 
 Then, import
@@ -44,3 +44,12 @@ You need to put `butlerov.umd.js` universal module definition (UMD) file somewhe
     </body>
 </html>
 ```
+
+
+## Development server
+
+```bash
+npm run dev
+```
+
+Development page with HMR will be available at `http://localhost:5173/`.

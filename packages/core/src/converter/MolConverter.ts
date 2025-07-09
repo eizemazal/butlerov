@@ -171,8 +171,8 @@ export class MolConverter implements Converter {
         r += `${natoms}${nbonds}  0  0  0  0  0  0  0  0  1 V2000\n`;
         const charges: string[] = [];
         const isotopes: string[] = [];
+        const mol_rect = get_molecule_rect(graph) ?? { x1: 0, y1: 0, x2: 100, y2: 100 };
         graph.vertices.forEach((e, idx) => {
-            const mol_rect = get_molecule_rect(graph);
             const offset_x = (e.x - mol_rect.x1);
             const offset_y = (e.y - mol_rect.y1);
             const x = `${offset_x.toFixed(4)}`.padStart(10, " ");

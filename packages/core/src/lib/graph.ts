@@ -1,8 +1,8 @@
 import { Graph, Rect } from "../types";
 
-export function get_molecule_rect(graph: Graph): Rect {
+export function get_molecule_rect(graph: Graph): Rect | null {
     if (!graph.vertices.length)
-        return { x1: 0, y1: 0, x2: 100, y2: 100 };
+        return null;
     const x_coords = graph.vertices.map(e => e.x);
     const y_coords = graph.vertices.map(e => e.y);
     return {

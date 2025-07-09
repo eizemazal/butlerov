@@ -170,10 +170,11 @@ export class MoleculeEditor extends Controller {
 
     center_view() {
         const rect = get_molecule_rect(this.document_container.graph.as_model());
-        this.viewport_offset = {
-            x: (rect.x1 + rect.x2) / 2 - this.stage.width() / (2 * this._zoom),
-            y: (rect.y1 + rect.y2) / 2 - this.stage.height() / (2 * this._zoom),
-        };
+        this.viewport_offset = (rect === null) ? { x: 0, y: 0 } :
+            {
+                x: (rect.x1 + rect.x2) / 2 - this.stage.width() / (2 * this._zoom),
+                y: (rect.y1 + rect.y2) / 2 - this.stage.height() / (2 * this._zoom),
+            };
     }
 
     /**
@@ -185,6 +186,8 @@ export class MoleculeEditor extends Controller {
 
     zoom_to_fit(overzoom = false, margins = 0.05) {
         const rect = get_molecule_rect(this.document_container.graph.as_model());
+        if (!rect)
+            return;
         const screen_w = (1 + margins) * (rect.x2 - rect.x1);
         const screen_h = (1 + margins) * (rect.y2 - rect.y1);
         let zoom = Math.min(this.stage.width() / screen_w, this.stage.height() / screen_h);

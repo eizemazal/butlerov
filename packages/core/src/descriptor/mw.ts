@@ -5,7 +5,8 @@ import { DrawableGraph } from "../main";
 
 
 const H_MASS = ChemicalElements["H"].nuclides ? ChemicalElements["H"].nuclides[0].mass : 0;
-const ELECTRON_MASS = 0.0005486;
+// actually this is 0.0005486; but it is apparently compensated in MS software, so not using this correction
+const ELECTRON_MASS = 0;
 
 export class MW extends Descriptor {
     compute(): number {

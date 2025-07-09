@@ -1,6 +1,7 @@
 import path from "path";
 import { defineConfig } from "vite";
 import vuePlugin from "@vitejs/plugin-vue";
+import { fileURLToPath } from "url";
 
 export default defineConfig({
     root: path.resolve("src/renderer"),
@@ -18,4 +19,9 @@ export default defineConfig({
         environment: 'happy-dom',
         pool: "vmThreads"
     },
+    resolve: {
+        alias: {
+            '@butlerov-chemistry/vue': fileURLToPath(new URL('../vue/src', import.meta.url))
+        }
+    }
 });

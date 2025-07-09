@@ -78,7 +78,7 @@ const ChemicalElements: Record<string, ChemicalElement> = {
     "Al": new ChemicalElement("Al", "Aluminum", 13, 26.981539, [3], 2, []),
     "Si": new ChemicalElement("Si", "Silicon", 14, 28.0855, [4], 2, [28, 29, 30]),
     "P": new ChemicalElement("P", "Phosphorus", 15, 30.973762, [3, 5], 1, [31, 32], [new Nuclide(30.97376199, 1)]),
-    "S": new ChemicalElement("S", "Sulfur", 16, 32.066, [2, 4, 6], 1, [32, 33, 34, 36]),
+    "S": new ChemicalElement("S", "Sulfur", 16, 32.066, [2, 4, 6], 1, [32, 33, 34, 36], [new Nuclide(31.97207117354, 0.9485), new Nuclide(32.97145890862, 0.00763), new Nuclide(33.967867011, 0.04365), new Nuclide(35.967080692, 0.000158)]),
     "Cl": new ChemicalElement("Cl", "Chlorine", 17, 35.4527, [1, 3, 4, 5, 7], 1, [35, 37]),
     "Ar": new ChemicalElement("Ar", "Argon", 18, 39.948, [2], 4, [36, 38, 40]),
     "K": new ChemicalElement("K", "Potassium", 19, 39.0983, [1], 2, [39, 40, 41]),

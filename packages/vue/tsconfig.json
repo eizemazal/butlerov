@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+
+    "types": ["@vitest/browser/providers/playwright"],
+
+    "strict": true,
+    "declaration": true,
+    "target": "es6",
+    "module": "ES6",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node",
+    "outDir": "dist/"
+  },
+  "include": ["src"]
+}

@@ -7,7 +7,7 @@
             <span>{{ mw.toFixed(2) }}</span>
         </v-list-item>
         <v-list-item v-if="exact_mass > 0.1 ">
-            <span>{{ mw.toFixed(5) }}</span>
+            <span>{{ exact_mass.toFixed(6) }}</span>
         </v-list-item>
         <v-list-item>
             <span v-html="composition"></span>
