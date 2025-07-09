@@ -69,11 +69,11 @@ defineExpose({editor});
 
 
 function setEditorValue(v: VueButlerovModel) {
-  if (converter) {
+  if (converter.value) {
     if (props.mode == "scheme") {
       if (!editor.value?.document)
         return;
-      if (converter == null) {
+      if (converter.value == null) {
         editor.value.document = {
           mime: "application/butlerov",
           ...v as VueButlerovSchemaModel,
@@ -86,7 +86,7 @@ function setEditorValue(v: VueButlerovModel) {
     else {
       if (!editor.value)
         return;
-      if (converter == null) {
+      if (converter.value == null) {
         editor.value.graph = v as Graph;
       }
       else {

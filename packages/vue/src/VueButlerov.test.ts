@@ -2,13 +2,13 @@ import { test, expect, describe, beforeEach } from 'vitest';
 //import { userEvent } from "@vitest/browser/context";
 //import { render } from 'vitest-browser-vue';
 import VueButlerov from './VueButlerov.vue';
-import { mount } from '@vue/test-utils'
+import { mount, VueWrapper } from '@vue/test-utils'
 //import { Document, Graph } from '@butlerov-chemistry/core';
 //import { mount } from '@vue/test-utils';
 
 describe('VueButlerov, test structure mode', async () => {
 
-  let wrapper: any;
+  let wrapper: VueWrapper;
   beforeEach(() => {
 
     wrapper = mount(VueButlerov, {
@@ -86,7 +86,6 @@ describe('VueButlerov, test structure mode', async () => {
 
 
     await wrapper.trigger('click', { position: { x: 150, y: 150 } });
-    console.log(wrapper);
     expect(wrapper.props.modelValue).toBe(1);
 
     //let graph = control.emitted('update:modelValue')![0]![0] as Graph;

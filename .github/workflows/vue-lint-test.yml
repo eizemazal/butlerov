@@ -17,5 +17,5 @@ jobs:
                     node-version: 20
                     cache: npm
             - run: npm ci
-            - run: npm --workspace=packages/core run lint
-            - run: npm --workspace=packages/core run test
+            - run: npm --workspace=packages/vue run lint
+            - run: npm --workspace=packages/vue run test
