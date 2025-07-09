@@ -7,7 +7,7 @@ on:
 
 jobs:
 
-  publish-npm:
+  publish-core-npm:
     name: Publish on NPM registry
     if: startsWith(github.ref, 'refs/tags/core-')
     runs-on: ubuntu-latest
@@ -24,6 +24,22 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}
 
+  publish-vue-npm:
+    name: Publish on NPM registry
+    if: startsWith(github.ref, 'refs/tags/vue-')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+      - run: npm ci
+      - run: npm --workspace=packages/vue run lint
+      - run: npm --workspace=packages/vue run test
+      - run: npm --workspace=packages/vue publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
 
   build-deploy-app:
     name: Build and deploy application

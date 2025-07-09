@@ -1,13 +1,13 @@
-name: Lint and test core package
+name: Lint and test vue package
 
 on:
     push:
         paths:
-            - 'packages/core/**'
+            - 'packages/vue/**'
 
 jobs:
     lint:
-        name: Lint and test Butlerov core
+        name: Lint and test Butlerov Vue package
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
