@@ -5,3 +5,4 @@ dist
 build
 out
 .vscode
+test-results

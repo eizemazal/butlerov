@@ -1,8 +1,6 @@
 {
   "compilerOptions": {
-
     "types": ["@vitest/browser/providers/playwright"],
-
     "strict": true,
     "declaration": true,
     "target": "es6",
