@@ -36,7 +36,23 @@ jobs:
           registry-url: https://registry.npmjs.org/
       - run: npm ci
       - run: npm --workspace=packages/vue run lint
-      - run: npm --workspace=packages/vue run test
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Build Vue package
+        run: npm run build --workspace=packages/vue
+
+      - name: Start Vite dev server
+        run: npm run dev --workspace=packages/vue &
+        env:
+          CI: true
+        shell: bash
+
+      - name: Wait for dev server
+        run: npx wait-on http://localhost:5173/playground.html
+
+      - name: Run Playwright tests
+        run: npm run test --workspace=packages/vue
       - run: npm --workspace=packages/vue publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}
