@@ -1,6 +1,6 @@
 {
   "name": "@butlerov-chemistry/vue",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Butlerov 2D chemical drawing component for Vue.js",
   "type": "module",
   "main": "./dist/index.js",
