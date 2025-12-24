@@ -16,7 +16,7 @@ export default defineConfig({
     },
     plugins: [vuePlugin()],
     test: {
-        environment: 'happy-dom',
+        environment: "happy-dom",
         pool: "vmThreads"
     },
     resolve: {
