@@ -21,7 +21,7 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            '@butlerov-chemistry/vue': fileURLToPath(new URL('../vue/src', import.meta.url))
+            '@butlerov-chemistry/vue': fileURLToPath(new URL('../vue/src/index.ts', import.meta.url))
         }
     }
 });

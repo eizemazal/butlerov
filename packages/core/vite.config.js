@@ -7,8 +7,15 @@ export default defineConfig({
         lib: {
             entry: path.resolve("src/main.ts"),
             name: "butlerov",
+            formats: ['es', 'umd'],
             fileName: (format) => `butlerov.${format}.cjs`
         }
     },
-    plugins: [dts()]
+    plugins: [
+        dts({
+            insertTypesEntry: true,
+            outDir: 'dist',
+            include: ['src/main.ts']
+        })
+    ]
 });

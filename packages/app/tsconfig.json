@@ -11,7 +11,7 @@
             "node"
         ],
         "paths": {
-            "@butlerov-chemistry/vue": ["../vue/src/"]
+            "@butlerov-chemistry/vue": ["../vue/src/index.ts"]
         },
         "skipLibCheck": true,
         "noEmit": true,

@@ -1,11 +1,26 @@
 {
   "name": "@butlerov-chemistry/vue",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Butlerov 2D chemical drawing component for Vue.js",
   "type": "module",
-  "main": "dist/vue-butlerov.umd.js",
-  "module": "src/index.ts",
-  "types": "dist/VueButlerov.vue.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.es.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "vite build",
     "lint": "eslint",
@@ -26,13 +41,6 @@
   ],
   "author": "Alex Ustinov",
   "license": "MIT",
-  "files": [
-    "dist"
-  ],
-  "exports": {
-    "import": "./dist/index.es.js",
-    "require": "./dist/index.js"
-  },
   "bugs": {
     "url": "https://github.com/eizemazal/butlerov/issues"
   },

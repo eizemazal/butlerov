@@ -3,9 +3,21 @@
   "version": "0.1.1",
   "description": "Draw chemical structures with js and Konva",
   "type": "module",
-  "main": "dist/butlerov.umd.cjs",
-  "module": "src/main.ts",
-  "types": "dist/main.d.js",
+  "main": "./dist/butlerov.umd.cjs",
+  "module": "./dist/butlerov.es.cjs",
+  "types": "./dist/main.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/main.d.ts",
+        "default": "./dist/butlerov.es.cjs"
+      },
+      "require": {
+        "types": "./dist/main.d.ts",
+        "default": "./dist/butlerov.umd.cjs"
+      }
+    }
+  },
   "build": {
     "appId": "com.lumiprobe.butlerov.app"
   },
