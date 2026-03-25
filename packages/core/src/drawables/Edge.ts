@@ -247,22 +247,110 @@ class DrawableEdge extends DrawableBase {
         this.group?.add(line as Konva.Line);
     }
 
+    /**
+     * Bond axis (local +x) and perpendicular (local +y) in the edge group's coordinate system.
+     *
+     * - **d** — unit vector along the bond from `point1` toward `point2` (same direction as local +x after the group rotation).
+     *   World coordinates of a local point `(lx, ly)` use `lx * d + ly * p` in the offset from `point1`.
+     * - **p** — unit vector perpendicular to **d**, chosen so local +y matches Konva's bond group: `p = (-d.y, d.x)` (90° CCW
+     *   from **d** in mathematical x–y coordinates; with screen y downward this aligns the group's local y with Konva).
+     *
+     * Local +x runs along the bond; +y is the “sideways” direction used for double-bond offsets and miter math.
+     */
+    private bondFrame(): { d: Coords; p: Coords; L: number } | null {
+        const L = this.screen_length;
+        if (L < 1e-9)
+            return null;
+        const dx = (this.point2.x - this.point1.x) / L;
+        const dy = (this.point2.y - this.point1.y) / L;
+        const d: Coords = { x: dx, y: dy };
+        const p: Coords = { x: -dy, y: dx };
+        return { d, p, L };
+    }
+
+    private worldToLocal(origin: Coords, d: Coords, p: Coords, world: Coords): Coords {
+        const ox = world.x - origin.x;
+        const oy = world.y - origin.y;
+        return { x: ox * d.x + oy * d.y, y: ox * p.x + oy * p.y };
+    }
+
+    /**
+     * For a horizontal line `y = y0` in local bond coordinates, intersect neighbor rays (from `vertex` toward each
+     * neighbor except `otherEnd`) with that line. Folds those x-values into a single limit using `aggregate`.
+     *
+     * - **`aggregate === 'min'`** (bond start near local x = 0): start from `baseline` (typically `0`) and take the
+     *   minimum x among valid intersections — extends the double-bond segment backward toward −x when needed.
+     * - **`aggregate === 'max'`** (bond end near local x = L): start from `baseline` (typically `L`) and take the
+     *   maximum x — extends forward toward +x when needed.
+     *
+     * @param d — @see bondFrame: unit vector along the bond (+local x).
+     * @param p — @see bondFrame: unit vector along +local y, perpendicular to the bond.
+     */
+    private doubleBondMiterAlongAxis(
+        vertex: DrawableVertex,
+        otherEnd: DrawableVertex,
+        y0: number,
+        d: Coords,
+        p: Coords,
+        vertexLocal: Coords,
+        baseline: number,
+        aggregate: "min" | "max",
+    ): number {
+        let x = baseline;
+        for (const [w,] of vertex.neighbors) {
+            if (w === otherEnd)
+                continue;
+            const dwx = w.coords.x - vertex.coords.x;
+            const dwy = w.coords.y - vertex.coords.y;
+            const len = Math.hypot(dwx, dwy);
+            if (len < 1e-9)
+                continue;
+            const ux = (dwx * d.x + dwy * d.y) / len;
+            const uy = (dwx * p.x + dwy * p.y) / len;
+            if (Math.abs(uy) < 1e-9)
+                continue;
+            const t = (y0 - vertexLocal.y) / uy;
+            if (t < -1e-6)
+                continue;
+            const xInt = vertexLocal.x + t * ux;
+            x = aggregate === "min" ? Math.min(x, xInt) : Math.max(x, xInt);
+        }
+        return x;
+    }
+
     draw_double() {
         const stylesheet = this.controller?.style;
         if (!stylesheet)
             return;
+        const frame = this.bondFrame();
+        if (!frame)
+            return;
+        const { d, p, L } = frame;
+        const v1l = this.worldToLocal(this.point1, d, p, this.v1.coords);
+        const v2l = this.worldToLocal(this.point1, d, p, this.v2.coords);
+
         const lines = this.create_lines(2);
         if (this.orientation == EdgeOrientation.Center) {
-            lines[0].setAttr("points", [0, -stylesheet.bond_spacing_px / 2, this.screen_length, -stylesheet.bond_spacing_px / 2]);
-            lines[1].setAttr("points", [0, stylesheet.bond_spacing_px / 2, this.screen_length, stylesheet.bond_spacing_px / 2]);
+            const half = stylesheet.bond_spacing_px / 2;
+            const y0a = -half;
+            const y0b = half;
+            const x0a = this.doubleBondMiterAlongAxis(this.v1, this.v2, y0a, d, p, v1l, 0, "min");
+            const x0b = this.doubleBondMiterAlongAxis(this.v1, this.v2, y0b, d, p, v1l, 0, "min");
+            const x1a = this.doubleBondMiterAlongAxis(this.v2, this.v1, y0a, d, p, v2l, L, "max");
+            const x1b = this.doubleBondMiterAlongAxis(this.v2, this.v1, y0b, d, p, v2l, L, "max");
+            lines[0].setAttr("points", [x0a, y0a, x1a, y0a]);
+            lines[1].setAttr("points", [x0b, y0b, x1b, y0b]);
         }
         else {
             const sign = this.orientation == EdgeOrientation.Right ? 1 : -1;
-            lines[0].setAttr("points", [0, 0, this.screen_length, 0]);
-            lines[1].setAttr("points", [
-                this.screen_length * stylesheet.double_bond_shortening / 2, sign * stylesheet.bond_spacing_px,
-                this.screen_length * (1 - stylesheet.double_bond_shortening / 2), sign * stylesheet.bond_spacing_px,
-            ]);
+            const yOff = sign * stylesheet.bond_spacing_px;
+            const shortStart = L * stylesheet.double_bond_shortening / 2;
+            const shortEnd = L * (1 - stylesheet.double_bond_shortening / 2);
+            // Keep shortened ends toward v2; only adjust start at v1 so the offset line does not cross adjacent bonds.
+            const x0m = this.doubleBondMiterAlongAxis(this.v1, this.v2, yOff, d, p, v1l, 0, "min");
+            const x0 = Math.max(shortStart, x0m);
+            lines[0].setAttr("points", [0, 0, L, 0]);
+            lines[1].setAttr("points", [x0, yOff, shortEnd, yOff]);
         }
         this.group?.add(lines[0] as Konva.Line);
         this.group?.add(lines[1] as Konva.Line);

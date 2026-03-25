@@ -432,7 +432,7 @@ class MoveVertexAction extends UpdatableAction {
         this.vertex.update();
         for (const [vertex,] of this.vertex.neighbors)
             vertex.update();
-        this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
+        this.graph.find_edges_by_vertex_neighborhood(this.vertex).forEach(e => e.update());
     }
 
     rollback(): void {
@@ -440,7 +440,7 @@ class MoveVertexAction extends UpdatableAction {
         this.vertex.update();
         for (const [vertex,] of this.vertex.neighbors)
             vertex.update();
-        this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
+        this.graph.find_edges_by_vertex_neighborhood(this.vertex).forEach(e => e.update());
     }
 
     update(action: this): boolean {
@@ -450,7 +450,7 @@ class MoveVertexAction extends UpdatableAction {
         this.vertex.update();
         for (const [vertex,] of this.vertex.neighbors)
             vertex.update();
-        this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
+        this.graph.find_edges_by_vertex_neighborhood(this.vertex).forEach(e => e.update());
         return true;
     }
 }

@@ -188,6 +188,22 @@ class DrawableGraph extends DrawableBase {
     }
 
     /**
+     * Edges incident to this vertex or to any of its neighbors. When a vertex moves, bond rendering
+     * at adjacent atoms (e.g. double-bond miters) can change even though those edges are not
+     * incident to the dragged vertex alone.
+     */
+    find_edges_by_vertex_neighborhood(vertex: DrawableVertex): DrawableEdge[] {
+        const set = new Set<DrawableEdge>();
+        for (const e of this.find_edges_by_vertex(vertex))
+            set.add(e);
+        for (const [n,] of vertex.neighbors) {
+            for (const e of this.find_edges_by_vertex(n))
+                set.add(e);
+        }
+        return [...set];
+    }
+
+    /**
      * Return array of edges that adjacent to given edge, i.e. edges of the edge.v1 and edge.v2 excluding given edge.
      * @param edge An edge in graph
      * @returns Array of @see DrawableEdge.
