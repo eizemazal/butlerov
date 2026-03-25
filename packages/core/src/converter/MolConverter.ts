@@ -1,5 +1,5 @@
 import { get_molecule_rect } from "../lib/graph";
-import { Graph, Vertex, Edge, Converter, EdgeShape, LabelType, Document } from "../types";
+import { Graph, Vertex, Edge, Converter, EdgeShape, LabelType, BUTLEROV_DOCUMENT_FORMAT, Document } from "../types";
 
 
 // taken from Mol file specification
@@ -154,7 +154,7 @@ export class MolConverter implements Converter {
 
     document_from_string(s: string): Document {
         return {
-            mime: "application/butlerov",
+            format: BUTLEROV_DOCUMENT_FORMAT,
             objects: [
                 this.graph_from_string(s),
             ]
@@ -178,7 +178,7 @@ export class MolConverter implements Converter {
             const x = `${offset_x.toFixed(4)}`.padStart(10, " ");
             const y = `${(-offset_y).toFixed(4)}`.padStart(10, " ");
             const z = "    0.0000";
-            if (e.label_type != LabelType.Atom) {
+            if ((e.label_type ?? LabelType.Atom) !== LabelType.Atom) {
                 throw new Error("Abbreviated/custom label cannot be saved to mol");
             }
             const element = `${e.label}`.padEnd(3, " ");

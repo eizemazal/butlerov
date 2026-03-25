@@ -5,7 +5,7 @@
 <script setup lang="ts">
 
 import { onMounted, useTemplateRef, ref, watch } from 'vue';
-import { MoleculeEditor, Style, Theme, Graph, DrawableObject, defaultStyle, Converter, MolConverter, SmilesConverter } from '@butlerov-chemistry/core';
+import { MoleculeEditor, Style, Theme, Graph, DrawableObject, defaultStyle, Converter, MolConverter, SmilesConverter, BUTLEROV_DOCUMENT_FORMAT } from '@butlerov-chemistry/core';
 
 defineOptions({
   name:  "VueButlerov"
@@ -67,46 +67,60 @@ const converter = ref<Converter | null>(null);
 
 defineExpose({editor});
 
+let last_emitted_serialized: string | null = null;
+
+function try_serialize(v: unknown): string | null {
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return null;
+  }
+}
+
 
 function setEditorValue(v: VueButlerovModel) {
-  if (converter.value) {
-    if (props.mode == "scheme") {
-      if (!editor.value?.document)
-        return;
-      if (converter.value == null) {
-        editor.value.document = {
-          mime: "application/butlerov",
-          ...v as VueButlerovSchemaModel,
-        }
-      }
-      if (!converter.value?.document_from_string)
-        return;
-      editor.value.document = converter.value?.document_from_string(v as string);
+  if (!editor.value)
+    return;
+
+  if (props.mode == "scheme") {
+    // native scheme model is already a document-like object (not a string)
+    if (converter.value == null) {
+      editor.value.document = {
+        format: BUTLEROV_DOCUMENT_FORMAT,
+        ...(v as VueButlerovSchemaModel),
+      };
+      return;
     }
-    else {
-      if (!editor.value)
-        return;
-      if (converter.value == null) {
-        editor.value.graph = v as Graph;
-      }
-      else {
-        if (!converter.value?.graph_from_string)
-          return;
-        editor.value.graph = converter.value?.graph_from_string(v as string);
-      }
-    }
+    if (!converter.value.document_from_string)
+      return;
+    editor.value.document = converter.value.document_from_string(v as string);
+    return;
   }
+
+  // structure mode
+  if (converter.value == null) {
+    editor.value.graph = v as Graph;
+    return;
+  }
+  if (!converter.value.graph_from_string)
+    return;
+  editor.value.graph = converter.value.graph_from_string(v as string);
 }
 
 function emitEditorValue() {
   if (props.mode == "structure") {
-      emit("update:modelValue", converter.value?.graph_to_string && editor.value ? converter.value.graph_to_string(editor.value?.graph): editor.value?.graph );
+      const payload = converter.value?.graph_to_string && editor.value
+        ? converter.value.graph_to_string(editor.value.graph)
+        : editor.value?.graph;
+      last_emitted_serialized = try_serialize(payload);
+      emit("update:modelValue", payload);
   }
   else {
-    emit("update:modelValue",
-    {
-      objects: editor.value?.document.objects
-    })
+    if (!editor.value)
+      return;
+    const payload = editor.value.document;
+    last_emitted_serialized = try_serialize(payload);
+    emit("update:modelValue", payload);
   }
 }
 
@@ -145,8 +159,12 @@ watch(() => props.style, (v) => {
 }, {deep: true})
 
 watch(() => props.modelValue, (v) => {
+  // Prevent feedback loop: editor emits -> parent updates v-model -> watch fires -> we'd reset editor state
+  const incoming_serialized = try_serialize(v);
+  if (incoming_serialized !== null && incoming_serialized === last_emitted_serialized)
+    return;
   setEditorValue(v);
-}, {deep: true})
+}, {deep: false})
 
 
 onMounted(() => {

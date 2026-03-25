@@ -1,4 +1,4 @@
-import { Converter, Document } from "../types";
+import { BUTLEROV_DOCUMENT_FORMAT, Converter, Document } from "../types";
 
 export class NativeConverter implements Converter {
 
@@ -7,9 +7,9 @@ export class NativeConverter implements Converter {
     }
 
     document_from_string(s: string): Document {
-        const d = JSON.parse(s);
-        if (d.mime != "application/butlerov")
+        const d = JSON.parse(s) as Record<string, unknown>;
+        if (d.format !== BUTLEROV_DOCUMENT_FORMAT)
             throw new Error("Wrong file format");
-        return d as Document;
+        return { ...d, format: BUTLEROV_DOCUMENT_FORMAT } as Document;
     }
 }

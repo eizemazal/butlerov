@@ -2,7 +2,7 @@ import Konva from "konva";
 import { Style, Theme, defaultStyle, darkTheme } from "./Theme";
 import { Action, UpdatableAction, ActionDirection } from "../action/Action";
 import { Coords, Drawable } from "../types";
-import { Document } from "../types";
+import { BUTLEROV_DOCUMENT_FORMAT, Document } from "../types";
 
 export interface DocumentSize {
     width: number;
@@ -44,7 +44,7 @@ export class Controller {
     constructor(settings: ControllerSettings) {
 
         this._document = {
-            mime: "application/butlerov",
+            format: BUTLEROV_DOCUMENT_FORMAT,
             objects: []
         };
 

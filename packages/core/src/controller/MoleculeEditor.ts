@@ -30,7 +30,7 @@ import {
     ExpandLinearAction
 } from "../action/GraphActions";
 import { ActionDirection } from "../action/Action";
-import { Converter, Document } from "../types";
+import { BUTLEROV_DOCUMENT_FORMAT, Converter, Document } from "../types";
 import { DrawableBase } from "../drawables/Base";
 import { TextBox } from "./TextBox";
 import { get_molecule_rect } from "../lib/graph";
@@ -58,13 +58,13 @@ class DocumentContainer {
 
     public get document(): Document {
         return {
-            mime: "application/butlerov",
+            format: BUTLEROV_DOCUMENT_FORMAT,
             objects: [this.graph.as_model()]
         };
     }
 
     public set document(d: Document) {
-        if (d.mime != "application/butlerov")
+        if (d.format !== BUTLEROV_DOCUMENT_FORMAT)
             throw new Error("Incorrect document format.");
         const graphs: Graph[] = d.objects?.filter(e => e.type == "Graph") ?? [];
         this.graph.detach();

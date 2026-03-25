@@ -48,14 +48,14 @@ import { watch, ref, onBeforeUpdate, VNodeRef} from 'vue';
 //import ButlerovEditor from './ButlerovEditor.vue';
 import { NotebookTab } from './types';
 
-import { NativeConverter, MolConverter, SmilesConverter, Converter, Graph } from '@butlerov-chemistry/core';
+import { NativeConverter, MolConverter, SmilesConverter, Converter, Graph, BUTLEROV_DOCUMENT_FORMAT } from '@butlerov-chemistry/core';
 import VueButlerov from "@butlerov-chemistry/vue"
 
 
 const active_tab_index = ref<number>(0);
 const tabs = ref<NotebookTab[]>(
   [{document: {
-  mime: "application/butlerov",
+  format: BUTLEROV_DOCUMENT_FORMAT,
   objects: [
     {
       type: "Graph",
@@ -134,7 +134,7 @@ function serialize_data(filepath: string): string | null {
 
 window.electronAPI.on('menu-file-new', () => {
   tabs.value.push({document: {
-    mime: "application/butlerov",
+    format: BUTLEROV_DOCUMENT_FORMAT,
     objects: [
       {
         type: "Graph",
@@ -202,7 +202,7 @@ window.electronAPI.on('menu-file-open', async () => {
         //@ts-expect-error ts does not support function|undefined well
         const graph: Graph = converter.graph_from_string(data)
         doc = {
-            mime: "application/butlerov",
+            format: BUTLEROV_DOCUMENT_FORMAT,
             objects: [graph]
         }
     }

@@ -26,11 +26,13 @@ import {
     Polyline,
     DrawableObject,
     DocumentMetadata,
+    BUTLEROV_DOCUMENT_FORMAT,
     Document,
     Converter
 } from "./types";
 
 export {
+    BUTLEROV_DOCUMENT_FORMAT,
     MoleculeEditor,
     DrawableGraph,
     MolConverter,

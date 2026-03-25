@@ -3,7 +3,7 @@
 </template>
 <script setup lang="ts">
 import { onMounted, useTemplateRef, ref, watch, computed } from 'vue';
-import { MoleculeEditor, darkTheme, Document, lightTheme } from '@butlerov-chemistry/core';
+import { MoleculeEditor, darkTheme, Document, lightTheme, BUTLEROV_DOCUMENT_FORMAT } from '@butlerov-chemistry/core';
 import { useTheme } from 'vuetify';
 
 const container = useTemplateRef("container");
@@ -18,7 +18,7 @@ const theme = useTheme();
 const props = withDefaults(defineProps<Props>(), {
   modelValue: () => {
     return {
-      mime: "application/butlerov",
+      format: BUTLEROV_DOCUMENT_FORMAT,
       objects: [
         {
           type: "Graph",

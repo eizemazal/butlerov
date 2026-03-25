@@ -123,8 +123,11 @@ export interface DocumentMetadata {
     hash?: string
 }
 
+/** Native Butlerov JSON document; see docs/format/schema.json */
+export const BUTLEROV_DOCUMENT_FORMAT = "butlerov.document" as const;
+
 export interface Document {
-    mime: "application/butlerov"
+    format: typeof BUTLEROV_DOCUMENT_FORMAT
     metadata?: DocumentMetadata
     width?: number;
     height?: number;
