@@ -6,3 +6,4 @@ build
 out
 .vscode
 test-results
+playwright-report

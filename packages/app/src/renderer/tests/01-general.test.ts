@@ -1,22 +1,37 @@
-import MainControl from "../components/FileNotebookTab.vue";
+import FileNotebook from "../components/FileNotebook.vue";
 import { mount } from "@vue/test-utils";
-import { expect, test } from 'vitest';
+import { expect, test, beforeEach } from "vitest";
 import { createVuetify } from "vuetify";
+import * as components from "vuetify/components";
+import * as directives from "vuetify/directives";
 
-test("HelloWorld Component renders the correct text", () => {
-  const wrapper = mount(MainControl, {
+const vuetify = createVuetify({
+  components,
+  directives,
+});
+
+// Mock window.electronAPI
+beforeEach(() => {
+  global.window = global.window || {};
+  global.window.electronAPI = {
+    on: () => {},
+    showOpenDialog: async () => undefined,
+    showSaveAsDialog: async () => undefined,
+    writeFile: () => false,
+    readFile: () => ""
+  };
+});
+
+test("FileNotebook Component renders correctly", () => {
+  const wrapper = mount(FileNotebook, {
+    attachTo: document.body,
     global: {
-      plugins: [createVuetify()],
+      plugins: [vuetify],
+      stubs: {
+        VueButlerov: { template: "<div />" },
+      },
     },
-    props: {
-      modelValue: {
-        document: {
-          mime: "application/butlerov",
-        },
-        filepath: "untitled",
-        modified: false,
-      }
-    }
   });
-  expect(wrapper.text()).toBe("Начните работу с нажатия этой кнопки.");
+  // FileNotebook should render with at least one tab showing "untitled"
+  expect(wrapper.text()).toContain("untitled");
 });
