@@ -1,6 +1,6 @@
 {
   "name": "@butlerov-chemistry/app",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "2D chemistry drawing application",
   "main": "main/main.js",
   "scripts": {
@@ -28,7 +28,7 @@
     "vitest": "^3.0.2"
   },
   "dependencies": {
-    "@butlerov-chemistry/vue": "^0.1.0",
+    "@butlerov-chemistry/vue": "0.1.3",
     "@mdi/font": "^7.4.47",
     "vue": "^3.5.13",
     "vuetify": "^3.7.5"

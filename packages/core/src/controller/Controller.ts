@@ -74,7 +74,7 @@ export class Controller {
 
         if (settings.document_size !== undefined) {
             if (settings.document_size.width <= 0 || settings.document_size.height <= 0)
-                throw "Document width and height are expected to be positive numbers";
+                throw new Error("Document width and height are expected to be positive numbers");
             this._document_size = settings.document_size;
         }
 
@@ -141,7 +141,7 @@ export class Controller {
 
     public set document_size(size: DocumentSize) {
         if (size.width <= 0 || size.height <= 0)
-            throw "Document width and height are expected to be positive numbers";
+            throw new Error("Document width and height are expected to be positive numbers");
         this._document_size = size;
     }
 

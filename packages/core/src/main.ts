@@ -1,27 +1,11 @@
+import { ControllerSettings } from "./controller/Controller";
 import { MoleculeEditor } from "./controller/MoleculeEditor";
-import { DrawableGraph } from "./drawables/Graph";
+import { lightTheme, darkTheme, defaultStyle, Style, Theme } from "./controller/Theme";
 import { MolConverter } from "./converter/MolConverter";
 import { SmilesConverter } from "./converter/SmilesConverter";
 import { NativeConverter } from "./converter/NativeConverter";
 import { MW, ExactMass, Composition } from "./descriptor/mw";
-import { lightTheme, darkTheme, defaultStyle } from "./controller/Theme";
-
-export {
-    MoleculeEditor,
-    DrawableGraph,
-    MolConverter,
-    SmilesConverter,
-    NativeConverter,
-    MW,
-    ExactMass,
-    Composition,
-    lightTheme,
-    darkTheme,
-    defaultStyle
-};
-
-import { ControllerSettings } from "./controller/Controller";
-import { Style, Theme } from "./controller/Theme";
+import { DrawableGraph } from "./drawables/Graph";
 import {
     Coords,
     Rect,
@@ -45,6 +29,20 @@ import {
     Document,
     Converter
 } from "./types";
+
+export {
+    MoleculeEditor,
+    DrawableGraph,
+    MolConverter,
+    SmilesConverter,
+    NativeConverter,
+    MW,
+    ExactMass,
+    Composition,
+    lightTheme,
+    darkTheme,
+    defaultStyle
+};
 
 export type {
     ControllerSettings,

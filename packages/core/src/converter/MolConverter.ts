@@ -179,7 +179,7 @@ export class MolConverter implements Converter {
             const y = `${(-offset_y).toFixed(4)}`.padStart(10, " ");
             const z = "    0.0000";
             if (e.label_type != LabelType.Atom) {
-                throw "Abbreviated/custom label cannot be saved to mol";
+                throw new Error("Abbreviated/custom label cannot be saved to mol");
             }
             const element = `${e.label}`.padEnd(3, " ");
             r += `${x}${y}${z} ${element} 0  0  0  0  0  0  0  0  0  0  0  0\n`;

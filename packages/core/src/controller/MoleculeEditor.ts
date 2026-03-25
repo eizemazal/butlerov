@@ -65,7 +65,7 @@ class DocumentContainer {
 
     public set document(d: Document) {
         if (d.mime != "application/butlerov")
-            throw "Incorrect document format.";
+            throw new Error("Incorrect document format.");
         const graphs: Graph[] = d.objects?.filter(e => e.type == "Graph") ?? [];
         this.graph.detach();
         this.graph = graphs.length ? new DrawableGraph(graphs[0]) : new DrawableGraph();

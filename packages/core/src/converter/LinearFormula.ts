@@ -109,7 +109,7 @@ export class LinearFormulaConverter implements Converter {
                         }
                     }
                     if (!frag) {
-                        throw "Unexpected";
+                        throw new Error("Unexpected");
                     }
                     const matches = s.substring(i).match(/^\d+/);
                     if (matches) {
@@ -122,7 +122,7 @@ export class LinearFormulaConverter implements Converter {
                 }
                 else if (j == 1) {
                     const cut = s.length - i >= 10 ? s.substring(i, 10) + "..." : s.substring(i);
-                    throw `Unable to parse linear formula starting from ${cut}`;
+                    throw new Error(`Unable to parse linear formula starting from ${cut}`);
                 }
             }
         }

@@ -40,7 +40,7 @@ export class SmilesConverter implements Converter {
         while (i < smiles.length) {
             if (smiles[i] == "(") {
                 if (!this.attachment_stack) {
-                    throw "( cannot be the first symbol of SMILES";
+                    throw new Error("( cannot be the first symbol of SMILES");
                 }
                 this.attachment_stack.push(this.attachment_stack[this.attachment_stack.length - 1]);
                 i += 1;
@@ -48,7 +48,7 @@ export class SmilesConverter implements Converter {
             }
             if (smiles[i] == ")") {
                 if (!this.attachment_stack) {
-                    throw "Extraneous ) in SMILES";
+                    throw new Error("Extraneous ) in SMILES");
                 }
                 this.attachment_stack.pop();
                 i += 1;
@@ -101,7 +101,7 @@ export class SmilesConverter implements Converter {
             match = smiles.substring(i).match(re_label);
             if (match) {
                 if (!this.attachment_stack.length)
-                    throw "Label must follow atom in SMILES string";
+                    throw new Error("Label must follow atom in SMILES string");
                 const labels = match[0].match(/(%\d{2,}|\d)/g) || [];
                 for (let j = 0; j < labels.length; j++) {
                     if (labels[j] in this.labels)
@@ -112,7 +112,7 @@ export class SmilesConverter implements Converter {
                 i += match[0].length;
                 continue;
             }
-            throw `Unknown symbol ${smiles[i]} at position ${i}`;
+            throw new Error(`Unknown symbol ${smiles[i]} at position ${i}`);
         }
     }
     attach() {

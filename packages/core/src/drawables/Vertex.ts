@@ -530,7 +530,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
                 if (n2_vertex === this)
                     n2_vertex = iter.next().value;
                 if (n2_vertex === undefined)
-                    throw "this should not be";
+                    throw new Error("this should not be");
                 const beta = Math.atan2(n_vertex.coords.y - n2_vertex.coords.y, n_vertex.coords.x - n2_vertex.coords.x);
                 if (Math.abs(alfa - beta) * 180 / Math.PI < stylesheet.bond_snap_degrees && Math.abs(alfa_rounded - alfa) > Math.abs(alfa - beta))
                     alfa = beta;

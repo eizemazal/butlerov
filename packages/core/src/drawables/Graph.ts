@@ -854,12 +854,12 @@ class DrawableGraph extends DrawableBase {
             const subgraph_vertices = new Set<DrawableVertex>();
             const next_value = rest_vertices.values().next().value;
             if (!next_value)
-                throw "this should not happen";
+                throw new Error("this should not happen");
             const to_visit = new Set<DrawableVertex>([next_value]);
             while (to_visit.size) {
                 const vertex = to_visit.values().next().value;
                 if (!vertex)
-                    throw "this should not happen";
+                    throw new Error("this should not happen");
                 rest_vertices.delete(vertex);
                 to_visit.delete(vertex);
                 subgraph_vertices.add(vertex);
@@ -1114,7 +1114,7 @@ class DrawableGraph extends DrawableBase {
             subgraph_copy.apply_rotation(vertex.coords, angle_increment * i);
             const vertex_to_bind = subgraph_copy.vertices.find(e => e.id == neighboring_vertex_id);
             if (!vertex_to_bind)
-                throw "This should never happen";
+                throw new Error("This should never happen");
             subgraph_copy.bind_vertices(vertex_to_bind, vertex);
             r.add(subgraph_copy);
         }

@@ -77,7 +77,7 @@ function fire(pos: Vector2d, event_type: string, evt: EventMockObject | null = n
             stage._pointermove(konva_evt);
             break;
         default:
-            throw "Event type " + event_type + " not implemented.";
+            throw new Error("Event type " + event_type + " not implemented.");
     }
     stage.draw();
 }
