@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<Props>(), {
   format: () => "native",
   theme: () => "light",
   style: () => defaultStyle,
-  modelValue: (props) => {
+  modelValue: (props: Readonly<Props>) => {
     if (props.mode == "structure") {
       if (props.format == "native") {
         return {

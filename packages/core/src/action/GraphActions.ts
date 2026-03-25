@@ -11,6 +11,9 @@ class UpdateEdgeShapeAction extends Action {
     new_shape: EdgeShape;
     old_orientation: EdgeOrientation;
     new_orientation: EdgeOrientation | null;
+    /** Saved before commit so sp-linear layout can be rolled back. */
+    private coords_before: { vertex: DrawableVertex; coords: Coords }[] | null = null;
+
     constructor(graph: DrawableGraph, edge: DrawableEdge, edge_shape: EdgeShape, orientation: EdgeOrientation | null = null) {
         super();
         this.graph = graph;
@@ -21,6 +24,17 @@ class UpdateEdgeShapeAction extends Action {
         this.new_orientation = orientation;
     }
     commit() {
+        const to_save = new Set<DrawableVertex>();
+        for (const v of [this.edge.v1, this.edge.v2]) {
+            to_save.add(v);
+            for (const n of v.neighbors.keys())
+                to_save.add(n);
+        }
+        this.coords_before = [...to_save].map(v => ({ vertex: v, coords: { ...v.coords } }));
+
+        const wasSpLinearV1 = this.graph.vertexIsSpLinearHybridized(this.edge.v1);
+        const wasSpLinearV2 = this.graph.vertexIsSpLinearHybridized(this.edge.v2);
+
         this.edge.shape = this.new_shape;
         if (this.new_orientation === null) {
             this.graph.update_edge_orientation(this.edge);
@@ -30,14 +44,24 @@ class UpdateEdgeShapeAction extends Action {
             this.edge.orientation = this.new_orientation;
         this.edge.v1.set_neighbor(this.edge.v2, this.edge.bond_order);
         this.edge.v2.set_neighbor(this.edge.v1, this.edge.bond_order);
-        this.edge.update();
+        this.graph.applySpLinearLayoutAfterEdgeShapeChange(this.edge);
+        if (wasSpLinearV1 && !this.graph.vertexIsSpLinearHybridized(this.edge.v1))
+            this.graph.relaxVertexFromLinearToTrigonalLayout(this.edge.v1);
+        if (wasSpLinearV2 && !this.graph.vertexIsSpLinearHybridized(this.edge.v2))
+            this.graph.relaxVertexFromLinearToTrigonalLayout(this.edge.v2);
+        this.graph.update();
     }
     rollback() {
+        if (this.coords_before) {
+            for (const { vertex, coords } of this.coords_before)
+                vertex.coords = coords;
+            this.coords_before = null;
+        }
         this.edge.shape = this.old_shape;
         this.edge.orientation = this.old_orientation;
         this.edge.v1.set_neighbor(this.edge.v2, this.edge.bond_order);
         this.edge.v2.set_neighbor(this.edge.v1, this.edge.bond_order);
-        this.edge.update();
+        this.graph.update();
     }
 }
 
@@ -138,6 +162,8 @@ class AddBoundVertexAction extends Action {
             this.old_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map(e => e.coords);
             this.added = this.graph.add_bound_vertex_to(this.vertex);
             this.new_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map(e => e.coords);
+            // add_bound_vertex_to only partially updates edges; refresh vertices so bond endpoints use new boundaries.
+            this.graph.update();
         }
     }
     rollback() {

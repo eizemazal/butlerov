@@ -188,6 +188,157 @@ class DrawableGraph extends DrawableBase {
     }
 
     /**
+     * Two-coordinate linear (sp) geometry: triple + anything, or double + double (e.g. C–C≡C, C=C=C).
+     */
+    vertexIsSpLinearHybridized(vertex: DrawableVertex): boolean {
+        if (vertex.neighbors.size !== 2)
+            return false;
+        const edges = this.find_edges_by_vertex(vertex);
+        if (edges.length !== 2)
+            return false;
+        const o1 = edges[0].bond_order;
+        const o2 = edges[1].bond_order;
+        if (o1 === 3 || o2 === 3)
+            return true;
+        return o1 >= 2 && o2 >= 2;
+    }
+
+    /**
+     * If {@link vertex} is sp-linear, place substituents for a linear axis. No-op if already collinear.
+     * - Both neighbors terminal: move both to opposite rays (short fragments).
+     * - One terminal, one internal: move only the terminal to the ray opposite the internal neighbor,
+     *   except when the triple is only toward the chain (e.g. interior CC#CC) — then do not move.
+     * - Neither terminal: do not move (interior multiple bonds in longer chains).
+     */
+    straightenSpLinearVertex(vertex: DrawableVertex): void {
+        const neighbors = Array.from(vertex.neighbors.keys());
+        if (neighbors.length !== 2)
+            return;
+        const edges = this.find_edges_by_vertex(vertex);
+        if (edges.length !== 2)
+            return;
+
+        const [A, B] = neighbors;
+        const isTerminal = (n: DrawableVertex) => n.neighbors.size === 1;
+        const aTerm = isTerminal(A);
+        const bTerm = isTerminal(B);
+
+        if (!aTerm && !bTerm)
+            return;
+
+        const vx = vertex.coords.x;
+        const vy = vertex.coords.y;
+
+        const getEdge = (u: DrawableVertex, v: DrawableVertex) =>
+            this.edges.find(e => (e.v1 === u && e.v2 === v) || (e.v1 === v && e.v2 === u))!;
+        const oA = getEdge(vertex, A).bond_order;
+        const oB = getEdge(vertex, B).bond_order;
+
+        if (aTerm && bTerm) {
+            const dAx = A.coords.x - vx;
+            const dAy = A.coords.y - vy;
+            const dBx = B.coords.x - vx;
+            const dBy = B.coords.y - vy;
+            const lenA = Math.hypot(dAx, dAy);
+            const lenB = Math.hypot(dBx, dBy);
+            if (lenA < 1e-9 || lenB < 1e-9)
+                return;
+            const uAx = dAx / lenA;
+            const uAy = dAy / lenA;
+            const uBx = dBx / lenB;
+            const uBy = dBy / lenB;
+            const dot = uAx * uBx + uAy * uBy;
+            if (dot <= -1 + 1e-6)
+                return;
+            const ux = uAx;
+            const uy = uAy;
+            A.coords = { x: vx + lenA * ux, y: vy + lenA * uy };
+            B.coords = { x: vx - lenB * ux, y: vy - lenB * uy };
+            return;
+        }
+
+        const T = aTerm ? A : B;
+        const I = aTerm ? B : A;
+        const oT = aTerm ? oA : oB;
+        const oI = aTerm ? oB : oA;
+
+        // Triple only toward the chain (not toward terminal): e.g. CC#CC — leave geometry unchanged.
+        if (oI === 3 && oT !== 3)
+            return;
+
+        const dIx = I.coords.x - vx;
+        const dIy = I.coords.y - vy;
+        const dTx = T.coords.x - vx;
+        const dTy = T.coords.y - vy;
+        const lenI = Math.hypot(dIx, dIy);
+        const lenT = Math.hypot(dTx, dTy);
+        if (lenI < 1e-9 || lenT < 1e-9)
+            return;
+        const uIx = dIx / lenI;
+        const uIy = dIy / lenI;
+        const uTx = dTx / lenT;
+        const uTy = dTy / lenT;
+        const dot = uTx * uIx + uTy * uIy;
+        if (dot <= -1 + 1e-6)
+            return;
+        T.coords = {
+            x: vx - lenT * uIx,
+            y: vy - lenT * uIy,
+        };
+    }
+
+    /**
+     * After a bond order change, enforce linear geometry at endpoints that are now sp-hybridized.
+     */
+    applySpLinearLayoutAfterEdgeShapeChange(edge: DrawableEdge): void {
+        for (const v of [edge.v1, edge.v2]) {
+            if (this.vertexIsSpLinearHybridized(v))
+                this.straightenSpLinearVertex(v);
+        }
+    }
+
+    /**
+     * If a two-coordinate vertex is no longer sp-linear but substituents are still drawn collinear (~180°),
+     * rotate one neighbor so the angle at the center is ~120° (standard 2D trigonal layout).
+     */
+    relaxVertexFromLinearToTrigonalLayout(vertex: DrawableVertex): void {
+        const neighbors = Array.from(vertex.neighbors.keys());
+        if (neighbors.length !== 2)
+            return;
+        if (this.vertexIsSpLinearHybridized(vertex))
+            return;
+        const [A, B] = neighbors.sort((a, b) => a.id - b.id);
+        const vx = vertex.coords.x;
+        const vy = vertex.coords.y;
+        const dAx = A.coords.x - vx;
+        const dAy = A.coords.y - vy;
+        const dBx = B.coords.x - vx;
+        const dBy = B.coords.y - vy;
+        const lenA = Math.hypot(dAx, dAy);
+        const lenB = Math.hypot(dBx, dBy);
+        if (lenA < 1e-9 || lenB < 1e-9)
+            return;
+        const uAx = dAx / lenA;
+        const uAy = dAy / lenA;
+        const uBx = dBx / lenB;
+        const uBy = dBy / lenB;
+        const dot = uAx * uBx + uAy * uBy;
+        if (dot > -1 + 1e-3)
+            return;
+        const cos120 = -0.5;
+        const sin120 = Math.sqrt(3) / 2;
+        const rBx = cos120 * uAx - sin120 * uAy;
+        const rBy = sin120 * uAx + cos120 * uAy;
+        const lenR = Math.hypot(rBx, rBy);
+        if (lenR < 1e-9)
+            return;
+        B.coords = {
+            x: vx + lenB * (rBx / lenR),
+            y: vy + lenB * (rBy / lenR),
+        };
+    }
+
+    /**
      * Edges incident to this vertex or to any of its neighbors. When a vertex moves, bond rendering
      * at adjacent atoms (e.g. double-bond miters) can change even though those edges are not
      * incident to the dragged vertex alone.
@@ -414,7 +565,8 @@ class DrawableGraph extends DrawableBase {
      * Adds a bound vertex to existing vertex in the graph. The positioning of the vertex is selected to be visually appealing:
      * - edge length is taken from @see stylesheet.bond_length_px if controller is attached, otherwise from @see get_average_bond_distance
      * - least crowded, regular angles are selected
-     * - other vertices around given vertex may be moved (only if they have no other neighbors other than the given vertex) to produce a good drawing
+     * - with exactly two existing neighbors, the new substituent is placed in the widest angular gap (@see DrawableVertex.least_crowded_angle) and existing neighbors are left in place
+     * - with three or more neighbors, other vertices around the given vertex may be moved (only if they have no other neighbors other than the given vertex) to produce a good drawing
      * @param vertex A vertex to which attach a new edge and a vertex.
      * @returns A DrawableGraph containing newly created @see DrawableEdge and @see DrawableVertex.
      */
@@ -458,6 +610,19 @@ class DrawableGraph extends DrawableBase {
                 ]);
             }
             const new_vertex = this._add_vertex(coordinates);
+            r.edges = [this.bind_vertices(vertex, new_vertex)];
+            r.vertices = [new_vertex];
+            return r;
+        }
+        // Two substituents already: add the third only in the widest angular gap. Do not move existing neighbors —
+        // the previous algorithm redistributed "movable" terminals together with the new atom, which effectively
+        // swapped heteroatoms (e.g. OH) with the new substituent and confused users who relied on the prior layout.
+        if (neighbors.length == 2) {
+            const alfa = vertex.least_crowded_angle();
+            const new_vertex = this._add_vertex({
+                x: vertex.coords.x + bond_len * Math.cos(alfa),
+                y: vertex.coords.y + bond_len * Math.sin(alfa),
+            });
             r.edges = [this.bind_vertices(vertex, new_vertex)];
             r.vertices = [new_vertex];
             return r;

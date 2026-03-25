@@ -2,6 +2,7 @@ import { EdgeShape } from "../src/types";
 import { DrawableGraph } from "../src/main";
 import { EdgeTopology } from "../src/drawables/Edge";
 import { MolConverter } from "../src/converter/MolConverter";
+import { UpdateEdgeShapeAction } from "../src/action/GraphActions";
 
 test("Draw graph programmatically and check topology", () => {
     const graph = new DrawableGraph();
@@ -27,6 +28,53 @@ test("Draw graph programmatically and check topology", () => {
     expect(graph.edges.length).toBe(4);
     graph.update_topology();
     expect(graph.ringsystems.length).toBe(1);
+});
+
+test("Relax linear geometry to ~120° when leaving sp-linear at bond order change", () => {
+    const graph = new DrawableGraph();
+    graph.add_vertex({ x: 0, y: 0 });
+    graph.add_vertex({ x: 50, y: 0 });
+    graph.add_vertex({ x: 100, y: 0 });
+    graph.add_numbering();
+    graph.bind_vertices(graph.vertices[0], graph.vertices[1], EdgeShape.Single);
+    const triple = graph.bind_vertices(graph.vertices[1], graph.vertices[2], EdgeShape.Triple);
+    expect(graph.vertexIsSpLinearHybridized(graph.vertices[1])).toBe(true);
+    new UpdateEdgeShapeAction(graph, triple, EdgeShape.Double).commit();
+    expect(graph.vertexIsSpLinearHybridized(graph.vertices[1])).toBe(false);
+    const v = graph.vertices[1];
+    const n0 = graph.vertices[0];
+    const n2 = graph.vertices[2];
+    const u0x = n0.coords.x - v.coords.x;
+    const u0y = n0.coords.y - v.coords.y;
+    const u2x = n2.coords.x - v.coords.x;
+    const u2y = n2.coords.y - v.coords.y;
+    const l0 = Math.hypot(u0x, u0y);
+    const l2 = Math.hypot(u2x, u2y);
+    const dot = (u0x * u2x + u0y * u2y) / (l0 * l2);
+    expect(dot).toBeGreaterThan(-0.55);
+    expect(dot).toBeLessThan(-0.45);
+});
+
+test("Third substituent on two-coordinate center does not move existing neighbors", () => {
+    const graph = new DrawableGraph();
+    const bond = 60;
+    graph.add_vertex({ x: 100, y: 100 });
+    graph.add_vertex({ x: 100, y: 100 - bond });
+    graph.add_vertex({
+        x: 100 + bond * Math.cos((210 * Math.PI) / 180),
+        y: 100 + bond * Math.sin((210 * Math.PI) / 180),
+    });
+    graph.add_numbering();
+    graph.bind_vertices(graph.vertices[0], graph.vertices[1], EdgeShape.Single);
+    graph.bind_vertices(graph.vertices[0], graph.vertices[2], EdgeShape.Single);
+    const n1 = { ...graph.vertices[1].coords };
+    const n2 = { ...graph.vertices[2].coords };
+    const frag = graph.add_bound_vertex_to(graph.vertices[0]);
+    expect(frag.vertices.length).toBe(1);
+    expect(graph.vertices[1].coords.x).toBeCloseTo(n1.x, 5);
+    expect(graph.vertices[1].coords.y).toBeCloseTo(n1.y, 5);
+    expect(graph.vertices[2].coords.x).toBeCloseTo(n2.x, 5);
+    expect(graph.vertices[2].coords.y).toBeCloseTo(n2.y, 5);
 });
 
 test("Read-write-read mol file and test", () => {
