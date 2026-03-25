@@ -188,7 +188,7 @@ export const defaultStyle: Style = {
     atom_font_family: "Arial",
     atom_label_horizontal_clearance_px: 0,
     atom_label_vertical_clearance_px: 0,
-    atom_charge_font_size: 9,
+    atom_charge_font_size: 11,
     atom_charge_frame_enabled: true,
     atom_charge_distance: 8,
     index_font_size_ratio: 0.8,

@@ -129,6 +129,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
         this.is_active = active;
         this.text.color = this.is_active ? this.controller.theme.atom_active_label_color : this.controller.theme.atom_label_color;
         this.group.findOne("#active_box")?.setAttr("strokeWidth", this.is_active ? 1 : 0);
+        this.updateChargeDisplay();
     }
 
     public hide() {
@@ -194,11 +195,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
             return;
 
         if (this._label_type == LabelType.Atom && this._element.symbol == "C" && this.neighbors.size && this._isotope == 0) {
-            if (this.charge) {
-                this.text.update_with_segments([new DrawableTextSegment("", "", format_charge(this._charge))]);
-            }
-            else
-                this.text.clear();
+            this.text.clear();
             return;
         }
 
@@ -219,10 +216,6 @@ class DrawableVertex extends DrawableBase implements Vertex {
         segments.push(atom_segment);
         if (this.h_count)
             segments.push(new DrawableTextSegment("H", this.h_count > 1 ? this.h_count.toString() : ""));
-        if (this.charge) {
-            const last_segment = segments[segments.length - 1];
-            last_segment.index_rt = format_charge(this._charge);
-        }
         this.text.update_with_segments(segments);
     }
 
@@ -344,8 +337,149 @@ class DrawableVertex extends DrawableBase implements Vertex {
         }
         this.text.font_size = this.controller.style.atom_font_size_px;
         this.text.update();
+        this.updateChargeDisplay();
         if (this.group.getStage())
             this.group.draw();
+    }
+
+    /**
+     * Bisector angles of angular gaps between substituents, widest gaps first (for charge placement).
+     */
+    private charge_candidate_angles(): number[] {
+        const angles = Array.from(this.neighbors.keys()).map(e =>
+            Math.atan2(e.coords.y - this.coords.y, e.coords.x - this.coords.x));
+        if (angles.length === 0)
+            return [7 * Math.PI / 4];
+        angles.sort((a, b) => a - b);
+        const gaps: { diff: number; bisector: number }[] = [];
+        for (let i = 0; i < angles.length; i++) {
+            const prev = i === 0 ? angles.length - 1 : i - 1;
+            const diff = i === 0 ? angles[i] - angles[prev] + 2 * Math.PI : angles[i] - angles[prev];
+            const bisector = angles[prev] + diff / 2;
+            gaps.push({ diff, bisector: (bisector + 2 * Math.PI) % (2 * Math.PI) });
+        }
+        gaps.sort((a, b) => b.diff - a.diff);
+        return gaps.map(g => g.bisector);
+    }
+
+    private static aabbOverlap(
+        ax0: number, ay0: number, ax1: number, ay1: number,
+        bx0: number, by0: number, bx1: number, by1: number,
+    ): boolean {
+        return !(ax1 < bx0 || bx1 < ax0 || ay1 < by0 || by1 < ay0);
+    }
+
+    private static chargeOverlapsAnyLabelBox(
+        qx0: number, qy0: number, qx1: number, qy1: number,
+        boxes: { x0: number; y0: number; x1: number; y1: number }[],
+    ): boolean {
+        for (const b of boxes) {
+            if (DrawableVertex.aabbOverlap(qx0, qy0, qx1, qy1, b.x0, b.y0, b.x1, b.y1))
+                return true;
+        }
+        return false;
+    }
+
+    /**
+     * Draw formal charge as its own Konva subtree (not SegmentedText), in the widest angular gap without overlapping the label.
+     */
+    private updateChargeDisplay() {
+        if (!this.group || !this.controller)
+            return;
+        const style = this.controller.style;
+        const theme = this.controller.theme;
+        const chargeStr =
+            this._label_type === LabelType.Atom && this._charge
+                ? format_charge(this._charge)
+                : "";
+        if (!chargeStr) {
+            this.group.findOne("#charge")?.destroy();
+            return;
+        }
+        let chargeGroup = this.group.findOne("#charge") as Konva.Group | null;
+        if (!chargeGroup) {
+            chargeGroup = new Konva.Group({ id: "charge", listening: false });
+            this.group.add(chargeGroup);
+        }
+        const fill = this.is_active ? theme.atom_active_label_color : theme.atom_label_color;
+        let chargeText = chargeGroup.findOne("#charge_txt") as Konva.Text | null;
+        if (!chargeText) {
+            chargeText = new Konva.Text({
+                id: "charge_txt",
+                listening: false,
+                fontFamily: style.atom_font_family,
+                fontSize: style.atom_charge_font_size,
+                align: "center",
+                verticalAlign: "middle",
+            });
+            chargeGroup.add(chargeText);
+        }
+        chargeText.setAttr("text", chargeStr);
+        chargeText.setAttr("fill", fill);
+        chargeText.setAttr("fontSize", style.atom_charge_font_size);
+        const tw = chargeText.width();
+        const th = chargeText.height();
+        chargeText.x(-tw / 2);
+        chargeText.y(-th / 2);
+
+        const margin = 3;
+        let labelBoxes: { x0: number; y0: number; x1: number; y1: number }[] | null = null;
+        if (!this.text.empty && this.text.group) {
+            const tx = this.text.group.x();
+            const ty = this.text.group.y();
+            let boxes = this.text.getChargeOverlapBoxesInTextGroup().map(b => ({
+                x0: b.x0 + tx - margin,
+                y0: b.y0 + ty - margin,
+                x1: b.x1 + tx + margin,
+                y1: b.y1 + ty + margin,
+            }));
+            if (boxes.length === 0) {
+                const tight = this.text.getTightContentBoxInTextGroup();
+                if (tight) {
+                    boxes = [{
+                        x0: tight.x0 + tx - margin,
+                        y0: tight.y0 + ty - margin,
+                        x1: tight.x1 + tx + margin,
+                        y1: tight.y1 + ty + margin,
+                    }];
+                }
+            }
+            if (boxes.length > 0)
+                labelBoxes = boxes;
+        }
+
+        const candidates = this.charge_candidate_angles();
+        const rStep = 1;
+        const rMax = 120;
+        let theta = candidates[0];
+        let r = style.atom_charge_distance;
+        let placed = false;
+        outer: for (const ang of candidates) {
+            const c = Math.cos(ang);
+            const s = Math.sin(ang);
+            for (let dist = style.atom_charge_distance; dist <= rMax; dist += rStep) {
+                const cx = dist * c;
+                const cy = dist * s;
+                const qx0 = cx - tw / 2;
+                const qy0 = cy - th / 2;
+                const qx1 = cx + tw / 2;
+                const qy1 = cy + th / 2;
+                if (!labelBoxes || !DrawableVertex.chargeOverlapsAnyLabelBox(qx0, qy0, qx1, qy1, labelBoxes)) {
+                    theta = ang;
+                    r = dist;
+                    placed = true;
+                    break outer;
+                }
+            }
+        }
+        if (!placed) {
+            theta = candidates[0];
+            r = rMax;
+        }
+
+        chargeGroup.x(r * Math.cos(theta));
+        chargeGroup.y(r * Math.sin(theta));
+        chargeGroup.moveToTop();
     }
 
     /**
@@ -357,6 +491,8 @@ class DrawableVertex extends DrawableBase implements Vertex {
         // list of positive angles between x axis and corresponding neighboring atom, written as [index, angle in radians]
         let angles: number[] = [];
         angles = Array.from(this.neighbors.keys()).map(e => Math.atan2(e.coords.y - this.coords.y, e.coords.x - this.coords.x));
+        if (angles.length === 0)
+            return 7 * Math.PI / 4;
         angles.sort((a, b) => a > b ? 1 : -1);
         let largest_diff = 0;
         let angle1 = 0;
@@ -466,6 +602,15 @@ class DrawableVertex extends DrawableBase implements Vertex {
         if (this.text.empty)
             return { x: 0, y: 0 };
         return this.text.get_boundary_offset_at(alfa);
+    }
+
+    /**
+     * Label bounding box in `parent` coordinates (same space as bond `point1`/`point2`). Null when there is no label (e.g. skeletal C).
+     */
+    getLabelBoundsRelativeTo(parent: Konva.Container | null | undefined): { x: number; y: number; width: number; height: number } | null {
+        if (!this.text.group || this.text.empty)
+            return null;
+        return this.text.group.getClientRect({ relativeTo: parent ?? undefined });
     }
 }
 

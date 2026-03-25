@@ -318,6 +318,139 @@ class DrawableEdge extends DrawableBase {
         return x;
     }
 
+    /**
+     * Intersection of an infinite line with a closed axis-aligned rectangle (slab method).
+     *
+     * @param ox - Origin x of the line **P(t) = (ox, oy) + t · (dx, dy)** (world / same space as the AABB).
+     * @param oy - Origin y of the line.
+     * @param dx - X component of the line direction (need not be unit length; only sign and ratio matter).
+     * @param dy - Y component of the line direction.
+     * @param minX - Left edge of the AABB.
+     * @param minY - Top edge of the AABB.
+     * @param maxX - Right edge of the AABB.
+     * @param maxY - Bottom edge of the AABB.
+     * @returns `[tMin, tMax]` — inclusive interval of **t** for which **P(t)** lies inside the closed box, or `null` if the line misses the box (or is degenerate outside it).
+     */
+    private lineAABBIntersectInterval(
+        ox: number,
+        oy: number,
+        dx: number,
+        dy: number,
+        minX: number,
+        minY: number,
+        maxX: number,
+        maxY: number,
+    ): [number, number] | null {
+        const EPS = 1e-9;
+        let t0 = -Infinity;
+        let t1 = Infinity;
+        if (Math.abs(dx) < EPS) {
+            if (ox < minX || ox > maxX)
+                return null;
+        }
+        else {
+            const tx1 = (minX - ox) / dx;
+            const tx2 = (maxX - ox) / dx;
+            const txEnter = Math.min(tx1, tx2);
+            const txExit = Math.max(tx1, tx2);
+            t0 = Math.max(t0, txEnter);
+            t1 = Math.min(t1, txExit);
+        }
+        if (Math.abs(dy) < EPS) {
+            if (oy < minY || oy > maxY)
+                return null;
+        }
+        else {
+            const ty1 = (minY - oy) / dy;
+            const ty2 = (maxY - oy) / dy;
+            const tyEnter = Math.min(ty1, ty2);
+            const tyExit = Math.max(ty1, ty2);
+            t0 = Math.max(t0, tyEnter);
+            t1 = Math.min(t1, tyExit);
+        }
+        if (t0 > t1)
+            return null;
+        return [t0, t1];
+    }
+
+    /**
+     * Shortens the double-bond stroke along the bond so the **near-vertex** end (parameter **t ≤ 0** on the ray from
+     * **p0World** along **d**) does not enter the padded atom label box.
+     *
+     * @param xMiter - Proposed ray parameter **t** (distance along **d** if **d** is unit length) for the miter corner on
+     *   the side of **p0World** toward negative **t**; same convention as local bond-axis coordinates used in `draw_double`.
+     * @param vertex - Vertex whose label bounds are tested (typically the endpoint of this bond segment).
+     * @param p0World - World-space point on the offset double-bond line (origin of the ray **p0World + t · d**).
+     * @param d - Bond direction in world space (same frame as `p0World` and `getLabelBoundsRelativeTo`).
+     * @returns Possibly increased **t** so the segment does not overlap the label AABB on the **t ≤ 0** side; unchanged if
+     *   there is no label or the line does not hit the box in that half.
+     */
+    private clampDoubleBondMiterBeforeLabel(
+        xMiter: number,
+        vertex: DrawableVertex,
+        p0World: Coords,
+        d: Coords,
+    ): number {
+        const parent = this.group?.getParent() ?? undefined;
+        const bounds = vertex.getLabelBoundsRelativeTo(parent);
+        if (!bounds)
+            return xMiter;
+        const pad = 1.5;
+        const minX = bounds.x - pad;
+        const minY = bounds.y - pad;
+        const maxX = bounds.x + bounds.width + pad;
+        const maxY = bounds.y + bounds.height + pad;
+        const interval = this.lineAABBIntersectInterval(p0World.x, p0World.y, d.x, d.y, minX, minY, maxX, maxY);
+        if (!interval)
+            return xMiter;
+        const [tmin, tmax] = interval;
+        if (tmin > 0)
+            return xMiter;
+        const tEdge = Math.min(0, tmax);
+        return Math.max(xMiter, tEdge);
+    }
+
+    /**
+     * Shortens the double-bond stroke along the bond so the **far-vertex** end (parameter **t ≥ baseline** on the ray
+     * **p0World + t · d**) does not enter the padded atom label box past the first intersection.
+     *
+     * @param xMiter - Proposed ray parameter **t** for the outer miter corner toward positive **t** (farther along **d**).
+     * @param vertex - Vertex whose label bounds are tested (typically the other endpoint of the bond).
+     * @param p0World - World-space origin of the ray **p0World + t · d** (same offset line as for the “before” clamp).
+     * @param d - Bond direction in world space.
+     * @param baseline - Minimum **t** that is already committed (e.g. inner shortened end **x0** or bond length **L**);
+     *   the clamp only considers intersections with the label in **[baseline, +∞)**.
+     * @returns Possibly reduced **t** so the segment from **baseline** to **t** stays outside the label; unchanged if there
+     *   is no label or no overlap past **baseline**.
+     */
+    private clampDoubleBondMiterAfterLabel(
+        xMiter: number,
+        vertex: DrawableVertex,
+        p0World: Coords,
+        d: Coords,
+        baseline: number,
+    ): number {
+        const parent = this.group?.getParent() ?? undefined;
+        const bounds = vertex.getLabelBoundsRelativeTo(parent);
+        if (!bounds)
+            return xMiter;
+        const pad = 1.5;
+        const minX = bounds.x - pad;
+        const minY = bounds.y - pad;
+        const maxX = bounds.x + bounds.width + pad;
+        const maxY = bounds.y + bounds.height + pad;
+        const interval = this.lineAABBIntersectInterval(p0World.x, p0World.y, d.x, d.y, minX, minY, maxX, maxY);
+        if (!interval)
+            return xMiter;
+        const [tmin, tmax] = interval;
+        if (tmax < baseline)
+            return xMiter;
+        const lo = Math.max(baseline, tmin);
+        if (lo > tmax)
+            return xMiter;
+        return Math.min(xMiter, lo);
+    }
+
     draw_double() {
         const stylesheet = this.controller?.style;
         if (!stylesheet)
@@ -334,10 +467,16 @@ class DrawableEdge extends DrawableBase {
             const half = stylesheet.bond_spacing_px / 2;
             const y0a = -half;
             const y0b = half;
-            const x0a = this.doubleBondMiterAlongAxis(this.v1, this.v2, y0a, d, p, v1l, 0, "min");
-            const x0b = this.doubleBondMiterAlongAxis(this.v1, this.v2, y0b, d, p, v1l, 0, "min");
-            const x1a = this.doubleBondMiterAlongAxis(this.v2, this.v1, y0a, d, p, v2l, L, "max");
-            const x1b = this.doubleBondMiterAlongAxis(this.v2, this.v1, y0b, d, p, v2l, L, "max");
+            let x0a = this.doubleBondMiterAlongAxis(this.v1, this.v2, y0a, d, p, v1l, 0, "min");
+            let x0b = this.doubleBondMiterAlongAxis(this.v1, this.v2, y0b, d, p, v1l, 0, "min");
+            let x1a = this.doubleBondMiterAlongAxis(this.v2, this.v1, y0a, d, p, v2l, L, "max");
+            let x1b = this.doubleBondMiterAlongAxis(this.v2, this.v1, y0b, d, p, v2l, L, "max");
+            const p0a = { x: this.point1.x + y0a * p.x, y: this.point1.y + y0a * p.y };
+            const p0b = { x: this.point1.x + y0b * p.x, y: this.point1.y + y0b * p.y };
+            x0a = this.clampDoubleBondMiterBeforeLabel(x0a, this.v1, p0a, d);
+            x0b = this.clampDoubleBondMiterBeforeLabel(x0b, this.v1, p0b, d);
+            x1a = this.clampDoubleBondMiterAfterLabel(x1a, this.v2, p0a, d, L);
+            x1b = this.clampDoubleBondMiterAfterLabel(x1b, this.v2, p0b, d, L);
             lines[0].setAttr("points", [x0a, y0a, x1a, y0a]);
             lines[1].setAttr("points", [x0b, y0b, x1b, y0b]);
         }
@@ -345,10 +484,13 @@ class DrawableEdge extends DrawableBase {
             const sign = this.orientation == EdgeOrientation.Right ? 1 : -1;
             const yOff = sign * stylesheet.bond_spacing_px;
             const shortStart = L * stylesheet.double_bond_shortening / 2;
-            const shortEnd = L * (1 - stylesheet.double_bond_shortening / 2);
+            let shortEnd = L * (1 - stylesheet.double_bond_shortening / 2);
             // Keep shortened ends toward v2; only adjust start at v1 so the offset line does not cross adjacent bonds.
-            const x0m = this.doubleBondMiterAlongAxis(this.v1, this.v2, yOff, d, p, v1l, 0, "min");
-            const x0 = Math.max(shortStart, x0m);
+            let x0m = this.doubleBondMiterAlongAxis(this.v1, this.v2, yOff, d, p, v1l, 0, "min");
+            let x0 = Math.max(shortStart, x0m);
+            const pOff = { x: this.point1.x + yOff * p.x, y: this.point1.y + yOff * p.y };
+            x0 = this.clampDoubleBondMiterBeforeLabel(x0, this.v1, pOff, d);
+            shortEnd = this.clampDoubleBondMiterAfterLabel(shortEnd, this.v2, pOff, d, x0);
             lines[0].setAttr("points", [0, 0, L, 0]);
             lines[1].setAttr("points", [x0, yOff, shortEnd, yOff]);
         }

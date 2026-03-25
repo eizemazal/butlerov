@@ -282,6 +282,31 @@ export class DrawableTextSegment extends DrawableBase implements TextSegment {
             elem.destroy();
     }
 
+    /**
+     * Per-glyph bounds in segment group space (Konva-measured). Using these for charge overlap avoids treating
+     * empty regions (e.g. upper-right) as occupied when a subscript widens the segment's overall AABB.
+     */
+    public getGlyphClientRectsInGroupSpace(): { x0: number; y0: number; x1: number; y1: number }[] {
+        if (!this.group)
+            return [];
+        const boxes: { x0: number; y0: number; x1: number; y1: number }[] = [];
+        for (const id of ["lt", "txt", "rt", "rb"]) {
+            const node = this.group.findOne(`#${id}`) as Konva.Text | undefined;
+            if (!node || !node.visible())
+                continue;
+            const r = node.getClientRect({ relativeTo: this.group });
+            if (r.width <= 0 || r.height <= 0)
+                continue;
+            boxes.push({
+                x0: r.x,
+                y0: r.y,
+                x1: r.x + r.width,
+                y1: r.y + r.height,
+            });
+        }
+        return boxes;
+    }
+
 }
 
 
@@ -313,10 +338,11 @@ export class DrawableSegmentedText extends DrawableBase implements SegmentedText
         this.controller = controller;
         if (!this.group)
             this.group = new Konva.Group();
+        this.group.setAttr("id", "text");
         for (const [idx, segment] of this.segments.entries()) {
             const segment_group = segment.attach(controller);
             segment_group.setAttr("id", `s${idx}`);
-            this.group.add();
+            this.group.add(segment_group);
         }
         return this.group;
     }
@@ -415,6 +441,55 @@ export class DrawableSegmentedText extends DrawableBase implements SegmentedText
 
     public get empty() {
         return this.segments.length == 0;
+    }
+
+    /**
+     * Union of per-segment layout bounds in the text group coordinate system (tighter than Konva getClientRect on the outer group).
+     */
+    public getTightContentBoxInTextGroup(): { x0: number; y0: number; x1: number; y1: number } | null {
+        if (this.empty)
+            return null;
+        let x0 = Infinity;
+        let y0 = Infinity;
+        let x1 = -Infinity;
+        let y1 = -Infinity;
+        for (const seg of this.segments) {
+            if (!seg.group)
+                continue;
+            const sx = seg.x;
+            const sy = seg.y;
+            x0 = Math.min(x0, sx + seg.left_boundary);
+            x1 = Math.max(x1, sx + seg.right_boundary);
+            y0 = Math.min(y0, sy + seg.top_boundary);
+            y1 = Math.max(y1, sy + seg.bottom_boundary);
+        }
+        if (x0 === Infinity)
+            return null;
+        return { x0, y0, x1, y1 };
+    }
+
+    /**
+     * Boxes for charge-overlap tests: union of per-glyph rects in text group space (not one outer AABB).
+     */
+    public getChargeOverlapBoxesInTextGroup(): { x0: number; y0: number; x1: number; y1: number }[] {
+        if (this.empty)
+            return [];
+        const out: { x0: number; y0: number; x1: number; y1: number }[] = [];
+        for (const seg of this.segments) {
+            if (!seg.group)
+                continue;
+            const sx = seg.x;
+            const sy = seg.y;
+            for (const b of seg.getGlyphClientRectsInGroupSpace()) {
+                out.push({
+                    x0: b.x0 + sx,
+                    y0: b.y0 + sy,
+                    x1: b.x1 + sx,
+                    y1: b.y1 + sy,
+                });
+            }
+        }
+        return out;
     }
 
     public clear() {
