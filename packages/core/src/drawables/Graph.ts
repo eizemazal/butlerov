@@ -229,10 +229,12 @@ class DrawableGraph extends DrawableBase {
         const vx = vertex.coords.x;
         const vy = vertex.coords.y;
 
-        const getEdge = (u: DrawableVertex, v: DrawableVertex) =>
-            this.edges.find(e => (e.v1 === u && e.v2 === v) || (e.v1 === v && e.v2 === u))!;
-        const oA = getEdge(vertex, A).bond_order;
-        const oB = getEdge(vertex, B).bond_order;
+        const edgeToA = edges.find(e => e.v1 === A || e.v2 === A);
+        const edgeToB = edges.find(e => e.v1 === B || e.v2 === B);
+        if (!edgeToA || !edgeToB)
+            return;
+        const oA = edgeToA.bond_order;
+        const oB = edgeToB.bond_order;
 
         if (aTerm && bTerm) {
             const dAx = A.coords.x - vx;

@@ -47,11 +47,14 @@ test("copy_selection_to_clipboard stores graph, anchor on hovered vertex, and cl
 
     editor.copy_selection_to_clipboard();
     expect(editor.has_selection()).toBe(false);
-    expect(editor.clipboard).not.toBeNull();
-    expect(editor.clipboard!.graph.vertices.length).toBe(2);
-    expect(editor.clipboard!.graph.edges.length).toBe(1);
-    expect(editor.clipboard!.anchor_vertex_index).toBe(1);
-    expect(editor.clipboard!.anchor_edge_index).toBeNull();
+    const clipboard = editor.clipboard;
+    expect(clipboard).not.toBeNull();
+    if (!clipboard)
+        throw new Error("expected clipboard after copy");
+    expect(clipboard.graph.vertices.length).toBe(2);
+    expect(clipboard.graph.edges.length).toBe(1);
+    expect(clipboard.anchor_vertex_index).toBe(1);
+    expect(clipboard.anchor_edge_index).toBeNull();
 });
 
 test("copy_selection_to_clipboard anchors on hovered edge", () => {
@@ -65,8 +68,12 @@ test("copy_selection_to_clipboard anchors on hovered edge", () => {
     expect(editor.active_edge).toBe(bond);
 
     editor.copy_selection_to_clipboard();
-    expect(editor.clipboard!.anchor_vertex_index).toBeNull();
-    expect(editor.clipboard!.anchor_edge_index).toBe(0);
+    const clipboardEdge = editor.clipboard;
+    expect(clipboardEdge).not.toBeNull();
+    if (!clipboardEdge)
+        throw new Error("expected clipboard after copy");
+    expect(clipboardEdge.anchor_vertex_index).toBeNull();
+    expect(clipboardEdge.anchor_edge_index).toBe(0);
 });
 
 test("paste at pointer merges a copied fragment", () => {

@@ -538,7 +538,7 @@ class DrawableEdge extends DrawableBase {
             const shortStart = L * stylesheet.double_bond_shortening / 2;
             let shortEnd = L * (1 - stylesheet.double_bond_shortening / 2);
             // Keep shortened ends toward v2; only adjust start at v1 so the offset line does not cross adjacent bonds.
-            let x0m = this.doubleBondMiterAlongAxis(this.v1, this.v2, yOff, d, p, v1l, 0, "min");
+            const x0m = this.doubleBondMiterAlongAxis(this.v1, this.v2, yOff, d, p, v1l, 0, "min");
             let x0 = Math.max(shortStart, x0m);
             const pOff = { x: this.point1.x + yOff * p.x, y: this.point1.y + yOff * p.y };
             x0 = this.clampDoubleBondMiterBeforeLabel(x0, this.v1, pOff, d);
