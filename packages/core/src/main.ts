@@ -28,7 +28,9 @@ import {
     DocumentMetadata,
     BUTLEROV_DOCUMENT_FORMAT,
     Document,
-    Converter
+    Converter,
+    GraphSelectionDescriptor,
+    GraphClipboardContent
 } from "./types";
 
 export {
@@ -70,5 +72,7 @@ export type {
     DrawableObject,
     DocumentMetadata,
     Document,
-    Converter
+    Converter,
+    GraphSelectionDescriptor,
+    GraphClipboardContent
 };

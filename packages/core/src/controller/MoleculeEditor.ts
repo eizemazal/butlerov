@@ -2,7 +2,8 @@ import Konva from "konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { DrawableEdge } from "../drawables/Edge";
 import { DrawableGraph } from "../drawables/Graph";
-import { Coords, LabelType, EdgeShape, EdgeOrientation, Graph, Drawable } from "../types";
+import { Coords, LabelType, EdgeShape, EdgeOrientation, Graph, Drawable, Document, BUTLEROV_DOCUMENT_FORMAT, Converter, GraphSelectionDescriptor, GraphClipboardContent } from "../types";
+import { Action, ActionDirection } from "../action/Action";
 import { Controller, ControllerSettings } from "./Controller";
 import { DrawableVertex } from "../drawables/Vertex";
 import { ChemicalElements } from "../lib/elements";
@@ -27,10 +28,9 @@ import {
     SymmetrizeAlongEdgeAction,
     SymmetrizeAtVertexAction,
     UpdateEdgeShapeAction,
-    ExpandLinearAction
+    ExpandLinearAction,
+    MergeGraphAction
 } from "../action/GraphActions";
-import { ActionDirection } from "../action/Action";
-import { BUTLEROV_DOCUMENT_FORMAT, Converter, Document } from "../types";
 import { DrawableBase } from "../drawables/Base";
 import { TextBox } from "./TextBox";
 import { get_molecule_rect } from "../lib/graph";
@@ -88,12 +88,21 @@ export class MoleculeEditor extends Controller {
     _readonly: boolean;
     panning: boolean;
     text_box: TextBox;
+    /** Vertices currently in the selection set (visual + clipboard source). */
+    selection_vertices: Set<DrawableVertex>;
+    /** Edges with both endpoints in the selection. */
+    selection_edges: Set<DrawableEdge>;
+    /**
+     * Last Copy payload: serialized subgraph and optional anchor (hovered vertex or edge at copy time).
+     * Used for Paste and for future paste options when opening menus on a vertex or edge.
+     */
+    clipboard: GraphClipboardContent | null;
 
     constructor(settings: ControllerSettings) {
         super(settings);
         this.document_container = new DocumentContainer(this, this.drawing_layer);
         this.background_layer.on("click", (evt: KonvaEventObject<MouseEvent>) => { this.on_background_click(evt); });
-        this.background_layer.on("contextmenu", (evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(); });
+        this.background_layer.on("contextmenu", (evt: KonvaEventObject<MouseEvent>) => { evt.evt.preventDefault(); this.toggle_menu(false); });
         this.background_layer.on("mousemove", (evt: KonvaEventObject<MouseEvent>) => { this.on_background_mousemove(evt); });
         this.background_layer.on("mouseover", () => { this.on_background_mouseover(); });
         this.stage.on("mouseleave", () => { this.on_stage_mouseleave(); });
@@ -111,11 +120,123 @@ export class MoleculeEditor extends Controller {
         this._readonly = false;
         this.panning = false;
         this.text_box = new TextBox(this);
+        this.selection_vertices = new Set();
+        this.selection_edges = new Set();
+        this.clipboard = null;
     }
 
     protected on_action(direction: ActionDirection): void {
-        if (direction == ActionDirection.UNDO || direction == ActionDirection.REDO)
+        if (direction == ActionDirection.UNDO || direction == ActionDirection.REDO) {
             this.deactivate_edges_vertices();
+            this.clear_selection();
+        }
+    }
+
+    commit_action(action: Action): void {
+        this.clear_selection();
+        super.commit_action(action);
+    }
+
+    /** True when there is at least one selected vertex or edge. */
+    has_selection(): boolean {
+        return this.selection_vertices.size > 0 || this.selection_edges.size > 0;
+    }
+
+    /** Indices of selected vertices and edges in the current document graph. */
+    get selection_descriptor(): GraphSelectionDescriptor {
+        const g = this.document_container.graph;
+        return {
+            vertexIndices: [...this.selection_vertices].map(v => g.vertices.indexOf(v)).filter(i => i >= 0),
+            edgeIndices: [...this.selection_edges].map(e => g.edges.indexOf(e)).filter(i => i >= 0),
+        };
+    }
+
+    clear_selection(): void {
+        for (const v of this.selection_vertices)
+            v.selected = false;
+        for (const e of this.selection_edges)
+            e.selected = false;
+        this.selection_vertices.clear();
+        this.selection_edges.clear();
+    }
+
+    /**
+     * Select every vertex and edge of the connected component containing the given element.
+     */
+    select_linked_component(seed: DrawableVertex | DrawableEdge): void {
+        this.clear_selection();
+        const anchor = seed instanceof DrawableVertex ? seed : seed.v1;
+        const comp = this.document_container.graph.subgraph_with(anchor);
+        for (const v of comp.vertices) {
+            this.selection_vertices.add(v);
+            v.selected = true;
+        }
+        for (const e of comp.edges) {
+            this.selection_edges.add(e);
+            e.selected = true;
+        }
+    }
+
+    private build_selection_subgraph_model(): { graph: Graph; verts: DrawableVertex[]; edges: DrawableEdge[] } {
+        const verts = [...this.selection_vertices];
+        const edges = [...this.selection_edges].filter(e =>
+            this.selection_vertices.has(e.v1) && this.selection_vertices.has(e.v2));
+        const subgraph = new DrawableGraph();
+        subgraph.vertices = verts;
+        subgraph.edges = edges;
+        return { graph: subgraph.as_model(), verts, edges };
+    }
+
+    copy_selection_to_clipboard(): void {
+        if (!this.has_selection())
+            return;
+        const { graph, verts, edges } = this.build_selection_subgraph_model();
+        let anchor_vertex_index: number | null = null;
+        let anchor_edge_index: number | null = null;
+        if (this.active_vertex && this.selection_vertices.has(this.active_vertex)) {
+            const i = verts.indexOf(this.active_vertex);
+            if (i >= 0)
+                anchor_vertex_index = i;
+        }
+        else if (this.active_edge && this.selection_edges.has(this.active_edge)) {
+            const i = edges.indexOf(this.active_edge);
+            if (i >= 0)
+                anchor_edge_index = i;
+        }
+        this.clipboard = { graph, anchor_vertex_index, anchor_edge_index };
+        this.clear_selection();
+    }
+
+    paste_clipboard_at_pointer(): void {
+        if (!this.clipboard?.graph?.vertices?.length)
+            return;
+        const pos = this.drawing_layer.getRelativePointerPosition();
+        if (!pos)
+            return;
+        const fragment = new DrawableGraph(this.clipboard.graph);
+        const n = fragment.vertices.length;
+        const cx = fragment.vertices.reduce((s, v) => s + v.x, 0) / n;
+        const cy = fragment.vertices.reduce((s, v) => s + v.y, 0) / n;
+        fragment.apply_translation({ x: pos.x - cx, y: pos.y - cy });
+        this.commit_action(new MergeGraphAction(this.document_container.graph, fragment));
+    }
+
+    /**
+     * Whether the hovered drawable (see {@link active_vertex} / {@link active_edge}) is part of the selection.
+     * Hover always sets active edge or vertex, so we need no hit-testing walk.
+     */
+    private pointer_over_selection(): boolean {
+        if (!this.has_selection())
+            return false;
+        if (this.active_vertex && this.selection_vertices.has(this.active_vertex))
+            return true;
+        if (this.active_edge && this.selection_edges.has(this.active_edge))
+            return true;
+        return false;
+    }
+
+    private clear_clipboard(): void {
+        this.clipboard = null;
     }
 
     public get graph(): Graph {
@@ -123,6 +244,8 @@ export class MoleculeEditor extends Controller {
     }
 
     public set graph(graph: Graph) {
+        this.clear_selection();
+        this.clear_clipboard();
         this.clear_actions();
         this.document_container.graph.read_model(graph);
         this.draw_background();
@@ -133,6 +256,8 @@ export class MoleculeEditor extends Controller {
     }
 
     public set document(document: Document) {
+        this.clear_selection();
+        this.clear_clipboard();
         this.document_container.document = document;
         if (this.document.style)
             this.style = this.document.style;
@@ -152,7 +277,7 @@ export class MoleculeEditor extends Controller {
             drawable.group?.on("click", (evt) => this.on_vertex_click(drawable, evt));
             drawable.group?.on("contextmenu", (evt) => {
                 evt.evt.preventDefault();
-                this.toggle_menu();
+                this.toggle_menu(false);
             });
             drawable.group?.on("mousedown", () => this.on_vertex_mousedown(drawable));
             drawable.group?.on("mouseup", () => this.on_vertex_mouseup(drawable));
@@ -163,7 +288,7 @@ export class MoleculeEditor extends Controller {
             drawable.group?.on("click", (evt) => this.on_edge_click(drawable, evt));
             drawable.group?.on("contextmenu", (evt) => {
                 evt.evt.preventDefault();
-                this.toggle_menu();
+                this.toggle_menu(false);
             });
         }
     }
@@ -202,6 +327,8 @@ export class MoleculeEditor extends Controller {
      * @param converter an instance of Converter
      */
     load(s: string, converter: Converter) {
+        this.clear_selection();
+        this.clear_clipboard();
         this.clear_actions();
         if (converter.graph_from_string)
             this.document_container.graph.read_model(converter.graph_from_string(s));
@@ -229,6 +356,8 @@ export class MoleculeEditor extends Controller {
      */
 
     clear(from_userspace = false) {
+        this.clear_selection();
+        this.clear_clipboard();
         if (from_userspace)
             this.commit_action(new ClearGraphAction(this.document_container.graph));
         else {
@@ -329,15 +458,20 @@ export class MoleculeEditor extends Controller {
         }
     }
 
-    toggle_menu() {
+    toggle_menu(prefer_selection_menu = false) {
         if (this.menu.visible) {
             this.menu.visible = false;
             return;
         }
 
-        if (this.active_edge) {
+        if (prefer_selection_menu && this.has_selection() && this.pointer_over_selection()) {
+            this.menu.clear_buttons();
+            this.menu.add_button(new MenuButton("C", "Copy", () => { this.copy_selection_to_clipboard(); }));
+        }
+        else if (this.active_edge) {
             this.menu.clear_buttons();
             const edge = this.active_edge;
+            this.menu.add_button(new MenuButton("s", "Select molecule", () => { this.select_linked_component(edge); }));
             this.menu.add_button(new MenuButton("1", "Single", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.Single));
             }));
@@ -368,9 +502,9 @@ export class MoleculeEditor extends Controller {
             this.menu.add_button(new MenuButton("a", "Double either", () => {
                 this.commit_action(new UpdateEdgeShapeAction(this.document_container.graph, edge, EdgeShape.DoubleEither));
             }));
-            this.menu.add_button(new MenuButton("R", "Fuse ring", () => { this.menu_fuse_ring(edge); }));
+            this.menu.add_button(new MenuButton("r", "Fuse ring", () => { this.menu_fuse_ring(edge); }));
             if ((edge.v1.neighbors.size == 1) != (edge.v2.neighbors.size == 1))
-                this.menu.add_button(new MenuButton("S", "Symmetrize along", () => { this.commit_action(new SymmetrizeAlongEdgeAction(this.document_container.graph, edge)); }));
+                this.menu.add_button(new MenuButton("y", "Symmetrize along", () => { this.commit_action(new SymmetrizeAlongEdgeAction(this.document_container.graph, edge)); }));
             this.menu.add_button(new MenuButton("x", "Delete", () => {
                 this.commit_action(new DeleteEdgeAction(this.document_container.graph, edge));
             }));
@@ -378,17 +512,18 @@ export class MoleculeEditor extends Controller {
         else if (this.active_vertex) {
             this.menu.clear_buttons();
             const vertex = this.active_vertex;
-            this.menu.add_button(new MenuButton("R", "Attach ring here", () => { this.menu_attach_ring(vertex); }));
-            this.menu.add_button(new MenuButton("C", "Add normal chain", () => { this.menu_chain(vertex); }));
-            this.menu.add_button(new MenuButton("E", "Edit", () => { this.edit_vertex_label(vertex); }));
+            this.menu.add_button(new MenuButton("s", "Select molecule", () => { this.select_linked_component(vertex); }));
+            this.menu.add_button(new MenuButton("r", "Attach ring here", () => { this.menu_attach_ring(vertex); }));
+            this.menu.add_button(new MenuButton("c", "Add normal chain", () => { this.menu_chain(vertex); }));
+            this.menu.add_button(new MenuButton("e", "Edit", () => { this.edit_vertex_label(vertex); }));
             if (vertex.label_type == LabelType.Atom && vertex.element?.isotopes.length != 0) {
-                this.menu.add_button(new MenuButton("I", "Isotopes", () => { this.menu_isotopes(vertex); }));
+                this.menu.add_button(new MenuButton("i", "Isotopes", () => { this.menu_isotopes(vertex); }));
             }
             if (vertex.label_type == LabelType.Linear && vertex.neighbors.size == 1) {
-                this.menu.add_button(new MenuButton("P", "Expand", () => { this.commit_action(new ExpandLinearAction(this.document_container.graph, vertex)); }));
+                this.menu.add_button(new MenuButton("p", "Expand", () => { this.commit_action(new ExpandLinearAction(this.document_container.graph, vertex)); }));
             }
             if (vertex.neighbors.size == 1)
-                this.menu.add_button(new MenuButton("S", "Symmetry", () => { this.menu_symmetry_vertex(vertex); }));
+                this.menu.add_button(new MenuButton("y", "Symmetry", () => { this.menu_symmetry_vertex(vertex); }));
             this.menu.add_button(new MenuButton("x", "Delete", () => {
                 this.commit_action(new DeleteVertexAction(this.document_container.graph, vertex));
             }));
@@ -396,6 +531,8 @@ export class MoleculeEditor extends Controller {
         else {
             this.menu.clear_buttons();
             this.menu.add_button(new MenuButton("c", "Center view", () => { this.center_view(); }));
+            if (this.clipboard?.graph?.vertices?.length)
+                this.menu.add_button(new MenuButton("p", "Paste", () => { this.paste_clipboard_at_pointer(); }));
             this.menu.add_button(new MenuButton("z", "Zoom", () => { this.menu_zoom(); }));
             this.menu.add_button(new MenuButton("f", "Zoom to fit", () => { this.zoom_to_fit(); }));
             this.menu.add_button(new MenuButton("h", "Strip hydrogens", () => { this.commit_action(new StripHAction(this.document_container.graph)); }));
@@ -481,8 +618,8 @@ export class MoleculeEditor extends Controller {
 
     menu_confirm_clear() {
         this.menu.clear_buttons();
-        this.menu.add_button(new MenuButton("Y", "Really clear?", () => { this.clear(true); }));
-        this.menu.add_button(new MenuButton("N", "Cancel", () => { return; }));
+        this.menu.add_button(new MenuButton("y", "Really clear?", () => { this.clear(true); }));
+        this.menu.add_button(new MenuButton("n", "Cancel", () => { return; }));
         this.menu.visible = true;
     }
 
@@ -528,7 +665,7 @@ export class MoleculeEditor extends Controller {
         if (this._readonly)
             return;
         if (evt.key == " ") {
-            this.toggle_menu();
+            this.toggle_menu(true);
             return;
         }
         if (this.menu.visible) {

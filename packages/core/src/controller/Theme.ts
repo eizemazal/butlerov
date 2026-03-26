@@ -45,6 +45,12 @@ export interface Theme {
      */
     background_fill_color: string;
 
+    /**
+     * Fill/stroke color for selected atoms and bonds (semi-transparent `rgba(...)` works well).
+     * @defaultValue `rgba(55, 135, 255, 0.35)`
+     */
+    selection_halo_color: string;
+
 }
 
 export interface Style {
@@ -158,6 +164,13 @@ export interface Style {
      */
     bond_snap_degrees: number;
 
+    /**
+     * Extra half-width (bonds) or radius padding (implicit carbons) for the selection halo, in pixels.
+     * Total halo size uses bond thickness and spacing plus this value.
+     * @defaultValue 14
+     */
+    selection_halo_extra_px: number;
+
     themes: Theme[];
 }
 
@@ -170,6 +183,7 @@ export const lightTheme: Theme = {
     bond_stroke_color: "#555",
     bond_active_color: "red",
     background_fill_color: "white",
+    selection_halo_color: "rgba(55, 135, 255, 0.35)",
 };
 
 export const darkTheme: Theme = {
@@ -180,6 +194,7 @@ export const darkTheme: Theme = {
     bond_stroke_color: "#ffffff",
     bond_active_color: "#ff7c7c",
     background_fill_color: "#212121",
+    selection_halo_color: "rgba(55, 135, 255, 0.35)",
 };
 
 export const defaultStyle: Style = {
@@ -203,5 +218,6 @@ export const defaultStyle: Style = {
     bond_either_period_px: 2.5,
     bond_hit_stroke_width: 10,
     bond_snap_degrees: 30,
+    selection_halo_extra_px: 4,
     themes: [lightTheme, darkTheme],
 };

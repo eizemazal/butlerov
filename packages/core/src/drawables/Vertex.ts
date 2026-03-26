@@ -26,6 +26,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
     protected text: DrawableSegmentedText = new DrawableSegmentedText();
     protected _neighbors = new Map<DrawableVertex, number>();
     protected is_active = false;
+    protected _selected = false;
     protected _coords: Coords = { x: 0, y: 0 };
     protected _charge = 0;
     protected _isotope = 0;
@@ -130,6 +131,71 @@ class DrawableVertex extends DrawableBase implements Vertex {
         this.text.color = this.is_active ? this.controller.theme.atom_active_label_color : this.controller.theme.atom_label_color;
         this.group.findOne("#active_box")?.setAttr("strokeWidth", this.is_active ? 1 : 0);
         this.updateChargeDisplay();
+        this.syncSelectionUnderlay();
+    }
+
+    public get selected(): boolean {
+        return this._selected;
+    }
+
+    public set selected(selected: boolean) {
+        this._selected = selected;
+        this.syncSelectionUnderlay();
+        if (this.group?.getStage())
+            this.group.draw();
+    }
+
+    /**
+     * Selection halo: filled rounded shape behind the atom, matching edge bonds ({@link DrawableEdge} underlay).
+     */
+    private syncSelectionUnderlay(): void {
+        if (!this.group || !this.controller)
+            return;
+        const stylesheet = this.controller.style;
+        let underlay = this.group.findOne("#selection_underlay") as Konva.Rect | null;
+        if (!this._selected) {
+            underlay?.visible(false);
+            return;
+        }
+        const haloColor = this.controller.theme.selection_halo_color;
+        if (!underlay) {
+            underlay = new Konva.Rect({
+                id: "selection_underlay",
+                listening: false,
+                fill: haloColor,
+                strokeEnabled: false,
+            });
+            this.group.add(underlay);
+        }
+        underlay.visible(true);
+        underlay.setAttr("fill", haloColor);
+        const halo =
+            stylesheet.bond_thickness_px + 2 * stylesheet.bond_spacing_px + stylesheet.selection_halo_extra_px;
+
+        if (this.text.empty) {
+            underlay.setAttr("x", -halo / 2);
+            underlay.setAttr("y", -halo / 2);
+            underlay.setAttr("width", halo);
+            underlay.setAttr("height", halo);
+            underlay.setAttr("cornerRadius", halo / 2);
+        }
+        else {
+            const textG = this.text.group;
+            if (!textG) {
+                underlay.visible(false);
+                return;
+            }
+            const box = textG.getClientRect({ relativeTo: this.group });
+            const pad = 4;
+            const w = box.width + 2 * pad;
+            const h = box.height + 2 * pad;
+            underlay.setAttr("x", box.x - pad);
+            underlay.setAttr("y", box.y - pad);
+            underlay.setAttr("width", w);
+            underlay.setAttr("height", h);
+            underlay.setAttr("cornerRadius", Math.min(8, Math.min(w, h) / 2));
+        }
+        underlay.moveToBottom();
     }
 
     public hide() {
@@ -338,6 +404,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
         this.text.font_size = this.controller.style.atom_font_size_px;
         this.text.update();
         this.updateChargeDisplay();
+        this.syncSelectionUnderlay();
         if (this.group.getStage())
             this.group.draw();
     }

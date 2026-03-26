@@ -20,7 +20,7 @@ test("Symmetrize along edge", () => {
     };
     fire(edge_center, "mousemove");
     fire_key(" ");
-    fire_key("s");
+    fire_key("y");
     expect(editor.document_container.graph.vertices.length).toBe(4);
     expect(editor.document_container.graph.vertices[3].element?.symbol).toBe("S");
     expect(editor.document_container.graph.vertices[3].h_count).toBe(1);
@@ -56,7 +56,7 @@ test("Symmetrize vertex", () => {
     fire_key("f");
     fire(editor.document_container.graph.vertices[0].coords, "mousemove");
     fire_key(" ");
-    fire_key("s");
+    fire_key("y");
     fire_key("3");
     expect(editor.document_container.graph.vertices.length).toBe(4);
     expect(editor.document_container.graph.vertices.filter(e => e.element?.symbol == "F").length).toBe(3);

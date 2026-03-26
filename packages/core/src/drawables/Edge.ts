@@ -40,6 +40,7 @@ class DrawableEdge extends DrawableBase {
     public screen_length: number;
 
     protected is_active: boolean;
+    protected _selected = false;
     public topology: EdgeTopology;
     /**
      * angle between y axis and line directed from vertex1 to vertex2, clockwise
@@ -77,6 +78,8 @@ class DrawableEdge extends DrawableBase {
             vertices: [],
             shape: this.shape === EdgeShape.Single ? undefined : this.shape,
         };
+        if (this.is_asymmetric)
+            e.orientation = this.orientation;
         return e;
     }
 
@@ -128,18 +131,67 @@ class DrawableEdge extends DrawableBase {
 
     public set active(active: boolean) {
         this.is_active = active;
-        if (!this.controller)
+        if (!this.controller || !this.group)
             return;
         const theme = this.controller.theme;
-        if (active) {
-            this.group?.children?.forEach(e => e.setAttr("stroke", theme.bond_active_color));
-            this.group?.children?.forEach(e => e.setAttr("fill", theme.bond_active_color));
+        const stroke = active ? theme.bond_active_color : theme.bond_stroke_color;
+        const fill = active ? theme.bond_active_color : theme.bond_stroke_color;
+        for (const child of this.group.getChildren()) {
+            const id = String(child.getAttr("id") ?? "");
+            if (!id.startsWith("bond_line"))
+                continue;
+            child.setAttr("stroke", stroke);
+            child.setAttr("fill", fill);
         }
-        else {
-            this.group?.children?.forEach(e => e.setAttr("stroke", theme.bond_stroke_color));
-            this.group?.children?.forEach(e => e.setAttr("fill", theme.bond_stroke_color));
-        }
+        this.syncSelectionUnderlay();
+        this.group.draw();
+    }
+
+    public get selected(): boolean {
+        return this._selected;
+    }
+
+    public set selected(selected: boolean) {
+        this._selected = selected;
+        this.syncSelectionUnderlay();
         this.group?.draw();
+    }
+
+    /**
+     * Selection halo: a single underlay shape behind bond strokes. Konva Group shadow does not reliably
+     * show for stroke-only Line children, so we draw a wide translucent stroke (or filled wedge) instead.
+     */
+    private syncSelectionUnderlay(): void {
+        if (!this.group || !this.controller)
+            return;
+        const stylesheet = this.controller.style;
+        let underlay = this.group.findOne("#selection_underlay") as Konva.Line | null;
+        if (!this._selected || this.screen_length < 1e-6) {
+            underlay?.visible(false);
+            return;
+        }
+        if (!underlay) {
+            underlay = new Konva.Line({
+                id: "selection_underlay",
+                listening: false,
+                lineCap: "round",
+                lineJoin: "round",
+            });
+            this.group.add(underlay);
+        }
+        underlay.visible(true);
+        const t = stylesheet.bond_thickness_px;
+        const sp = stylesheet.bond_spacing_px;
+        const wideStroke = t + 2 * sp + stylesheet.selection_halo_extra_px;
+
+        underlay.setAttr("points", [0, 0, this.screen_length, 0]);
+        underlay.setAttr("closed", false);
+        underlay.setAttr("fillEnabled", false);
+        underlay.setAttr("strokeEnabled", true);
+        underlay.setAttr("stroke", this.controller.theme.selection_halo_color);
+        underlay.setAttr("strokeWidth", wideStroke);
+
+        underlay.moveToBottom();
     }
 
     swap_vertices() {
@@ -560,6 +612,7 @@ class DrawableEdge extends DrawableBase {
         this.group.setAttr("x", this.point1.x);
         this.group.setAttr("y", this.point1.y);
         this.group.rotation(180 * this.alfa / Math.PI + 90);
+        this.syncSelectionUnderlay();
         if (this.group.getStage())
             this.group.draw();
     }

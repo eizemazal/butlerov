@@ -86,6 +86,27 @@ export interface Graph extends Drawable {
     edges: Edge[];
 }
 
+/**
+ * Describes a subset of a graph: vertex indices and edge indices refer to positions in
+ * {@link Graph.vertices} and {@link Graph.edges} for that graph.
+ */
+export interface GraphSelectionDescriptor {
+    vertexIndices: number[];
+    edgeIndices: number[];
+}
+
+/**
+ * Payload stored when copying a graph selection: serialized subgraph plus optional anchor
+ * (hovered vertex or edge at copy time, as indices into `graph.vertices` / `graph.edges`).
+ */
+export interface GraphClipboardContent {
+    graph: Graph;
+    /** Index into `graph.vertices` for the hovered atom at copy time; null if Copy was anchored on an edge. */
+    anchor_vertex_index: number | null;
+    /** Index into `graph.edges` for the hovered bond at copy time; null if Copy was anchored on a vertex. */
+    anchor_edge_index: number | null;
+}
+
 export interface Caption extends SegmentedText, Drawable {
     type: "Caption"
 }

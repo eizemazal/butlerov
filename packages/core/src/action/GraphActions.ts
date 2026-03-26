@@ -162,8 +162,8 @@ class AddBoundVertexAction extends Action {
             this.old_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map(e => e.coords);
             this.added = this.graph.add_bound_vertex_to(this.vertex);
             this.new_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map(e => e.coords);
-            // add_bound_vertex_to only partially updates edges; refresh vertices so bond endpoints use new boundaries.
-            this.graph.update();
+            // redraw edges, e.g. symmetrical double bond can be drawn differently based on neighbors
+            this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
         }
     }
     rollback() {
@@ -622,7 +622,26 @@ class ExpandLinearAction extends Action {
     }
 }
 
+class MergeGraphAction extends Action {
+    graph: DrawableGraph;
+    merged: DrawableGraph;
 
+    constructor(graph: DrawableGraph, merged: DrawableGraph) {
+        super();
+        this.graph = graph;
+        this.merged = merged;
+    }
+
+    commit() {
+        this.graph.add(this.merged);
+        this.graph.update_topology();
+    }
+
+    rollback() {
+        this.graph.remove(this.merged);
+        this.graph.update_topology();
+    }
+}
 
 
 export {
@@ -644,5 +663,6 @@ export {
     UpdateEdgeShapeAction,
     SymmetrizeAlongEdgeAction,
     SymmetrizeAtVertexAction,
-    ExpandLinearAction
+    ExpandLinearAction,
+    MergeGraphAction
 };
