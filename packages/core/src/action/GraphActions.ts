@@ -2,7 +2,7 @@ import { Action, UpdatableAction } from "./Action";
 import { DrawableEdge } from "../drawables/Edge";
 import { DrawableGraph } from "../drawables/Graph";
 import { DrawableVertex } from "../drawables/Vertex";
-import { Coords, EdgeOrientation, EdgeShape } from "../types";
+import { Coords, EdgeOrientation, EdgeShape, GraphClipboardContent, Vertex } from "../types";
 
 class UpdateEdgeShapeAction extends Action {
     graph: DrawableGraph;
@@ -132,6 +132,36 @@ class DeleteEdgeAction extends Action {
     rollback() {
         this.graph.add(this.removed);
         this.graph.update();
+    }
+}
+
+/**
+ * Remove multiple selected vertices in one undo step (order preserves rollback via stacked delete_vertex results).
+ */
+class DeleteSelectionAction extends Action {
+    graph: DrawableGraph;
+    private verticesToDelete: DrawableVertex[];
+    private removedFragments: DrawableGraph[] = [];
+
+    constructor(graph: DrawableGraph, vertices: DrawableVertex[]) {
+        super();
+        this.graph = graph;
+        this.verticesToDelete = vertices;
+    }
+
+    commit() {
+        this.removedFragments = [];
+        for (const v of this.verticesToDelete) {
+            if (this.graph.vertices.includes(v))
+                this.removedFragments.push(this.graph.delete_vertex(v));
+        }
+        this.graph.update_topology();
+    }
+
+    rollback() {
+        for (let i = this.removedFragments.length - 1; i >= 0; i--)
+            this.graph.add(this.removedFragments[i]);
+        this.graph.update_topology();
     }
 }
 
@@ -643,6 +673,129 @@ class MergeGraphAction extends Action {
     }
 }
 
+/**
+ * Paste clipboard fragment so the anchor–neighbor bond replaces a virtual bond from the target (MergeGraphAction-style undo).
+ */
+class PasteOverAnchorAction extends Action {
+    graph: DrawableGraph;
+    target: DrawableVertex;
+    merged: DrawableGraph | null = null;
+    private clip: GraphClipboardContent;
+    private target_snapshot: Vertex;
+
+    constructor(graph: DrawableGraph, target: DrawableVertex, clip: GraphClipboardContent) {
+        super();
+        this.graph = graph;
+        this.target = target;
+        this.clip = clip;
+        this.target_snapshot = target.as_model();
+    }
+
+    commit() {
+        const F = new DrawableGraph(this.clip.graph);
+        const anchorIdx = this.clip.anchor_vertex_index;
+        if (anchorIdx == null)
+            return;
+        const A = F.vertices[anchorIdx];
+        const neighbors = F.neighboring_vertices(A);
+        if (neighbors.length !== 1)
+            return;
+        const N = neighbors[0];
+        const e = F.get_edge_between_vertices(A, N);
+        if (!e)
+            return;
+        const sourceBondShape = e.shape;
+        const sourceBondOrientation = e.orientation;
+        const virt = this.graph.add_bound_vertex_to(this.target);
+        const Vvirt = virt.vertices[0];
+        const p0 = { x: A.coords.x, y: A.coords.y };
+        const p1 = { x: N.coords.x, y: N.coords.y };
+        const q0 = { x: this.target.coords.x, y: this.target.coords.y };
+        const q1 = { x: Vvirt.coords.x, y: Vvirt.coords.y };
+        F.apply_similarity_segment_to_segment(p0, p1, q0, q1);
+        this.graph.remove(virt);
+        this.target.copy_from(A);
+        F.delete_edge(e, false);
+        F.delete_vertex(A);
+        this.merged = F;
+        this.graph.add(F);
+        let binding = this.graph.get_edge_between_vertices(this.target, N);
+        if (!binding)
+            binding = this.graph.bind_vertices(this.target, N, sourceBondShape);
+        else
+            binding.shape = sourceBondShape;
+        if (sourceBondOrientation !== undefined)
+            binding.orientation = sourceBondOrientation;
+        // bind_vertices adds only to main.edges; remove(merged) must see this edge or undo leaves a dangling bond
+        this.merged.edges.push(binding);
+        this.graph.update_topology();
+    }
+
+    rollback() {
+        if (!this.merged)
+            return;
+        this.graph.remove(this.merged);
+        const ref = new DrawableVertex(this.target_snapshot);
+        this.target.copy_from(ref);
+        this.target.update();
+        this.graph.find_edges_by_vertex(this.target).forEach(e => {
+            this.graph.update_edge_orientation(e, false);
+            e.update();
+        });
+        this.graph.update_topology();
+    }
+}
+
+/**
+ * Paste clipboard anchored to target with a new bond aligned to virtual geometry (MergeGraphAction-style undo).
+ */
+class PasteLinkedAnchorAction extends Action {
+    graph: DrawableGraph;
+    target: DrawableVertex;
+    merged: DrawableGraph | null = null;
+    private clip: GraphClipboardContent;
+
+    constructor(graph: DrawableGraph, target: DrawableVertex, clip: GraphClipboardContent) {
+        super();
+        this.graph = graph;
+        this.target = target;
+        this.clip = clip;
+    }
+
+    commit() {
+        const F = new DrawableGraph(this.clip.graph);
+        const anchorIdx = this.clip.anchor_vertex_index;
+        if (anchorIdx == null)
+            return;
+        const A = F.vertices[anchorIdx];
+        const virtDoc = this.graph.add_bound_vertex_to(this.target);
+        const V1 = virtDoc.vertices[0];
+        const virtFrag = F.add_bound_vertex_to(A);
+        const V2 = virtFrag.vertices[0];
+        const p0 = { x: V2.coords.x, y: V2.coords.y };
+        const p1 = { x: A.coords.x, y: A.coords.y };
+        const q0 = { x: this.target.coords.x, y: this.target.coords.y };
+        const q1 = { x: V1.coords.x, y: V1.coords.y };
+        F.apply_similarity_segment_to_segment(p0, p1, q0, q1);
+        this.graph.remove(virtDoc);
+        F.remove(virtFrag);
+        this.merged = F;
+        this.graph.add(F);
+        let binding = this.graph.get_edge_between_vertices(this.target, A);
+        if (!binding)
+            binding = this.graph.bind_vertices(this.target, A);
+        this.merged.edges.push(binding);
+        this.graph.update_topology();
+    }
+
+    rollback() {
+        if (!this.merged)
+            return;
+        this.graph.remove(this.merged);
+        this.graph.update_topology();
+    }
+}
+
 
 export {
     AddBoundVertexAction,
@@ -655,6 +808,7 @@ export {
     ChangeVertexIsotopeAction,
     ClearGraphAction,
     DeleteEdgeAction,
+    DeleteSelectionAction,
     DeleteVertexAction,
     IncrementAtomChargeAction,
     FuseRingAction,
@@ -664,5 +818,7 @@ export {
     SymmetrizeAlongEdgeAction,
     SymmetrizeAtVertexAction,
     ExpandLinearAction,
-    MergeGraphAction
+    MergeGraphAction,
+    PasteOverAnchorAction,
+    PasteLinkedAnchorAction
 };

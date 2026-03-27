@@ -1093,6 +1093,41 @@ class DrawableGraph extends DrawableBase {
     }
 
     /**
+     * Uniform scale + rotation + translation mapping segment p0→p1 onto q0→q1 (clockwise, same convention as {@link DrawableGraph.apply_rotation}).
+     */
+    apply_similarity_segment_to_segment(p0: Coords, p1: Coords, q0: Coords, q1: Coords): void {
+        const ux = p1.x - p0.x;
+        const uy = p1.y - p0.y;
+        const wx = q1.x - q0.x;
+        const wy = q1.y - q0.y;
+        const lenU = Math.hypot(ux, uy);
+        const lenW = Math.hypot(wx, wy);
+        if (lenU < 1e-12 || lenW < 1e-12)
+            return;
+        const s = lenW / lenU;
+        const rot = Math.atan2(uy, ux) - Math.atan2(wy, wx);
+        const cos = Math.cos(rot);
+        const sin = Math.sin(rot);
+        for (const v of this.vertices) {
+            const dx = v.coords.x - p0.x;
+            const dy = v.coords.y - p0.y;
+            const rx = s * (dx * cos + dy * sin);
+            const ry = s * (-dx * sin + dy * cos);
+            v.coords = { x: q0.x + rx, y: q0.y + ry };
+        }
+    }
+
+    /** Count edges incident to a vertex index in a serialized graph model (e.g. clipboard). */
+    static model_vertex_neighbor_count(graph: Graph, vertexIndex: number): number {
+        let n = 0;
+        for (const e of graph.edges) {
+            if (e.vertices[0] === vertexIndex || e.vertices[1] === vertexIndex)
+                n++;
+        }
+        return n;
+    }
+
+    /**
      * Add vertices and edges to make graph rotationally symmetrical around specified Vertex.
      * For example, this transformation being applied to aliphatic carbon of toluene, will produce triphenylmethane for order 3
      * or tetraphenylmethane for order 4.

@@ -226,7 +226,7 @@ test("Add abbreviation via textbox and expand it", async () => {
     expect(editor.graph.vertices[0].label).toBe("OTf");
     fire({ x: 100, y: 100 }, "mousemove");
     fire_key(" ");
-    fire_key("P");
+    fire_key("N");
     expect(editor.graph.vertices.length).toBe(9);
     expect(editor.graph.edges.length).toBe(8);
     fire_key("z", { ctrlKey: true });

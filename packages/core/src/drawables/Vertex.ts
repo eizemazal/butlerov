@@ -206,6 +206,14 @@ class DrawableVertex extends DrawableBase implements Vertex {
         this.group?.show();
     }
 
+    /** Copy atom/label state from another vertex (label, charge, isotope when both are atoms). */
+    copy_from(src: DrawableVertex): void {
+        this.label = src.label;
+        this.charge = src.charge;
+        if (src.label_type === LabelType.Atom && this.label_type === LabelType.Atom)
+            this.isotope = src.isotope;
+    }
+
     public get label_type(): LabelType {
         return this._label_type;
     }

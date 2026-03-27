@@ -193,3 +193,19 @@ M  END`;
     expect(graph.vertices[11].isotope).toBe(13);
     expect(graph.vertices[11].label).toBe("C");
 });
+
+test("apply_similarity_segment_to_segment maps p0→p1 onto q0→q1 (clockwise / y-down)", () => {
+    const g = new DrawableGraph();
+    g.add_vertex({ x: 0, y: 0 });
+    g.add_vertex({ x: 100, y: 0 });
+    g.bind_vertices(g.vertices[0], g.vertices[1]);
+    const p0 = { x: 0, y: 0 };
+    const p1 = { x: 100, y: 0 };
+    const q0 = { x: 50, y: 50 };
+    const q1 = { x: 50, y: 0 };
+    g.apply_similarity_segment_to_segment(p0, p1, q0, q1);
+    expect(g.vertices[0].coords.x).toBeCloseTo(q0.x, 5);
+    expect(g.vertices[0].coords.y).toBeCloseTo(q0.y, 5);
+    expect(g.vertices[1].coords.x).toBeCloseTo(q1.x, 5);
+    expect(g.vertices[1].coords.y).toBeCloseTo(q1.y, 5);
+});

@@ -5,7 +5,7 @@ const HPADDING = 5;
 const VPADDING = 5;
 const LABEL_FONT_SIZE = 9;
 const KEY_FONT_SIZE = 11;
-const BTN_WIDTH = 100;
+const BTN_WIDTH = 124;
 const BTN_HEIGHT = 20;
 
 class MenuButton {
