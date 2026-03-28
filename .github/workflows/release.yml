@@ -19,16 +19,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22.14"
+          registry-url: https://registry.npmjs.org/
       - name: Install node-canvas native dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
-      - name: Ensure npm supports trusted publishing
-        run: npm install -g npm@^11.5.1
       - run: npm ci
       - run: npm --workspace=packages/core run lint
       - run: npm --workspace=packages/core run test
-      - run: npm --workspace=packages/core publish --access public
+      # Trusted publishing (OIDC) requires npm CLI ≥11.5.1; Node’s bundled npm is older — use npm 11 for publish only
+      - run: npx --yes npm@11.5.1 publish --workspace=packages/core --access public
 
   publish-vue-npm:
     name: Publish on NPM registry
@@ -42,12 +42,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22.14"
+          registry-url: https://registry.npmjs.org/
       - name: Install node-canvas native dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
-      - name: Ensure npm supports trusted publishing
-        run: npm install -g npm@^11.5.1
       - run: npm ci
       - run: npm --workspace=packages/vue run lint
       - name: Install Playwright Browsers
@@ -58,7 +57,7 @@ jobs:
 
       - name: Run Playwright tests
         run: npm run test --workspace=packages/vue
-      - run: npm --workspace=packages/vue publish --access public
+      - run: npx --yes npm@11.5.1 publish --workspace=packages/vue --access public
 
   build-deploy-app:
     name: Build and deploy application

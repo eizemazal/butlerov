@@ -27,8 +27,7 @@
     "clean": "rimraf -g dist",
     "lint": "eslint",
     "test": "jest",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm run test"
+    "prepare": "npm run build"
   },
   "keywords": [
     "chemistry",
