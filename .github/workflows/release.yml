@@ -45,7 +45,7 @@ jobs:
           fi
 
       # Trusted publishing (OIDC) requires npm CLI ≥11.5.1; use npm 11 for publish if the bundled CLI is older
-      - run: npm publish --workspace=packages/core --access public
+      - run: npm publish --workspace=packages/core --provenance --access public
 
   publish-vue-npm:
     name: Publish on NPM registry
