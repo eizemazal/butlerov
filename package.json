@@ -2,7 +2,7 @@
     "name": "butlerov-chemistry",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/eizemazal/butlerov.git"
+        "url": "https://github.com/eizemazal/butlerov.git"
     },
     "scripts": {
         "clean": "rimraf -g \"packages/**/dist\" \"packages/**/build\" \"packages/**/*.tsbuildinfo\" \"packages/**/coverage\"",

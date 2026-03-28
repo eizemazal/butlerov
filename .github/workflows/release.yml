@@ -4,16 +4,16 @@ on:
   release:
     types: [created]
 
+permissions:
+  id-token: write # OIDC for npm trusted publishing
+  contents: read
 
 jobs:
 
   publish-core-npm:
     name: Publish on NPM registry
     if: startsWith(github.ref, 'refs/tags/core-')
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write # OIDC for npm trusted publishing
-      contents: read
+    runs-on: ubuntu-latest    
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
