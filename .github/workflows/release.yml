@@ -24,6 +24,26 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm --workspace=packages/core run lint
       - run: npm --workspace=packages/core run test
+
+      - name: Upgrade npm to latest
+        run: npm install -g npm@latest
+      
+    # 2. Explicitly clear the NODE_AUTH_TOKEN environment variable.
+    #    This prevents actions/setup-node's default token from interfering.
+      - name: Clear NODE_AUTH_TOKEN to force OIDC
+        run: echo "NODE_AUTH_TOKEN=" >> $GITHUB_ENV
+    
+      - name: Verify npm and OIDC readiness
+        run: |
+          echo "Node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL}" ]; then
+            echo "✅ OIDC token request URL is available."
+          else
+            echo "❌ OIDC token request URL is NOT available."
+            exit 1
+          fi
+
       # Trusted publishing (OIDC) requires npm CLI ≥11.5.1; use npm 11 for publish if the bundled CLI is older
       - run: npm publish --workspace=packages/core --access public
 
