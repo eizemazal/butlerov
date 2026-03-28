@@ -1,4 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+
+const packageDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: "./tests",
@@ -19,6 +23,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run dev",
+    cwd: packageDir,
     url: "http://localhost:5173/playground.html",
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

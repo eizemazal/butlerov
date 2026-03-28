@@ -42,15 +42,6 @@ jobs:
       - name: Build Vue package
         run: npm run build --workspace=packages/vue
 
-      - name: Start Vite dev server
-        run: npm run dev --workspace=packages/vue &
-        env:
-          CI: true
-        shell: bash
-
-      - name: Wait for dev server
-        run: npx wait-on http://localhost:5173/playground.html
-
       - name: Run Playwright tests
         run: npm run test --workspace=packages/vue
       - run: npm --workspace=packages/vue publish --access public
