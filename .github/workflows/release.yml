@@ -11,29 +11,37 @@ jobs:
     name: Publish on NPM registry
     if: startsWith(github.ref, 'refs/tags/core-')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC for npm trusted publishing
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "22.14"
           registry-url: https://registry.npmjs.org/
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@^11.5.1
       - run: npm ci
       - run: npm --workspace=packages/core run lint
       - run: npm --workspace=packages/core run test
       - run: npm --workspace=packages/core publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
 
   publish-vue-npm:
     name: Publish on NPM registry
     if: startsWith(github.ref, 'refs/tags/vue-')
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC for npm trusted publishing
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "22.14"
           registry-url: https://registry.npmjs.org/
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@^11.5.1
       - run: npm ci
       - run: npm --workspace=packages/vue run lint
       - name: Install Playwright Browsers
@@ -45,8 +53,6 @@ jobs:
       - name: Run Playwright tests
         run: npm run test --workspace=packages/vue
       - run: npm --workspace=packages/vue publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
 
   build-deploy-app:
     name: Build and deploy application

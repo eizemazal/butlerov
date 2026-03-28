@@ -37,6 +37,10 @@
   ],
   "author": "Project team",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eizemazal/butlerov.git"
+  },
   "devDependencies": {
     "@stylistic/eslint-plugin-js": "^2.13.0",
     "@testing-library/dom": "^10.4.0",
