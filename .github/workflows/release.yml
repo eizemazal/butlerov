@@ -15,19 +15,16 @@ jobs:
       id-token: write # OIDC for npm trusted publishing
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: "22.14"
-          registry-url: https://registry.npmjs.org/
-      - name: Install node-canvas native dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm --workspace=packages/core run lint
       - run: npm --workspace=packages/core run test
-      # Trusted publishing (OIDC) requires npm CLI ≥11.5.1; Node’s bundled npm is older — use npm 11 for publish only
+      # Trusted publishing (OIDC) requires npm CLI ≥11.5.1; use npm 11 for publish if the bundled CLI is older
       - run: npx --yes npm@11.5.1 publish --workspace=packages/core --access public
 
   publish-vue-npm:
@@ -38,15 +35,11 @@ jobs:
       id-token: write # OIDC for npm trusted publishing
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: "22.14"
-          registry-url: https://registry.npmjs.org/
-      - name: Install node-canvas native dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev libpixman-1-dev
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
       - run: npm ci
       - run: npm --workspace=packages/vue run lint
       - name: Install Playwright Browsers
@@ -63,17 +56,20 @@ jobs:
     name: Build and deploy application
     if: startsWith(github.ref, 'refs/tags/app-')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload release assets
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: "24"
       - name: Install Wine
         run: |
           sudo dpkg --add-architecture i386
           sudo apt update
           sudo apt install -y wine64 wine32
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm --workspace=packages/core run lint
       - run: npm --workspace=packages/core run test
       - run: npm --workspace=packages/app run lint
@@ -88,6 +84,5 @@ jobs:
             packages/app/dist/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
 
