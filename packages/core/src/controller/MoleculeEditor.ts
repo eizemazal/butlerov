@@ -32,11 +32,14 @@ import {
     MergeGraphAction,
     PasteOverAnchorAction,
     PasteLinkedAnchorAction,
-    DeleteSelectionAction
+    DeleteSelectionAction,
+    CarbonizeSelectionAction,
+    SaturateSelectionAction
 } from "../action/GraphActions";
 import { DrawableBase } from "../drawables/Base";
 import { TextBox } from "./TextBox";
 import { get_molecule_rect } from "../lib/graph";
+import { MW } from "../descriptor/mw";
 
 
 class DocumentContainer {
@@ -283,14 +286,14 @@ export class MoleculeEditor extends Controller {
         }
     }
 
-    /** Whether Selection submenu should offer "Select chain" for this hovered vertex or edge. */
+    /** Whether Selection submenu should offer "Chain" for this hovered vertex or edge. */
     selection_offers_chain(seed: DrawableVertex | DrawableEdge): boolean {
         if (seed instanceof DrawableVertex)
             return seed.topology === VertexTopology.Chain;
         return seed.topology === EdgeTopology.Chain;
     }
 
-    /** Whether Selection submenu should offer "Select ring" for this hovered vertex or edge. */
+    /** Whether Selection submenu should offer "Ring" for this hovered vertex or edge. */
     selection_offers_ring(seed: DrawableVertex | DrawableEdge): boolean {
         if (seed instanceof DrawableVertex)
             return seed.topology === VertexTopology.Ring;
@@ -360,13 +363,99 @@ export class MoleculeEditor extends Controller {
         }
     }
 
+    /** MW of a detached subgraph (implicit H via drawable); non-finite treated as 0 for comparison. */
+    private fragmentMwFromSubgraph(sub: DrawableGraph): number {
+        const mw = new MW(sub.as_model());
+        const v = mw.compute();
+        return Number.isFinite(v) ? v : 0;
+    }
+
+    /**
+     * Select the side of `edge` with larger or smaller MW. Uses a detached clone, removes the edge, and
+     * {@link DrawableGraph.subgraphs} to obtain the two halves (chain topology ⇒ bridge).
+     */
+    select_fragment_by_edge_mw(edge: DrawableEdge, larger: boolean): void {
+        const g = this.document_container.graph;
+        const edgeIdx = g.edges.indexOf(edge);
+        if (edgeIdx < 0)
+            return;
+        const i1 = g.vertices.indexOf(edge.v1);
+        const i2 = g.vertices.indexOf(edge.v2);
+        const copy = g.copy();
+        const edgeCopy = copy.edges[edgeIdx];
+        copy.delete_edge(edgeCopy, false, true);
+        const parts = copy.subgraphs();
+        const partWithV1 = parts.find(p => p.vertices.includes(copy.vertices[i1]));
+        const partWithV2 = parts.find(p => p.vertices.includes(copy.vertices[i2]));
+        if (!partWithV1 || !partWithV2)
+            return;
+        const mw1 = this.fragmentMwFromSubgraph(partWithV1);
+        const mw2 = this.fragmentMwFromSubgraph(partWithV2);
+        const chosenPart = larger
+            ? (mw1 >= mw2 ? partWithV1 : partWithV2)
+            : (mw1 <= mw2 ? partWithV1 : partWithV2);
+        const chosen = new Set<DrawableVertex>();
+        for (const v of chosenPart.vertices) {
+            const idx = copy.vertices.indexOf(v);
+            if (idx >= 0)
+                chosen.add(g.vertices[idx]);
+        }
+        this.clear_selection();
+        for (const v of chosen) {
+            this.selection_vertices.add(v);
+            v.selected = true;
+        }
+        for (const e of g.edges) {
+            if (chosen.has(e.v1) && chosen.has(e.v2)) {
+                this.selection_edges.add(e);
+                e.selected = true;
+            }
+        }
+    }
+
+    private selection_has_non_carbon_atoms(): boolean {
+        for (const v of this.selection_vertices) {
+            if (v.label_type === LabelType.Atom && v.element && v.element.symbol !== "C")
+                return true;
+        }
+        return false;
+    }
+
+    private selection_has_saturatable_bonds(): boolean {
+        for (const e of this.selection_edges) {
+            if (e.shape === EdgeShape.Aromatic || e.bond_order > 1)
+                return true;
+        }
+        return false;
+    }
+
+    carbonize_selection(): void {
+        const verts = [...this.selection_vertices].filter(
+            v => v.label_type === LabelType.Atom && v.element && v.element.symbol !== "C");
+        if (!verts.length)
+            return;
+        this.commit_action(new CarbonizeSelectionAction(this.document_container.graph, verts));
+    }
+
+    saturate_selection(): void {
+        const edges = [...this.selection_edges].filter(
+            e => e.shape === EdgeShape.Aromatic || e.bond_order > 1);
+        if (!edges.length)
+            return;
+        this.commit_action(new SaturateSelectionAction(this.document_container.graph, edges));
+    }
+
     menu_selection_submenu(seed: DrawableVertex | DrawableEdge): void {
         this.menu.clear_buttons();
         this.menu.add_button(new MenuButton("a", "All", () => { this.select_linked_component(seed); }));
         if (this.selection_offers_chain(seed))
-            this.menu.add_button(new MenuButton("c", "Select chain", () => { this.select_chain_component(seed); }));
+            this.menu.add_button(new MenuButton("c", "Chain", () => { this.select_chain_component(seed); }));
+        if (seed instanceof DrawableEdge && seed.topology === EdgeTopology.Chain) {
+            this.menu.add_button(new MenuButton("l", "Larger side", () => { this.select_fragment_by_edge_mw(seed, true); }));
+            this.menu.add_button(new MenuButton("s", "Smaller side", () => { this.select_fragment_by_edge_mw(seed, false); }));
+        }
         if (this.selection_offers_ring(seed))
-            this.menu.add_button(new MenuButton("r", "Select ring", () => { this.select_ring_component(seed); }));
+            this.menu.add_button(new MenuButton("r", "Ring", () => { this.select_ring_component(seed); }));
         this.place_menu_at_pointer_or_center();
         this.menu.visible = true;
     }
@@ -464,7 +553,8 @@ export class MoleculeEditor extends Controller {
     }
 
     center_view() {
-        const rect = get_molecule_rect(this.document_container.graph.as_model());
+        const rect = this.document_container.graph.getContentBoundsInLayer()
+            ?? get_molecule_rect(this.document_container.graph.as_model());
         this.viewport_offset = (rect === null) ? { x: 0, y: 0 } :
             {
                 x: (rect.x1 + rect.x2) / 2 - this.stage.width() / (2 * this._zoom),
@@ -480,7 +570,8 @@ export class MoleculeEditor extends Controller {
      */
 
     zoom_to_fit(overzoom = false, margins = 0.05) {
-        const rect = get_molecule_rect(this.document_container.graph.as_model());
+        const rect = this.document_container.graph.getContentBoundsInLayer()
+            ?? get_molecule_rect(this.document_container.graph.as_model());
         if (!rect)
             return;
         const screen_w = (1 + margins) * (rect.x2 - rect.x1);
@@ -561,9 +652,20 @@ export class MoleculeEditor extends Controller {
         return reverse ? element_labels[index - 1] : element_labels[index + 1];
     }
 
+    /** Add terminal oxo (=O) to an atom (same placement as a new substituent; see {@link AddBoundVertexAction}). */
+    add_oxo_to_vertex(vertex: DrawableVertex): void {
+        if (vertex.label_type !== LabelType.Atom)
+            return;
+        this.commit_action(new AddBoundVertexAction(this.document_container.graph, vertex, "O", EdgeShape.Double));
+    }
+
     protected on_vertex_keydown(evt: KeyboardEvent) {
         if (!this.active_vertex)
             return;
+        if (evt.key === "." || evt.key === "Period") {
+            this.add_oxo_to_vertex(this.active_vertex);
+            return;
+        }
         if (evt.key == "Backspace" || evt.key == "Delete") {
             this.commit_action(new DeleteVertexAction(this.document_container.graph, this.active_vertex));
             this.active_vertex = null;
@@ -640,6 +742,10 @@ export class MoleculeEditor extends Controller {
         if (prefer_selection_menu && this.has_selection() && this.pointer_over_selection()) {
             this.menu.clear_buttons();
             this.menu.add_button(new MenuButton("Ctrl+C", "Copy", () => { this.copy_selection_to_clipboard(); }));
+            if (this.selection_has_non_carbon_atoms())
+                this.menu.add_button(new MenuButton("c", "Carbonize", () => { this.carbonize_selection(); }));
+            if (this.selection_has_saturatable_bonds())
+                this.menu.add_button(new MenuButton("s", "Saturate", () => { this.saturate_selection(); }));
             this.menu.add_button(new MenuButton("x", "Delete", () => {
                 const verts = [...this.selection_vertices];
                 this.commit_action(new DeleteSelectionAction(this.document_container.graph, verts));
@@ -693,6 +799,8 @@ export class MoleculeEditor extends Controller {
             if (!this.has_selection())
                 this.menu.add_button(new MenuButton("Ctrl+C", "Copy", () => { this.copy_selection_or_active_to_clipboard(); }));
             this.menu.add_button(new MenuButton("r", "Attach ring here", () => { this.menu_attach_ring(vertex); }));
+            if (vertex.label_type === LabelType.Atom)
+                this.menu.add_button(new MenuButton(".", "Attach oxo (=O)", () => { this.add_oxo_to_vertex(vertex); }));
             this.menu.add_button(new MenuButton("c", "Add normal chain", () => { this.menu_chain(vertex); }));
             this.menu.add_button(new MenuButton("e", "Edit", () => { this.edit_vertex_label(vertex); }));
             if (vertex.label_type == LabelType.Atom && vertex.element?.isotopes.length != 0) {

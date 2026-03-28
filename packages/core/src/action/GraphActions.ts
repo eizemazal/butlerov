@@ -2,7 +2,7 @@ import { Action, UpdatableAction } from "./Action";
 import { DrawableEdge } from "../drawables/Edge";
 import { DrawableGraph } from "../drawables/Graph";
 import { DrawableVertex } from "../drawables/Vertex";
-import { Coords, EdgeOrientation, EdgeShape, GraphClipboardContent, Vertex } from "../types";
+import { Coords, EdgeOrientation, EdgeShape, GraphClipboardContent, LabelType, Vertex } from "../types";
 
 class UpdateEdgeShapeAction extends Action {
     graph: DrawableGraph;
@@ -165,19 +165,139 @@ class DeleteSelectionAction extends Action {
     }
 }
 
+class CarbonizeSelectionAction extends Action {
+    graph: DrawableGraph;
+    private snapshots: { vertex: DrawableVertex; oldLabel: string; oldCharge: number; oldIsotope: number }[] = [];
+
+    constructor(graph: DrawableGraph, vertices: DrawableVertex[]) {
+        super();
+        this.graph = graph;
+        for (const v of vertices) {
+            if (v.label_type !== LabelType.Atom || v.element?.symbol === "C")
+                continue;
+            this.snapshots.push({
+                vertex: v,
+                oldLabel: v.label,
+                oldCharge: v.charge,
+                oldIsotope: v.isotope,
+            });
+        }
+    }
+
+    private refresh_vertex(v: DrawableVertex): void {
+        v.update();
+        this.graph.find_edges_by_vertex(v).forEach(e => {
+            this.graph.update_edge_orientation(e, false);
+            e.update();
+        });
+    }
+
+    commit() {
+        for (const s of this.snapshots) {
+            s.vertex.charge = 0;
+            s.vertex.label = "C";
+            s.vertex.isotope = 0;
+            this.refresh_vertex(s.vertex);
+        }
+        this.graph.update_topology();
+    }
+
+    rollback() {
+        for (let i = this.snapshots.length - 1; i >= 0; i--) {
+            const s = this.snapshots[i];
+            s.vertex.label = s.oldLabel;
+            s.vertex.charge = s.oldCharge;
+            s.vertex.isotope = s.oldIsotope;
+            this.refresh_vertex(s.vertex);
+        }
+        this.graph.update_topology();
+    }
+}
+
+class SaturateSelectionAction extends Action {
+    graph: DrawableGraph;
+    private snapshots: { edge: DrawableEdge; oldShape: EdgeShape; oldOrientation: EdgeOrientation }[] = [];
+    private coords_before: { vertex: DrawableVertex; coords: Coords }[] | null = null;
+
+    constructor(graph: DrawableGraph, edges: DrawableEdge[]) {
+        super();
+        this.graph = graph;
+        for (const edge of edges) {
+            if (edge.shape !== EdgeShape.Aromatic && edge.bond_order <= 1)
+                continue;
+            this.snapshots.push({ edge, oldShape: edge.shape, oldOrientation: edge.orientation });
+        }
+    }
+
+    commit() {
+        if (this.snapshots.length === 0)
+            return;
+        const to_save = new Set<DrawableVertex>();
+        for (const { edge } of this.snapshots) {
+            for (const v of [edge.v1, edge.v2]) {
+                to_save.add(v);
+                for (const n of v.neighbors.keys())
+                    to_save.add(n);
+            }
+        }
+        this.coords_before = [...to_save].map(v => ({ vertex: v, coords: { ...v.coords } }));
+
+        for (const { edge } of this.snapshots) {
+            const wasSpLinearV1 = this.graph.vertexIsSpLinearHybridized(edge.v1);
+            const wasSpLinearV2 = this.graph.vertexIsSpLinearHybridized(edge.v2);
+
+            edge.shape = EdgeShape.Single;
+            edge.v1.set_neighbor(edge.v2, 1);
+            edge.v2.set_neighbor(edge.v1, 1);
+            if (wasSpLinearV1 && !this.graph.vertexIsSpLinearHybridized(edge.v1))
+                this.graph.relaxVertexFromLinearToTrigonalLayout(edge.v1);
+            if (wasSpLinearV2 && !this.graph.vertexIsSpLinearHybridized(edge.v2))
+                this.graph.relaxVertexFromLinearToTrigonalLayout(edge.v2);
+        }
+        this.graph.update();
+    }
+
+    rollback() {
+        if (this.coords_before) {
+            for (const { vertex, coords } of this.coords_before)
+                vertex.coords = coords;
+            this.coords_before = null;
+        }
+        for (let i = this.snapshots.length - 1; i >= 0; i--) {
+            const s = this.snapshots[i];
+            s.edge.shape = s.oldShape;
+            s.edge.orientation = s.oldOrientation;
+            s.edge.v1.set_neighbor(s.edge.v2, s.edge.bond_order);
+            s.edge.v2.set_neighbor(s.edge.v1, s.edge.bond_order);
+        }
+        this.graph.update();
+    }
+}
+
 class AddBoundVertexAction extends Action {
     graph: DrawableGraph;
     vertex: DrawableVertex;
     added: DrawableGraph | null;
     old_neighbor_coords: Coords[];
     new_neighbor_coords: Coords[];
+    /** Label for the new terminal atom (default carbon). */
+    private boundVertexLabel: string;
+    /** Bond order to the new atom (default single). */
+    private boundEdgeShape: EdgeShape;
+    private shapeAction: UpdateEdgeShapeAction | null = null;
 
-    constructor(graph: DrawableGraph, vertex: DrawableVertex) {
+    constructor(
+        graph: DrawableGraph,
+        vertex: DrawableVertex,
+        boundVertexLabel = "C",
+        boundEdgeShape: EdgeShape = EdgeShape.Single
+    ) {
         super();
         this.graph = graph;
         this.vertex = vertex;
         this.added = null;
-        // in this action, some neigboring vertices may change coordinates. We need to save and restore them.
+        this.boundVertexLabel = boundVertexLabel;
+        this.boundEdgeShape = boundEdgeShape;
         this.old_neighbor_coords = [];
         this.new_neighbor_coords = [];
     }
@@ -186,17 +306,30 @@ class AddBoundVertexAction extends Action {
         if (this.added) {
             this.graph.add(this.added);
             Array.from(this.vertex.neighbors.keys()).forEach((e, idx) => e.coords = this.new_neighbor_coords[idx]);
+            if (this.shapeAction) {
+                this.shapeAction.commit();
+            }
             this.graph.update();
         }
         else {
             this.old_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map(e => e.coords);
             this.added = this.graph.add_bound_vertex_to(this.vertex);
             this.new_neighbor_coords = Array.from(this.vertex.neighbors.keys()).map(e => e.coords);
-            // redraw edges, e.g. symmetrical double bond can be drawn differently based on neighbors
-            this.graph.find_edges_by_vertex(this.vertex).forEach(e => e.update());
+            const nv = this.added.vertices[0];
+            nv.label = this.boundVertexLabel;
+            const e = this.added.edges[0];
+            if (e && this.boundEdgeShape !== EdgeShape.Single) {
+                this.shapeAction = new UpdateEdgeShapeAction(this.graph, e, this.boundEdgeShape, null);
+                this.shapeAction.commit();
+            }
+            else
+                this.graph.find_edges_by_vertex(this.vertex).forEach(ed => ed.update());
         }
     }
     rollback() {
+        if (this.shapeAction) {
+            this.shapeAction.rollback();
+        }
         if (!this.added)
             return;
         this.graph.remove(this.added);
@@ -804,6 +937,8 @@ export {
     AddDefaultFragmentAction,
     AttachRingAction,
     BindVerticesAction,
+    CarbonizeSelectionAction,
+    SaturateSelectionAction,
     ChangeVertexLabelAction,
     ChangeVertexIsotopeAction,
     ClearGraphAction,

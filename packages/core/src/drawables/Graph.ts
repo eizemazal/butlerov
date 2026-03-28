@@ -2,7 +2,8 @@ import Konva from "konva";
 import { Controller } from "../controller/Controller";
 import { DrawableEdge, EdgeTopology } from "./Edge";
 import { DrawableVertex, VertexTopology } from "./Vertex";
-import { LabelType, Graph, EdgeOrientation, EdgeShape } from "../types";
+import { LabelType, Graph, EdgeOrientation, EdgeShape, Rect } from "../types";
+import { get_molecule_rect } from "../lib/graph";
 import { DrawableBase } from "./Base";
 import { Coords } from "../types";
 
@@ -1158,6 +1159,43 @@ class DrawableGraph extends DrawableBase {
         this.add(r);
         this.update_topology();
         return r;
+    }
+
+    /**
+     * Axis-aligned bounds of the drawn structure in the graph group's coordinate space,
+     * including atom labels and bond strokes. When not attached to a stage, falls back to vertex-center-only {@link get_molecule_rect}.
+     */
+    getContentBoundsInLayer(): Rect | null {
+        if (!this.vertices.length)
+            return null;
+        if (!this.group)
+            return get_molecule_rect(this.as_model());
+        const parent = this.group;
+        let x1 = Infinity;
+        let y1 = Infinity;
+        let x2 = -Infinity;
+        let y2 = -Infinity;
+        const mergeBox = (bx: number, by: number, bw: number, bh: number) => {
+            x1 = Math.min(x1, bx);
+            y1 = Math.min(y1, by);
+            x2 = Math.max(x2, bx + bw);
+            y2 = Math.max(y2, by + bh);
+        };
+        for (const v of this.vertices) {
+            mergeBox(v.coords.x, v.coords.y, 0, 0);
+            const lb = v.getLabelBoundsRelativeTo(parent);
+            if (lb)
+                mergeBox(lb.x, lb.y, lb.width, lb.height);
+        }
+        for (const e of this.edges) {
+            if (e.group) {
+                const r = e.group.getClientRect({ relativeTo: parent });
+                mergeBox(r.x, r.y, r.width, r.height);
+            }
+        }
+        if (!Number.isFinite(x1))
+            return get_molecule_rect(this.as_model());
+        return { x1, y1, x2, y2 };
     }
 }
 

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node deploy/dev-server.cjs",
     "lint": "eslint",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build": "node deploy/build.cjs && electron-builder",
     "build:win": "node deploy/build.cjs && electron-builder --win --publish never",
     "build:mac": "node deploy/build.cjs && electron-builder --mac --publish never",
