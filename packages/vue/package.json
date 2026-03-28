@@ -46,7 +46,7 @@
   },
   "homepage": "https://github.com/eizemazal/butlerov#readme",
   "dependencies": {
-    "@butlerov-chemistry/core": "0.1.3"
+    "@butlerov-chemistry/core": "0.1.4"
   },
   "peerDependencies": {
     "vue": "^3.0.0"
