@@ -6,7 +6,7 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default [
     {
-        ignores: ["build/**", "deploy/**"]
+        ignores: ["build/**", "deploy/**", "dist/**", "coverage/**"]
     },
     ...tseslint.configs.strict,
     eslint.configs.recommended,

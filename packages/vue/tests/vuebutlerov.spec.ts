@@ -67,43 +67,6 @@ async function click(page: Page, x?: number, y?: number) {
     await page.waitForTimeout(300); // Wait for click to be processed
 }
 
-// Helper function to double-click on the component
-async function doubleClick(page: Page, x?: number, y?: number) {
-    const coords = await getContainerCoordinates(page, x, y);
-    await page.mouse.dblclick(coords.x, coords.y);
-    await page.waitForTimeout(300);
-}
-
-// Helper function to right-click on the component
-async function rightClick(page: Page, x?: number, y?: number) {
-    const coords = await getContainerCoordinates(page, x, y);
-    await page.mouse.click(coords.x, coords.y, { button: "right" });
-    await page.waitForTimeout(300);
-}
-
-// Helper function to hover over the component
-async function hover(page: Page, x?: number, y?: number) {
-    const coords = await getContainerCoordinates(page, x, y);
-    await page.mouse.move(coords.x, coords.y);
-    await page.waitForTimeout(100); // Small delay for hover effects
-}
-
-// Helper function to press a key
-async function pressKey(page: Page, key: string, modifiers?: string[]) {
-    const container = page.locator("[data-testid=\"butlerov-container\"]");
-    await container.focus();
-    await page.keyboard.press(key, { modifiers });
-    await page.waitForTimeout(200);
-}
-
-// Helper function to type text
-async function typeText(page: Page, text: string) {
-    const container = page.locator("[data-testid=\"butlerov-container\"]");
-    await container.focus();
-    await page.keyboard.type(text);
-    await page.waitForTimeout(200);
-}
-
 // Helper function to wait for model to change to expected state
 async function waitForModel(
     page: Page, 
@@ -120,25 +83,6 @@ async function waitForModel(
     }
     const finalModel = await getModel(page);
     throw new Error(`Model did not reach expected state within ${timeout}ms. Current state: ${JSON.stringify(finalModel, null, 2)}`);
-}
-
-// Helper function to verify model state
-function expectModel(model: Graph, expectedVertices: number, expectedEdges: number) {
-    expect(model.vertices.length).toBe(expectedVertices);
-    expect(model.edges.length).toBe(expectedEdges);
-}
-
-// Helper function to verify model has specific structure
-function expectModelStructure(
-    model: Graph, 
-    expectedVertices: number, 
-    expectedEdges: number,
-    additionalChecks?: (model: Graph) => void
-) {
-    expectModel(model, expectedVertices, expectedEdges);
-    if (additionalChecks) {
-        additionalChecks(model);
-    }
 }
 
 test("VueButlerov basic drawing operations", async ({ page }) => {

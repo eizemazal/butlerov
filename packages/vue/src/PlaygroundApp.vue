@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import VueButlerov from "./VueButlerov.vue";
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted } from "vue";
 import type { Graph } from "@butlerov-chemistry/core";
 
 const model = ref<Graph>({
