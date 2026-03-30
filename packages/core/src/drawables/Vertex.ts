@@ -46,14 +46,21 @@ class DrawableVertex extends DrawableBase implements Vertex {
         this.coords = { x: v.x, y: v.y };
         this.charge = v.charge === undefined ? 0 : v.charge;
         if (v.label_type === LabelType.Atom || v.label_type === undefined) {
-            this._label_type = LabelType.Atom;
-            this._element = ChemicalElements[v.label];
-            if (v.isotope !== undefined)
-                this._isotope = v.isotope;
-            if (v.h_count !== undefined)
-                this._h_count = v.h_count;
-            else
-                this.compute_h_count();
+            const el = ChemicalElements[v.label];
+            if (el !== undefined) {
+                this._label_type = LabelType.Atom;
+                this._element = el;
+                if (v.isotope !== undefined)
+                    this._isotope = v.isotope;
+                if (v.h_count !== undefined)
+                    this._h_count = v.h_count;
+                else
+                    this.compute_h_count();
+            }
+            else {
+                this._label_type = LabelType.Custom;
+                this._custom_label = v.label ?? "?";
+            }
         }
         else if (v.label_type == LabelType.Linear)
             try {
@@ -220,7 +227,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
 
     public get label(): string {
         if (this._label_type == LabelType.Atom)
-            return this._element.symbol;
+            return this._element?.symbol ?? "?";
         if (this._label_type == LabelType.Linear)
             return this._linear.as_string;
         return this._custom_label;
@@ -637,7 +644,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
 
     private compute_h_count() {
         if (this.label_type == LabelType.Atom) {
-            const element = ChemicalElements[this.label];
+            const element = this._element;
             if (!element) {
                 this._h_count = 0;
                 return;

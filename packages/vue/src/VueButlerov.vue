@@ -112,9 +112,14 @@ interface Props {
 const emit = defineEmits<{
   "update:modelValue": [value: VueButlerovModel];
   "update:mol": [value: string];
+  /** Fired when MOL/native graph parsing or loading fails; editor is reset to an empty structure. */
+  error: [error: Error];
 }>();
 
+// Explicit defaults for optional v-model props (vue/require-default-prop). `undefined` keeps `v-model:mol`-only usage working.
 const props = withDefaults(defineProps<Props>(), {
+  modelValue: undefined,
+  mol: undefined,
   mode: () => "structure",
   theme: () => "light",
   style: () => defaultStyle,
@@ -126,7 +131,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const attrs = useAttrs();
 
-/** Which v-model props are actually passed (input channel). Omit `modelValue` default so `v-model:mol` alone does not count as native + mol. */
+/** Which v-model props are actually passed (input channel). */
 const providedInputs = computed(() => ({
   native: props.modelValue !== undefined,
   mol: props.mol !== undefined,
@@ -212,17 +217,27 @@ const canCopy = computed(() => {
   return true;
 });
 
-function defaultNativeModel(): VueButlerovModel {
-  if (props.mode === "structure") {
-    return {
-      type: "Graph",
-      vertices: [],
-      edges: [],
-    };
+function defaultGraph(): Graph {
+  return { type: "Graph", vertices: [], edges: [] };
+}
+
+
+ /**
+  * Strip reactivity and set default value for null / undefined.
+  * @param v Input in native format
+  */
+
+function cleanupGraph(v: unknown): Graph {
+  if (v === undefined || v === null)
+    return defaultGraph();
+  if (typeof v !== "object")
+    return defaultGraph();
+  try {
+    return JSON.parse(JSON.stringify(v)) as Graph;
   }
-  return {
-    objects: [],
-  };
+  catch {
+    return defaultGraph();
+  }
 }
 
 function setConverterFromActiveInput() {
@@ -235,7 +250,7 @@ function setConverterFromActiveInput() {
 function getActiveModelValue(): VueButlerovModel | string {
   if (activeInput.value === "mol")
     return props.mol ?? "";
-  return (props.modelValue ?? defaultNativeModel()) as VueButlerovModel;
+  return (props.modelValue ?? defaultGraph()) as VueButlerovModel;
 }
 
 function setEditorValue(v: VueButlerovModel | string | undefined) {
@@ -243,35 +258,43 @@ function setEditorValue(v: VueButlerovModel | string | undefined) {
     return;
 
   if (props.mode == "scheme") {
-    if (converter.value == null) {
+    try {
+      if (converter.value == null) {
+        editor.value.document = {
+          format: BUTLEROV_DOCUMENT_FORMAT,
+          ...(v as VueButlerovSchemaModel),
+        };
+        return;
+      }
+      if (!converter.value.document_from_string)
+        return;
+      editor.value.document = converter.value.document_from_string(v as string);
+    }
+    catch (e) {
       editor.value.document = {
         format: BUTLEROV_DOCUMENT_FORMAT,
-        ...(v as VueButlerovSchemaModel),
+        objects: [],
       };
-      return;
+      last_emitted_serialized = valueForDedupe(v);
+      emit("error", e instanceof Error ? e : new Error(String(e)));
     }
-    if (!converter.value.document_from_string)
-      return;
-    editor.value.document = converter.value.document_from_string(v as string);
     return;
   }
 
-  if (converter.value == null) {
-    editor.value.graph = v as Graph;
-    return;
+  try {
+    if (converter.value == null) {
+      editor.value.graph = cleanupGraph(v);
+      return;
+    }
+    if (!converter.value.graph_from_string)
+      return;
+    editor.value.graph = converter.value.graph_from_string(v);
   }
-  if (!converter.value.graph_from_string)
-    return;
-  const s = typeof v === "string" ? v : "";
-  if (!s.trim()) {
-    editor.value.graph = {
-      type: "Graph",
-      vertices: [],
-      edges: [],
-    };
-    return;
+  catch (e) {
+    editor.value.graph = defaultGraph();
+    last_emitted_serialized = valueForDedupe(v);
+    emit("error", e instanceof Error ? e : new Error(String(e)));
   }
-  editor.value.graph = converter.value.graph_from_string(s);
 }
 
 function emitEditorValue() {
@@ -433,7 +456,7 @@ watch(
   (v) => {
     const effective
       = v === undefined && activeInput.value === "native"
-        ? defaultNativeModel()
+        ? defaultGraph()
         : v;
     const incoming_serialized = valueForDedupe(effective);
     if (incoming_serialized !== null && incoming_serialized === last_emitted_serialized)

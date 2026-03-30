@@ -4,6 +4,21 @@ import { EdgeTopology } from "../src/drawables/Edge";
 import { MolConverter } from "../src/converter/MolConverter";
 import { UpdateEdgeShapeAction } from "../src/action/GraphActions";
 
+test("DrawableGraph.copy wires edges to copied vertices (update_topology uses copy)", () => {
+    const graph = new DrawableGraph();
+    graph.add_vertex({ x: 10, y: 10 });
+    graph.add_vertex({ x: 20, y: 20 });
+    graph.bind_vertices(graph.vertices[0], graph.vertices[1]);
+    graph.update_topology();
+    const copy = graph.copy();
+    expect(copy.vertices.length).toBe(2);
+    expect(copy.edges.length).toBe(1);
+    expect(copy.vertices[0].neighbors.size).toBe(1);
+    expect(copy.vertices[1].neighbors.size).toBe(1);
+    copy.update_topology();
+    expect(copy.ringsystems.length).toBe(0);
+});
+
 test("Draw graph programmatically and check topology", () => {
     const graph = new DrawableGraph();
     graph.add_vertex({ x: 10, y: 10 });

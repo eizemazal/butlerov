@@ -29,6 +29,10 @@ onMounted(() => {
   // @ts-expect-error Exposing for E2E testing
   window.__butlerov_get_model__ = () => model.value;
   // @ts-expect-error Exposing for E2E testing
+  window.__butlerov_set_model__ = (g: Graph) => {
+    model.value = g;
+  };
+  // @ts-expect-error Exposing for E2E testing
   window.__butlerov_get_mol__ = () => mol.value;
   // @ts-expect-error Exposing for E2E testing
   window.__butlerov_get_vertex_count__ = () =>
@@ -60,6 +64,11 @@ onMounted(() => {
       :autofocus="autofocus"
     />
   </div>
+  <textarea
+    v-if="binding === 'mol'"
+    v-model="mol"
+    data-testid="mol-input"
+  />
 </template>
 
 <style scoped>

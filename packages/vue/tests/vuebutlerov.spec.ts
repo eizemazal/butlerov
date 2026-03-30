@@ -99,6 +99,39 @@ async function waitForModel(
   throw new Error(`Model did not reach expected state within ${timeout}ms. Current state: ${JSON.stringify(finalModel, null, 2)}`);
 }
 
+test("external v-model graph update redraws without error (plain Graph to core)", async ({ page }) => {
+  test.setTimeout(15000);
+
+  const errors: string[] = [];
+  page.on("pageerror", (err) => {
+    errors.push(err.message);
+  });
+
+  await page.goto("http://localhost:5173/playground.html?binding=native", { waitUntil: "networkidle" });
+  await waitForComponentReady(page);
+
+  await page.evaluate(() => {
+    const g = {
+      type: "Graph" as const,
+      vertices: [
+        { x: 120, y: 120, label: "C" },
+        { x: 220, y: 120, label: "O" },
+      ],
+      edges: [{ vertices: [0, 1] as [number, number] }],
+    };
+    // @ts-expect-error test harness
+    window.__butlerov_set_model__?.(g);
+  });
+
+  await page.waitForFunction(() => {
+    // @ts-expect-error test harness
+    const n = window.__butlerov_get_vertex_count__?.() as number;
+    return typeof n === "number" && n === 2;
+  }, { timeout: 8000 });
+
+  expect(errors, `page errors: ${errors.join("; ")}`).toEqual([]);
+});
+
 test("VueButlerov basic drawing operations (native v-model)", async ({ page }) => {
   test.setTimeout(10000);
 
@@ -116,6 +149,25 @@ test("VueButlerov basic drawing operations (native v-model)", async ({ page }) =
   model = await waitForModel(page, (m) => m.vertices.length >= 3 && m.edges.length >= 2);
   expect(model.vertices.length).toBe(3);
   expect(model.edges.length).toBe(2);
+});
+
+test("invalid MOL string clears editor and does not break the component", async ({ page }) => {
+  test.setTimeout(15000);
+
+  const errors: string[] = [];
+  page.on("pageerror", (err) => {
+    errors.push(err.message);
+  });
+
+  await page.goto("http://localhost:5173/playground.html?binding=mol", { waitUntil: "networkidle" });
+  await waitForComponentReady(page);
+
+  const molInput = page.getByTestId("mol-input");
+  await molInput.fill("not a valid mol file at all\n");
+  await page.waitForTimeout(400);
+
+  expect(await getVertexCount(page)).toBe(0);
+  expect(errors, `unexpected page errors: ${errors.join("; ")}`).toEqual([]);
 });
 
 test("v-model:mol emits MOL after edit", async ({ page }) => {
