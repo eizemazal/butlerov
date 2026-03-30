@@ -12,6 +12,7 @@
     <div
       v-if="copyable && canCopy"
       class="copy-btn"
+      data-testid="butlerov-copy"
       :class="{ visible: hovered }"
       @click.stop.prevent="copyToClipboard"
       @mousedown.stop
@@ -50,7 +51,16 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, useTemplateRef, ref, watch, nextTick, computed } from "vue";
+import {
+  onMounted,
+  onUnmounted,
+  useTemplateRef,
+  ref,
+  watch,
+  nextTick,
+  computed,
+  useAttrs,
+} from "vue";
 import {
   MoleculeEditor,
   Style,
@@ -60,7 +70,6 @@ import {
   defaultStyle,
   Converter,
   MolConverter,
-  SmilesConverter,
   BUTLEROV_DOCUMENT_FORMAT,
 } from "@butlerov-chemistry/core";
 
@@ -70,11 +79,10 @@ defineOptions({
 
 const container = useTemplateRef("container");
 
-export type SmilesFormat = string;
 export type MolFormat = string;
 export type ButlerovMolecule = Graph;
 
-export type VueButlerovStructureModel = SmilesFormat | MolFormat | ButlerovMolecule;
+export type VueButlerovStructureModel = MolFormat | ButlerovMolecule;
 export type VueButlerovSchemaModel = {
   objects: DrawableObject[];
 };
@@ -83,11 +91,12 @@ export type VueButlerovModel = VueButlerovStructureModel | VueButlerovSchemaMode
 
 interface Props {
   modelValue?: VueButlerovModel;
-  format?: "native" | "smiles" | "mol";
+  /** Bound with `v-model:mol` (MOL string). */
+  mol?: string;
   mode?: "structure" | "scheme";
   style?: Style;
   theme?: Theme | string;
-  /** When true, show a hover copy control (Mol/Smiles string or JSON for native graph). */
+  /** When true, show a hover copy control (MOL string or JSON for native graph). */
   copyable?: boolean;
   /** Read-only structure (no editing); maps to core `readonly`. */
   disabled?: boolean;
@@ -100,36 +109,65 @@ interface Props {
   zoomFitPadding?: number;
 }
 
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits<{
+  "update:modelValue": [value: VueButlerovModel];
+  "update:mol": [value: string];
+}>();
 
 const props = withDefaults(defineProps<Props>(), {
   mode: () => "structure",
-  format: () => "native",
   theme: () => "light",
   style: () => defaultStyle,
   copyable: true,
   disabled: false,
   autofocus: true,
   zoomFitPadding: 0.05,
-  modelValue: (p: Readonly<Props>) => {
-    if (p.mode == "structure") {
-      if (p.format == "native") {
-        return {
-          type: "Graph",
-          vertices: [],
-          edges: [],
-        };
-      }
-      return "";
-    }
-    if (p.format == "native") {
-      return {
-        objects: [],
-      };
-    }
-    return "";
-  },
 });
+
+const attrs = useAttrs();
+
+/** Which v-model props are actually passed (input channel). Omit `modelValue` default so `v-model:mol` alone does not count as native + mol. */
+const providedInputs = computed(() => ({
+  native: props.modelValue !== undefined,
+  mol: props.mol !== undefined,
+}));
+
+const inputCount = computed(
+  () => Object.values(providedInputs.value).filter(Boolean).length,
+);
+
+/** Single source of truth for loading the editor: native graph/document or MOL string. */
+const activeInput = computed((): "native" | "mol" => {
+  if (props.mol !== undefined)
+    return "mol";
+  return "native";
+});
+
+/** Which update listeners the parent registered (output channel; multiple allowed). */
+function hasUpdateListener(key: "modelValue" | "mol"): boolean {
+  const a = attrs as Record<string, unknown>;
+  if (key === "modelValue")
+    return !!(a["onUpdate:modelValue"] ?? a.onUpdateModelValue);
+  return !!(a["onUpdate:mol"] ?? a.onUpdateMol);
+}
+
+/**
+ * Outputs: listeners in attrs (public) plus the active input channel — `v-model` listeners
+ * are not always visible on attrs when paired with declared emits, so we always emit the
+ * channel that backs the single bound input.
+ */
+const wantsNativeEmit = computed(
+  () => hasUpdateListener("modelValue") || activeInput.value === "native",
+);
+const wantsMolEmit = computed(
+  () => hasUpdateListener("mol") || activeInput.value === "mol",
+);
+
+if (inputCount.value > 1) {
+  throw new Error(
+    "[VueButlerov] Only one input format can be used at a time. Use only one of: v-model or v-model:mol.",
+  );
+}
 
 const editor = ref<MoleculeEditor | null>(null);
 const converter = ref<Converter | null>(null);
@@ -140,7 +178,12 @@ defineExpose({ editor });
 
 let last_emitted_serialized: string | null = null;
 
-function try_serialize(v: unknown): string | null {
+/** Snapshot for echo suppression: MOL stays raw string; native graph/document use JSON. */
+function valueForDedupe(v: unknown): string | null {
+  if (v === undefined || v === null)
+    return null;
+  if (typeof v === "string")
+    return v;
   try {
     return JSON.stringify(v);
   } catch {
@@ -148,10 +191,18 @@ function try_serialize(v: unknown): string | null {
   }
 }
 
+/** Serialize graph to MOL; reuse `converter` when it is already a MolConverter (e.g. v-model:mol). */
+function graphToMolString(g: Graph): string {
+  const c = converter.value;
+  if (c?.graph_to_string)
+    return c.graph_to_string(g);
+  return new MolConverter().graph_to_string(g);
+}
+
 const canCopy = computed(() => {
   if (props.mode !== "structure")
     return false;
-  const v = props.modelValue;
+  const v = activeInput.value === "mol" ? props.mol : props.modelValue;
   if (v === undefined || v === null)
     return false;
   if (typeof v === "string")
@@ -161,16 +212,33 @@ const canCopy = computed(() => {
   return true;
 });
 
-function setConverterFromFormat() {
-  if (props.format == "mol")
+function defaultNativeModel(): VueButlerovModel {
+  if (props.mode === "structure") {
+    return {
+      type: "Graph",
+      vertices: [],
+      edges: [],
+    };
+  }
+  return {
+    objects: [],
+  };
+}
+
+function setConverterFromActiveInput() {
+  if (activeInput.value === "mol")
     converter.value = new MolConverter();
-  else if (props.format == "smiles")
-    converter.value = new SmilesConverter();
   else
     converter.value = null;
 }
 
-function setEditorValue(v: VueButlerovModel) {
+function getActiveModelValue(): VueButlerovModel | string {
+  if (activeInput.value === "mol")
+    return props.mol ?? "";
+  return (props.modelValue ?? defaultNativeModel()) as VueButlerovModel;
+}
+
+function setEditorValue(v: VueButlerovModel | string | undefined) {
   if (!editor.value)
     return;
 
@@ -194,23 +262,64 @@ function setEditorValue(v: VueButlerovModel) {
   }
   if (!converter.value.graph_from_string)
     return;
-  editor.value.graph = converter.value.graph_from_string(v as string);
+  const s = typeof v === "string" ? v : "";
+  if (!s.trim()) {
+    editor.value.graph = {
+      type: "Graph",
+      vertices: [],
+      edges: [],
+    };
+    return;
+  }
+  editor.value.graph = converter.value.graph_from_string(s);
 }
 
 function emitEditorValue() {
+  if (!editor.value)
+    return;
+
   if (props.mode == "structure") {
-    const payload = converter.value?.graph_to_string && editor.value
-      ? converter.value.graph_to_string(editor.value.graph)
-      : editor.value?.graph;
-    last_emitted_serialized = try_serialize(payload);
-    emit("update:modelValue", payload);
+    const g = editor.value.graph;
+    let molStr: string | undefined;
+
+    if (wantsNativeEmit.value)
+      emit("update:modelValue", g);
+    if (wantsMolEmit.value) {
+      const m = graphToMolString(g);
+      molStr = m;
+      emit("update:mol", m);
+    }
+
+    if (activeInput.value === "native") {
+      last_emitted_serialized = valueForDedupe(g);
+    }
+    else {
+      if (molStr === undefined)
+        molStr = graphToMolString(g);
+      last_emitted_serialized = valueForDedupe(molStr);
+    }
+    return;
+  }
+
+  const doc = editor.value.document;
+  const g = editor.value.graph;
+  let molStr: string | undefined;
+
+  if (wantsNativeEmit.value)
+    emit("update:modelValue", doc);
+  if (wantsMolEmit.value) {
+    const m = graphToMolString(g);
+    molStr = m;
+    emit("update:mol", m);
+  }
+
+  if (activeInput.value === "native") {
+    last_emitted_serialized = valueForDedupe(doc);
   }
   else {
-    if (!editor.value)
-      return;
-    const payload = editor.value.document;
-    last_emitted_serialized = try_serialize(payload);
-    emit("update:modelValue", payload);
+    if (molStr === undefined)
+      molStr = graphToMolString(g);
+    last_emitted_serialized = valueForDedupe(molStr);
   }
 }
 
@@ -243,10 +352,12 @@ async function copyToClipboard(): Promise<void> {
     return;
   let text = "";
   try {
-    if (converter.value?.graph_to_string)
-      text = converter.value.graph_to_string(editor.value.graph);
-    else
+    if (wantsMolEmit.value) {
+      text = graphToMolString(editor.value.graph);
+    }
+    else {
       text = JSON.stringify(editor.value.graph);
+    }
   }
   catch {
     return;
@@ -270,25 +381,15 @@ watch(() => props.mode, () => {
     return;
   editor.value?.stage.destroy();
   editor.value = null;
-  setConverterFromFormat();
+  setConverterFromActiveInput();
   editor.value = new MoleculeEditor({
     stage: container.value,
     mode: props.mode,
     autofocus: props.autofocus !== false,
   });
   wireEditorInstance();
-  setEditorValue(props.modelValue);
+  setEditorValue(getActiveModelValue());
   applyStructureViewFit();
-});
-
-watch(() => props.format, () => {
-  setConverterFromFormat();
-  if (editor.value && props.mode === "structure") {
-    setEditorValue(props.modelValue);
-    applyStructureViewFit();
-  }
-  if (editor.value)
-    emitEditorValue();
 });
 
 watch(() => props.theme, (v) => {
@@ -323,25 +424,37 @@ watch(() => props.zoomFitPadding, () => {
   applyStructureViewFit();
 });
 
-watch(() => props.modelValue, (v) => {
-  const incoming_serialized = try_serialize(v);
-  if (incoming_serialized !== null && incoming_serialized === last_emitted_serialized)
-    return;
-  setEditorValue(v);
-  applyStructureViewFit();
-}, { deep: false });
+watch(
+  () => {
+    if (activeInput.value === "mol")
+      return props.mol ?? "";
+    return props.modelValue;
+  },
+  (v) => {
+    const effective
+      = v === undefined && activeInput.value === "native"
+        ? defaultNativeModel()
+        : v;
+    const incoming_serialized = valueForDedupe(effective);
+    if (incoming_serialized !== null && incoming_serialized === last_emitted_serialized)
+      return;
+    setEditorValue(effective as VueButlerovModel | string | undefined);
+    applyStructureViewFit();
+  },
+  { deep: false },
+);
 
 onMounted(() => {
   if (!container.value)
     return;
-  setConverterFromFormat();
+  setConverterFromActiveInput();
   editor.value = new MoleculeEditor({
     stage: container.value,
     mode: props.mode,
     autofocus: props.autofocus !== false,
   });
   wireEditorInstance();
-  setEditorValue(props.modelValue);
+  setEditorValue(getActiveModelValue());
   applyStructureViewFit();
 });
 

@@ -25,7 +25,8 @@ export default defineConfig({
     command: "npm run dev",
     cwd: packageDir,
     url: "http://localhost:5173/playground.html",
-    reuseExistingServer: !process.env.CI,
+    /** Prefer reusing a dev server when the URL already responds (avoids port conflicts in sandboxes that set CI). */
+    reuseExistingServer: true,
     timeout: 120 * 1000,
   },
 });
