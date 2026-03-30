@@ -68,7 +68,12 @@
 
             window.readSmiles = function() {
                 clearErrors();
-                d.load(document.getElementById("smiles").value, smiles_converter);
+                try {
+                    d.load(document.getElementById("smiles").value, smiles_converter);
+                }
+                catch (e) {
+                    document.getElementById("error").innerHTML = e;
+                }
             };
 
             window.readonlyChange = function() {

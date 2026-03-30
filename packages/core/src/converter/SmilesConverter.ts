@@ -1,8 +1,7 @@
 import { DrawableGraph } from "../drawables/Graph";
 import { DrawableVertex } from "../drawables/Vertex";
 import { ChemicalElements } from "../lib/elements";
-import { Converter, EdgeShape } from "../types";
-import { Graph } from "../types";
+import { Converter, EdgeShape, Graph } from "../types";
 
 
 /**
@@ -25,7 +24,9 @@ export class SmilesConverter implements Converter {
         return this.graph.as_model();
     }
 
-    graph_to_string = undefined;
+    graph_to_string(_graph: Graph): string {
+        throw new Error("SMILES export is not implemented yet.");
+    }
 
     _parse(smiles: string): void {
         const lowercase_list = "(?:b|c|n|o|p|s)";

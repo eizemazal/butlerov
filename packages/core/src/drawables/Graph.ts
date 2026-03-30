@@ -70,6 +70,9 @@ class DrawableGraph extends DrawableBase {
     }
 
     read_model(graph: Graph) {
+        const ctrl = this.controller;
+        if (ctrl)
+            this.detach();
         this.vertices = graph.vertices.map(e => new DrawableVertex(e));
         this.edges = graph.edges.map(e => {
             const edge = this.bind_vertices(this.vertices[e.vertices[1]], this.vertices[e.vertices[0]], e.shape);
@@ -80,6 +83,8 @@ class DrawableGraph extends DrawableBase {
         });
         this.update_topology();
         this.edges.forEach(e => { this.update_edge_orientation(e); });
+        if (ctrl)
+            this.attach(ctrl);
     }
 
     /**
