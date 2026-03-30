@@ -24,6 +24,7 @@ export class SmilesConverter implements Converter {
         return this.graph.as_model();
     }
 
+    //eslint-disable-next-line @typescript-eslint/no-unused-vars
     graph_to_string(_graph: Graph): string {
         throw new Error("SMILES export is not implemented yet.");
     }
