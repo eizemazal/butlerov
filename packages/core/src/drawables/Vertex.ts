@@ -417,6 +417,7 @@ class DrawableVertex extends DrawableBase implements Vertex {
             this.text.alignment = this.topology == VertexTopology.Ring ? TextAlignment.FIRST_SEGMENT_FIRST_LETTER : TextAlignment.FIRST_SEGMENT_CENTER;
         }
         this.text.font_size = this.controller.style.atom_font_size_px;
+        this.text.font_family = this.controller.style.atom_font_family;
         this.text.update();
         this.updateChargeDisplay();
         this.syncSelectionUnderlay();
@@ -632,14 +633,14 @@ class DrawableVertex extends DrawableBase implements Vertex {
         if (!this.controller)
             throw Error("Vertex not attached to controller");
         const text = this.group?.findOne("#text");
-        return text ? text.width() + this.controller.style.atom_label_horizontal_clearance_px : 0;
+        return text ? text.width() : 0;
     }
 
     public get height() {
         if (!this.controller)
             throw Error("Vertex not attached to controller");
         const text = this.group?.findOne("#text");
-        return text ? text.height() + this.controller.style.atom_label_vertical_clearance_px : 0;
+        return text ? text.height() : 0;
     }
 
     private compute_h_count() {

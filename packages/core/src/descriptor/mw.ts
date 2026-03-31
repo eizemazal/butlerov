@@ -57,7 +57,27 @@ export class ExactMass extends Descriptor {
     }
 }
 
-export class Composition extends Descriptor {
+function format_charge_string(charge: number): string {
+    if (charge === 0)
+        return "";
+    if (charge === 1)
+        return "+";
+    if (charge === -1)
+        return "-";
+    return `(${Math.abs(charge)}${charge > 0 ? "+" : "-"})`;
+}
+
+function format_charge_html(charge: number): string {
+    if (charge === 0)
+        return "";
+    if (charge === 1)
+        return "<sup>+</sup>";
+    if (charge === -1)
+        return "<sup>-</sup>";
+    return `<sup>${Math.abs(charge)}${charge > 0 ? "+" : "-"}</sup>`;
+}
+
+export class Formula extends Descriptor {
     compute(): Map<string, number> {
         if (this.graph.vertices.some(e => e.label_type != LabelType.Atom && e.label_type !== undefined))
             return new Map();
@@ -77,19 +97,23 @@ export class Composition extends Descriptor {
         return new Map(Array.from(r).sort((a, b) => {
             // these atoms will be ordered first as written in the array, and all the rest follow alphabetically
             const order = ["C", "H"];
-            if (order.includes(a[0])) {
-                return order.includes(b[0]) ? order.indexOf(a[0]) - order.indexOf(b[0]) : -1;
+            if (order.indexOf(a[0]) !== -1) {
+                return order.indexOf(b[0]) !== -1 ? order.indexOf(a[0]) - order.indexOf(b[0]) : -1;
             }
             else {
-                return order.includes(b[0]) ? 1 : (a[0] < b[0] ? -1 : 1);
+                return order.indexOf(b[0]) !== -1 ? 1 : (a[0] < b[0] ? -1 : 1);
             }
         }));
     }
 
     compute_as_string(): string {
-        return Array.from(this.compute()).filter(e => e[1] != 0).map(e => e[1] > 1 ? `${e[0]}${e[1]}` : e[0]).join("");
+        const formula = Array.from(this.compute()).filter(e => e[1] != 0).map(e => e[1] > 1 ? `${e[0]}${e[1]}` : e[0]).join("");
+        const charge = this.graph.vertices.reduce((sum, v) => sum + (v.charge ?? 0), 0);
+        return `${formula}${format_charge_string(charge)}`;
     }
     compute_as_html(): string {
-        return Array.from(this.compute()).filter(e => e[1] != 0).map(e => e[1] > 1 ? `${e[0]}<sub>${e[1]}</sub>` : e[0]).join("");
+        const formula = Array.from(this.compute()).filter(e => e[1] != 0).map(e => e[1] > 1 ? `${e[0]}<sub>${e[1]}</sub>` : e[0]).join("");
+        const charge = this.graph.vertices.reduce((sum, v) => sum + (v.charge ?? 0), 0);
+        return `${formula}${format_charge_html(charge)}`;
     }
 }

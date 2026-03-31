@@ -25,7 +25,7 @@
             function onChange() {
                 const mw = new window.butlerov.MW(d.graph).compute();
                 document.getElementById("mw").innerHTML = mw ? `Molecular weight: ${mw.toFixed(2)}` : "";
-                const composition = new window.butlerov.Composition(d.graph).compute_as_html();
+                const composition = new window.butlerov.Formula(d.graph).compute_as_html();
                 document.getElementById("composition").innerHTML = composition ? `Composition: ${composition}` : "";
             }
 

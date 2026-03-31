@@ -1,5 +1,5 @@
 import { editor, fire_key, fire } from "../src/lib/testing";
-import { Composition } from "../src/descriptor/mw";
+import { Formula } from "../src/descriptor/mw";
 import userEvent from "@testing-library/user-event";
 
 beforeEach(() => {
@@ -266,7 +266,7 @@ test("Condensed ring drawing", () => {
     fire_key("p");
     expect(editor.graph.vertices.length).toBe(6);
     expect(editor.graph.edges.length).toBe(6);
-    expect(new Composition(editor.graph).compute_as_string()).toBe("C6H6");
+    expect(new Formula(editor.graph).compute_as_string()).toBe("C6H6");
     edge_center = {
         x: (editor.graph.vertices[0].x + editor.document_container.graph.vertices[1].coords.x) / 2,
         y: (editor.graph.vertices[0].y + editor.document_container.graph.vertices[1].coords.y) / 2,
@@ -278,7 +278,7 @@ test("Condensed ring drawing", () => {
     fire_key("p");
     expect(editor.graph.vertices.length).toBe(10);
     expect(editor.graph.edges.length).toBe(11);
-    expect(new Composition(editor.graph).compute_as_string()).toBe("C10H8");
+    expect(new Formula(editor.graph).compute_as_string()).toBe("C10H8");
     edge_center = {
         x: (editor.graph.vertices[1].x + editor.document_container.graph.vertices[2].coords.x) / 2,
         y: (editor.graph.vertices[1].y + editor.document_container.graph.vertices[2].coords.y) / 2,
@@ -290,5 +290,5 @@ test("Condensed ring drawing", () => {
     fire_key("p");
     expect(editor.graph.vertices.length).toBe(13);
     expect(editor.graph.edges.length).toBe(15);
-    expect(new Composition(editor.graph).compute_as_string()).toBe("C13H10");
+    expect(new Formula(editor.graph).compute_as_string()).toBe("C13H10");
 });

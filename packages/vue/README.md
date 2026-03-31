@@ -1,6 +1,12 @@
 # `@butlerov-chemistry/vue`
 
-Vue **3** wrapper around [`@butlerov-chemistry/core`](../core/README.md): a full-size editor with optional **copy-to-clipboard**, **`v-model`**, and format switching (native graph, MOL, SMILES).
+Vue 3 wrapper around [`@butlerov-chemistry/core`](../core/README.md).
+
+Use it as a full-size chemical editor with:
+- native graph binding (`v-model`)
+- MOL string binding (`v-model:mol`)
+- style/theme customization
+- optional computed descriptors (`mw`, `formula`, `formula_html`, `exactMass`)
 
 ---
 
@@ -10,111 +16,201 @@ Vue **3** wrapper around [`@butlerov-chemistry/core`](../core/README.md): a full
 npm i @butlerov-chemistry/vue
 ```
 
-Peer dependency: **`vue` ^3.0.0**.
+Peer dependency: `vue` `^3.0.0`.
 
 ---
 
-## Basic usage
+## Simplest Example
 
 ```vue
 <template>
-  <div style="height: 420px">
-    <VueButlerov v-model="structure" format="mol" />
+  <div class="editor">
+    <VueButlerov v-model="graph" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
 import VueButlerov from "@butlerov-chemistry/vue";
+import type { Graph } from "@butlerov-chemistry/core";
 
-const structure = ref("");
+const graph = ref<Graph>({
+  type: "Graph",
+  vertices: [],
+  edges: [],
+});
 </script>
+
+<style scoped>
+.editor {
+  height: 420px;
+  border: 1px solid #ddd;
+}
+</style>
 ```
 
-Give the wrapper a **non-zero height** (for example a fixed `height` or flex layout); the component stretches to `width: 100%` and `height: 100%` of its container.
+Give the component container a non-zero height (`height`, flex layout, grid row, etc.).  
+`VueButlerov` fills container width/height.
 
 ---
 
-## `v-model`
+## Binding Modes
 
-- **Binding:** `v-model` (or `:model-value` + `@update:modelValue`) holds the current structure or document.
-- **Structure mode (`mode="structure"`):**
-  - **`format="native"`** (default): model is a **`Graph`** object (`{ type: "Graph", vertices, edges, ... }`).
-  - **`format="mol"`** or **`format="smiles"`**: model is a **string** in that format.
-- **Scheme mode (`mode="scheme"`):** model is a **document** object (native) or a string if you add string-based document converters in the future; for native scheme documents the payload matches core’s document shape (`objects`, etc.).
+Use **exactly one** input channel at a time:
+- `v-model` (native graph/document)
+- `v-model:mol` (MOL string)
 
-The component avoids feedback loops by comparing serialized values when applying external `modelValue` updates.
+### Native model (`v-model`)
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import VueButlerov from "@butlerov-chemistry/vue";
+import type { Graph } from "@butlerov-chemistry/core";
+
+const graph = ref<Graph>({ type: "Graph", vertices: [], edges: [] });
+</script>
+
+<template>
+  <div class="editor">
+    <VueButlerov v-model="graph" />
+  </div>
+</template>
+```
+
+### MOL model (`v-model:mol`)
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import VueButlerov from "@butlerov-chemistry/vue";
+
+const mol = ref("");
+</script>
+
+<template>
+  <div class="editor">
+    <VueButlerov v-model:mol="mol" />
+  </div>
+</template>
+```
+
+---
+
+## Style, Theme, and Settings
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import VueButlerov from "@butlerov-chemistry/vue";
+import { defaultStyle, type Graph, type Style } from "@butlerov-chemistry/core";
+
+const graph = ref<Graph>({ type: "Graph", vertices: [], edges: [] });
+const style = ref<Style>({
+  ...defaultStyle,
+  atom_font_size_px: 18,
+  bond_thickness_px: 2,
+  themes: defaultStyle.themes.map(t => ({ ...t })),
+});
+const theme = ref("dark");
+const readonly = ref(false);
+</script>
+
+<template>
+  <div class="editor">
+    <VueButlerov
+      v-model="graph"
+      :style="style"
+      :theme="theme"
+      :disabled="readonly"
+      :autofocus="true"
+      :zoom-fit-padding="0.08"
+      :copyable="true"
+    />
+  </div>
+</template>
+```
+
+---
+
+## Descriptor API (Lazy + Debounced)
+
+`VueButlerov` can compute descriptors and expose them via `v-model:descriptors`.
+Only requested keys are computed.
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import VueButlerov from "@butlerov-chemistry/vue";
+import type { Graph } from "@butlerov-chemistry/core";
+import type { VueButlerovDescriptorValues } from "@butlerov-chemistry/vue";
+
+const graph = ref<Graph>({ type: "Graph", vertices: [], edges: [] });
+const descriptors = ref<VueButlerovDescriptorValues>({});
+</script>
+
+<template>
+  <VueButlerov
+    v-model="graph"
+    :descriptor-keys="['mw', 'formula_html']"
+    v-model:descriptors="descriptors"
+    :descriptor-debounce-ms="{ mw: 120, formula_html: 40 }"
+  />
+
+  <p>MW: {{ typeof descriptors.mw === 'number' ? descriptors.mw.toFixed(2) : '' }}</p>
+  <p v-html="descriptors.formula_html || ''"></p>
+</template>
+```
+
+Supported keys:
+- `mw`
+- `formula`
+- `formula_html`
+- `exact_mass`
 
 ---
 
 ## Props
 
 | Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `modelValue` | `VueButlerovModel` | empty structure / document | Current structure or document (see `v-model` above). |
-| `format` | `"native"` \| `"mol"` \| `"smiles"` | `"native"` | Serialization format for `v-model`. |
-| `mode` | `"structure"` \| `"scheme"` | `"structure"` | Structure vs scheme canvas. |
-| `style` | `Style` | `defaultStyle` from core | Drawing style object. |
-| `theme` | `Theme` \| `string` | `"light"` | Theme name or object. |
-| `copyable` | `boolean` | `true` | Show hover **copy** control (structure mode; copies MOL/SMILES/JSON depending on `format`). |
-| `disabled` | `boolean` | `false` | Read-only; maps to core `readonly`. |
-| `autofocus` | `boolean` | `true` | Focus the stage on mount for keyboard shortcuts. |
-| `zoomFitPadding` | `number` | `0.05` | Extra margin for zoom-to-fit (fraction of stage size). |
+|---|---|---|---|
+| `modelValue` | native model | `undefined` | Native input channel (`v-model`). |
+| `mol` | `string` | `undefined` | MOL input channel (`v-model:mol`). |
+| `mode` | `"structure" \| "scheme"` | `"structure"` | Editor mode. |
+| `style` | `Style` | `defaultStyle` | Drawing style object. |
+| `theme` | `Theme \| string` | `"light"` | Theme name/object. |
+| `copyable` | `boolean` | `true` | Show hover copy button. |
+| `disabled` | `boolean` | `false` | Read-only editor. |
+| `autofocus` | `boolean` | `true` | Focus stage on mount. |
+| `zoomFitPadding` | `number` | `0.05` | Extra zoom-to-fit margin ratio. |
+| `descriptorKeys` | descriptor key array | `[]` | Which descriptors to compute. |
+| `descriptors` | descriptor map | `{}` | `v-model:descriptors` value. |
+| `descriptorDebounceMs` | partial map | `{}` | Optional per-descriptor debounce override. |
 
 ---
 
 ## Events
 
-| Event | Payload | When |
-|-------|---------|------|
-| `update:modelValue` | same as `v-model` | Structure or document changed in the editor. |
+| Event | Payload |
+|---|---|
+| `update:modelValue` | native model |
+| `update:mol` | `string` |
+| `update:descriptors` | descriptor map |
+| `error` | `Error` |
 
 ---
 
-## Exposed instance
+## Exposed Instance
 
-The component **`defineExpose`s** `{ editor }` — the underlying **`MoleculeEditor`** from core — for advanced use (imperative APIs, testing).
+`VueButlerov` exposes:
+- `editor` (`MoleculeEditor`)
 
----
-
-## Example: MOL string in a form
-
-```vue
-<template>
-  <form @submit.prevent="submit">
-    <label>MOL</label>
-    <textarea v-model="molText" rows="6" readonly />
-    <div class="editor">
-      <VueButlerov v-model="molText" format="mol" :disabled="previewOnly" />
-    </div>
-    <button type="submit">Save</button>
-  </form>
-</template>
-
-<script setup lang="ts">
-import { ref } from "vue";
-import VueButlerov from "@butlerov-chemistry/vue";
-
-const molText = ref("");
-const previewOnly = ref(false);
-
-function submit() {
-  console.log(molText.value);
-}
-</script>
-
-<style scoped>
-.editor {
-  height: 400px;
-  border: 1px solid #ddd;
-}
-</style>
-```
+Useful for advanced integration/tests.
 
 ---
 
 ## Related
 
-- [Core library (`@butlerov-chemistry/core`)](../core/README.md) — vanilla JS and full API.
-- [Desktop app](../app/README.md) — Electron shell.
-- [Repository README](../../README.md) — overview and CodePen demo.
+- [Core library (`@butlerov-chemistry/core`)](../core/README.md)
+- [Desktop app](../app/README.md)
+- [Repository README](../../README.md)

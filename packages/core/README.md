@@ -22,7 +22,7 @@ import {
   MolConverter,
   SmilesConverter,
   MW,
-  Composition,
+  Formula,
   defaultStyle,
   lightTheme,
 } from "@butlerov-chemistry/core";
@@ -109,7 +109,7 @@ From a CDN (adjust version as needed):
 | `editor.readonly` | When `true`, view-only (no editing). |
 | `editor.clear(fromUserspace?)` | Clear canvas. |
 | `new MW(graph).compute()` | Molecular weight. |
-| `new Composition(graph).compute_as_html()` | Composition HTML. |
+| `new Formula(graph).compute_as_html()` | Formula HTML. |
 | `new MolConverter()` / `new SmilesConverter()` | MOL V2000/V3000 and SMILES interop where implemented. |
 
 For themes and styling, import `defaultStyle`, `lightTheme`, `darkTheme`, and pass `theme` / `style` in the constructor or assign `editor.theme` / `editor.style` after creation.

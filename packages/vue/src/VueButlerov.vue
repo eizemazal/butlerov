@@ -56,6 +56,7 @@ import {
   onUnmounted,
   useTemplateRef,
   ref,
+  shallowRef,
   watch,
   nextTick,
   computed,
@@ -70,6 +71,9 @@ import {
   defaultStyle,
   Converter,
   MolConverter,
+  MW,
+  Formula,
+  ExactMass,
   BUTLEROV_DOCUMENT_FORMAT,
 } from "@butlerov-chemistry/core";
 
@@ -88,6 +92,8 @@ export type VueButlerovSchemaModel = {
 };
 
 export type VueButlerovModel = VueButlerovStructureModel | VueButlerovSchemaModel;
+export type VueButlerovDescriptorKey = "mw" | "formula" | "formula_html" | "exact_mass";
+export type VueButlerovDescriptorValues = Partial<Record<VueButlerovDescriptorKey, number | string>>;
 
 interface Props {
   modelValue?: VueButlerovModel;
@@ -107,11 +113,25 @@ interface Props {
    * Core fits using label/bond bounds; a little padding keeps card edges clear.
    */
   zoomFitPadding?: number;
+  /**
+   * List of descriptor keys to compute lazily.
+   * Values are emitted via `v-model:descriptors`.
+   */
+  descriptorKeys?: VueButlerovDescriptorKey[];
+  /**
+   * Current descriptor values for `v-model:descriptors`.
+   */
+  descriptors?: VueButlerovDescriptorValues;
+  /**
+   * Optional per-descriptor debounce overrides in milliseconds.
+   */
+  descriptorDebounceMs?: Partial<Record<VueButlerovDescriptorKey, number>>;
 }
 
 const emit = defineEmits<{
   "update:modelValue": [value: VueButlerovModel];
   "update:mol": [value: string];
+  "update:descriptors": [value: VueButlerovDescriptorValues];
   /** Fired when MOL/native graph parsing or loading fails; editor is reset to an empty structure. */
   error: [error: Error];
 }>();
@@ -127,6 +147,9 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
   autofocus: true,
   zoomFitPadding: 0.05,
+  descriptorKeys: () => [],
+  descriptors: () => ({}),
+  descriptorDebounceMs: () => ({}),
 });
 
 const attrs = useAttrs();
@@ -174,14 +197,22 @@ if (inputCount.value > 1) {
   );
 }
 
-const editor = ref<MoleculeEditor | null>(null);
-const converter = ref<Converter | null>(null);
+const editor = shallowRef<MoleculeEditor | null>(null);
+const converter = shallowRef<Converter | null>(null);
 const hovered = ref(false);
 const copied = ref(false);
 
 defineExpose({ editor });
 
 let last_emitted_serialized: string | null = null;
+const descriptorState = ref<VueButlerovDescriptorValues>({});
+const descriptorTimers = new Map<VueButlerovDescriptorKey, ReturnType<typeof setTimeout>>();
+const defaultDescriptorDebounceMs: Record<VueButlerovDescriptorKey, number> = {
+  mw: 100,
+  formula: 30,
+  formula_html: 40,
+  exact_mass: 180,
+};
 
 /** Snapshot for echo suppression: MOL stays raw string; native graph/document use JSON. */
 function valueForDedupe(v: unknown): string | null {
@@ -219,6 +250,26 @@ const canCopy = computed(() => {
 
 function defaultGraph(): Graph {
   return { type: "Graph", vertices: [], edges: [] };
+}
+
+function cloneStyle(style: Style): Style {
+  return {
+    ...style,
+    themes: style.themes.map((t: Theme) => ({ ...t })),
+  };
+}
+
+function applyThemeToEditor() {
+  if (!editor.value)
+    return;
+  if (typeof props.theme === "string") {
+    const mapped = editor.value.style.themes.find((t: Theme) => t.name === props.theme);
+    // Use Theme object from the (possibly just-updated) style to force repaint,
+    // even when theme name itself did not change.
+    editor.value.theme = mapped ?? props.theme;
+    return;
+  }
+  editor.value.theme = props.theme;
 }
 
 
@@ -346,6 +397,65 @@ function emitEditorValue() {
   }
 }
 
+function computeDescriptor(key: VueButlerovDescriptorKey, g: Graph): number | string | undefined {
+  if (key === "mw") {
+    const v = new MW(g).compute();
+    return Number.isFinite(v) ? v : undefined;
+  }
+  if (key === "formula")
+    return new Formula(g).compute_as_string();
+  if (key === "formula_html")
+    return new Formula(g).compute_as_html();
+  if (key === "exact_mass") {
+    const v = new ExactMass(g).compute();
+    return Number.isFinite(v) ? v : undefined;
+  }
+  return undefined;
+}
+
+function emitDescriptors() {
+  emit("update:descriptors", { ...descriptorState.value });
+}
+
+function syncDescriptorKeys() {
+  const requested = new Set(props.descriptorKeys);
+  for (const [key, timer] of descriptorTimers.entries()) {
+    if (!requested.has(key)) {
+      clearTimeout(timer);
+      descriptorTimers.delete(key);
+    }
+  }
+  const next: VueButlerovDescriptorValues = {};
+  for (const key of props.descriptorKeys) {
+    if (descriptorState.value[key] !== undefined)
+      next[key] = descriptorState.value[key];
+  }
+  descriptorState.value = next;
+  emitDescriptors();
+}
+
+function scheduleDescriptorComputation() {
+  if (!editor.value)
+    return;
+  const g = editor.value.graph;
+  for (const key of props.descriptorKeys) {
+    const running = descriptorTimers.get(key);
+    if (running)
+      clearTimeout(running);
+    const timeoutMs = props.descriptorDebounceMs[key] ?? defaultDescriptorDebounceMs[key];
+    const timer = setTimeout(() => {
+      descriptorTimers.delete(key);
+      const value = computeDescriptor(key, g);
+      descriptorState.value = {
+        ...descriptorState.value,
+        [key]: value,
+      };
+      emitDescriptors();
+    }, timeoutMs);
+    descriptorTimers.set(key, timer);
+  }
+}
+
 function applyStructureViewFit() {
   if (props.mode !== "structure" || !editor.value)
     return;
@@ -360,13 +470,14 @@ function applyStructureViewFit() {
 function wireEditorInstance() {
   if (!editor.value)
     return;
-  editor.value.theme = props.theme;
-  editor.value.style = props.style;
+  editor.value.style = cloneStyle(props.style);
+  applyThemeToEditor();
   editor.value.readonly = props.disabled;
   editor.value.onchange = () => {
     if (!editor.value)
       return;
     emitEditorValue();
+    scheduleDescriptorComputation();
   };
 }
 
@@ -415,16 +526,17 @@ watch(() => props.mode, () => {
   applyStructureViewFit();
 });
 
-watch(() => props.theme, (v) => {
+watch(() => props.theme, () => {
   if (!editor.value)
     return;
-  editor.value.theme = v;
+  applyThemeToEditor();
 });
 
 watch(() => props.style, (v) => {
   if (!editor.value)
     return;
-  editor.value.style = v;
+  editor.value.style = cloneStyle(v);
+  applyThemeToEditor();
 }, { deep: true });
 
 watch(() => props.disabled, (v) => {
@@ -447,6 +559,15 @@ watch(() => props.zoomFitPadding, () => {
   applyStructureViewFit();
 });
 
+watch(() => props.descriptorKeys, () => {
+  syncDescriptorKeys();
+  scheduleDescriptorComputation();
+}, { deep: true });
+
+watch(() => props.descriptors, (v) => {
+  descriptorState.value = { ...(v ?? {}) };
+}, { deep: true });
+
 watch(
   () => {
     if (activeInput.value === "mol")
@@ -462,6 +583,7 @@ watch(
     if (incoming_serialized !== null && incoming_serialized === last_emitted_serialized)
       return;
     setEditorValue(effective as VueButlerovModel | string | undefined);
+    scheduleDescriptorComputation();
     applyStructureViewFit();
   },
   { deep: false },
@@ -478,10 +600,15 @@ onMounted(() => {
   });
   wireEditorInstance();
   setEditorValue(getActiveModelValue());
+  syncDescriptorKeys();
+  scheduleDescriptorComputation();
   applyStructureViewFit();
 });
 
 onUnmounted(() => {
+  for (const timer of descriptorTimers.values())
+    clearTimeout(timer);
+  descriptorTimers.clear();
   if (editor.value) {
     editor.value.onchange = () => {};
     editor.value.clear(false);

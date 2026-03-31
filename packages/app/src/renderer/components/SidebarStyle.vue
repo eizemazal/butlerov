@@ -37,24 +37,6 @@
                 >
                 </v-text-field>
                 <v-text-field
-                    v-model.number="model.atom_label_horizontal_clearance_px"
-                    label="Atom label horizontal clearance"
-                    variant="underlined"
-                    type="number"
-                    suffix="px"
-                >
-                </v-text-field>
-                <v-text-field
-                    v-model.number="model.atom_label_vertical_clearance_px"
-                    label="Atom label vertical clearance"
-                    variant="underlined"
-                    type="number"
-                    suffix="px"
-                >
-                </v-text-field>
-
-
-                <v-text-field
                     label="Atom charge font size"
                     variant="underlined"
                     type="number"

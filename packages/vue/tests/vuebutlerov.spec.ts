@@ -99,6 +99,26 @@ async function waitForModel(
   throw new Error(`Model did not reach expected state within ${timeout}ms. Current state: ${JSON.stringify(finalModel, null, 2)}`);
 }
 
+async function getEditorStyle(page: Page): Promise<Record<string, unknown>> {
+  return await page.evaluate(() => {
+    // @ts-expect-error test harness
+    if (typeof window.__butlerov_get_editor_style__ === "function")
+      // @ts-expect-error test harness
+      return window.__butlerov_get_editor_style__();
+    throw new Error("Editor style getter not available");
+  });
+}
+
+async function getDescriptors(page: Page): Promise<Record<string, unknown>> {
+  return await page.evaluate(() => {
+    // @ts-expect-error test harness
+    if (typeof window.__butlerov_get_descriptors__ === "function")
+      // @ts-expect-error test harness
+      return window.__butlerov_get_descriptors__();
+    throw new Error("Descriptors getter not available");
+  });
+}
+
 test("external v-model graph update redraws without error (plain Graph to core)", async ({ page }) => {
   test.setTimeout(15000);
 
@@ -107,7 +127,7 @@ test("external v-model graph update redraws without error (plain Graph to core)"
     errors.push(err.message);
   });
 
-  await page.goto("http://localhost:5173/playground.html?binding=native", { waitUntil: "networkidle" });
+  await page.goto("http://localhost:5173/index.html?binding=native", { waitUntil: "networkidle" });
   await waitForComponentReady(page);
 
   await page.evaluate(() => {
@@ -132,10 +152,50 @@ test("external v-model graph update redraws without error (plain Graph to core)"
   expect(errors, `page errors: ${errors.join("; ")}`).toEqual([]);
 });
 
+test("reactive style/theme props flow from playground to editor", async ({ page }) => {
+  test.setTimeout(15000);
+  await page.goto("http://localhost:5173/index.html?binding=native", { waitUntil: "networkidle" });
+  await waitForComponentReady(page);
+
+  await page.evaluate(() => {
+    // @ts-expect-error test harness
+    window.__butlerov_set_style_field__?.("atom_font_size_px", "22.4");
+  });
+
+  await page.waitForFunction(() => {
+    // @ts-expect-error test harness
+    const s = window.__butlerov_get_editor_style__?.();
+    return s?.atom_font_size_px === 22.4;
+  }, { timeout: 5000 });
+
+  const style = await getEditorStyle(page);
+  expect(style.atom_font_size_px).toBe(22.4);
+});
+
+test("VueButlerov descriptors are emitted lazily for requested keys", async ({ page }) => {
+  test.setTimeout(15000);
+  await page.goto("http://localhost:5173/index.html?binding=native", { waitUntil: "networkidle" });
+  await waitForComponentReady(page);
+
+  await click(page);
+
+  await page.waitForFunction(() => {
+    // @ts-expect-error test harness
+    const d = window.__butlerov_get_descriptors__?.() as Record<string, unknown>;
+    return typeof d?.mw === "number" && typeof d?.formula_html === "string";
+  }, { timeout: 8000 });
+
+  const descriptors = await getDescriptors(page);
+  expect(typeof descriptors.mw).toBe("number");
+  expect(typeof descriptors.formula_html).toBe("string");
+  expect(descriptors.formula).toBeUndefined();
+  expect(descriptors.exact_mass).toBeUndefined();
+});
+
 test("VueButlerov basic drawing operations (native v-model)", async ({ page }) => {
   test.setTimeout(10000);
 
-  await page.goto("http://localhost:5173/playground.html?binding=native", { waitUntil: "networkidle" });
+  await page.goto("http://localhost:5173/index.html?binding=native", { waitUntil: "networkidle" });
   await waitForComponentReady(page);
 
   await click(page);
@@ -159,7 +219,7 @@ test("invalid MOL string clears editor and does not break the component", async 
     errors.push(err.message);
   });
 
-  await page.goto("http://localhost:5173/playground.html?binding=mol", { waitUntil: "networkidle" });
+  await page.goto("http://localhost:5173/index.html?binding=mol", { waitUntil: "networkidle" });
   await waitForComponentReady(page);
 
   const molInput = page.getByTestId("mol-input");
@@ -173,7 +233,7 @@ test("invalid MOL string clears editor and does not break the component", async 
 test("v-model:mol emits MOL after edit", async ({ page }) => {
   test.setTimeout(15000);
 
-  await page.goto("http://localhost:5173/playground.html?binding=mol", { waitUntil: "networkidle" });
+  await page.goto("http://localhost:5173/index.html?binding=mol", { waitUntil: "networkidle" });
   await waitForComponentReady(page);
 
   await click(page);
@@ -200,7 +260,7 @@ test("copy button copies structure to clipboard (native)", async ({ page, contex
 
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 
-  await page.goto("http://localhost:5173/playground.html?binding=native", { waitUntil: "networkidle" });
+  await page.goto("http://localhost:5173/index.html?binding=native", { waitUntil: "networkidle" });
   await waitForComponentReady(page);
 
   await click(page);
@@ -223,7 +283,7 @@ test("copy button copies structure to clipboard (native)", async ({ page, contex
 test("disabled prevents editing", async ({ page }) => {
   test.setTimeout(15000);
 
-  await page.goto("http://localhost:5173/playground.html?binding=native&disabled=1", { waitUntil: "networkidle" });
+  await page.goto("http://localhost:5173/index.html?binding=native&disabled=1", { waitUntil: "networkidle" });
   await waitForComponentReady(page);
 
   expect(await getVertexCount(page)).toBe(0);
@@ -237,7 +297,7 @@ test("disabled prevents editing", async ({ page }) => {
 test("autofocus=false does not focus the stage container", async ({ page }) => {
   test.setTimeout(15000);
 
-  await page.goto("http://localhost:5173/playground.html?binding=native&autofocus=0", { waitUntil: "networkidle" });
+  await page.goto("http://localhost:5173/index.html?binding=native&autofocus=0", { waitUntil: "networkidle" });
   await waitForComponentReady(page);
 
   await page.waitForTimeout(300);

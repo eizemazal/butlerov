@@ -439,6 +439,23 @@ export class DrawableSegmentedText extends DrawableBase implements SegmentedText
         }
     }
 
+    public set font_family(family: string) {
+        let modified = false;
+        for (const segment of this.segments) {
+            if (segment.font_style.family == family)
+                continue;
+            const nextStyle = new FontStyle();
+            nextStyle.size = segment.font_style.size;
+            nextStyle.family = family;
+            nextStyle.color = segment.font_style.color;
+            nextStyle.weight = segment.font_style.weight;
+            segment.font_style = nextStyle;
+            modified = true;
+        }
+        if (modified)
+            this.update();
+    }
+
     public get empty() {
         return this.segments.length == 0;
     }
@@ -507,6 +524,9 @@ export class DrawableSegmentedText extends DrawableBase implements SegmentedText
     }
 
     update() {
+        for (const segment of this.segments)
+            segment.update();
+
         if (this.segments.length == 1) {
             const current = this.segments[0];
             current.x = -current.first_letter_center_x;
@@ -549,7 +569,6 @@ export class DrawableSegmentedText extends DrawableBase implements SegmentedText
         }
 
         for (const [idx, segment] of this.segments.entries()) {
-            segment.update();
             if (segment.group) {
                 segment.group.setAttr("id", `s${idx}`);
                 this.group?.add(segment.group);

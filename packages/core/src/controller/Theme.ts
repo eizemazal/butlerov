@@ -66,18 +66,6 @@ export interface Style {
      */
     atom_font_family: string;
     /**
-     * Atom label is a rectangular area containing text. This parameter specifies clearance between
-     * left or right edge of text bounding box and edge representing chemical bond, in pixels.
-     * @defaultValue 4
-     */
-    atom_label_horizontal_clearance_px: number;
-    /**
-     * Atom label is a rectangular area containing text. This parameter specifies clearance between
-     * top or bottom edge of text bounding box and edge representing chemical bond, in pixels.
-     * @defaultValue 4
-     */
-    atom_label_vertical_clearance_px: number;
-    /**
      * Font size for atomic charges. Charges are represented by `－` (long minus) for single minus; digit with dash for
      * multiple negative charge like `2-`; `+` for single positive charge; and string like `3+` for multiple positive charges.
      * @defaultValue 9
@@ -85,13 +73,7 @@ export interface Style {
     atom_charge_font_size: number;
 
     /**
-     * Atom charge can be drawn in frame that is something between rectangle and circle. Disabling it will draw naked text as charges.
-     * @defaultValue true
-     */
-    atom_charge_frame_enabled: boolean;
-
-    /**
-     * Distance between atom center and text (and optionally charge frame, when enabled). This parameter takes effect only for
+     * Distance between atom center and charge text. This parameter takes effect only for
      * charges near carbon atoms without label.
      * @defaultValue 8
      */
@@ -201,10 +183,7 @@ export const defaultStyle: Style = {
     name: "default",
     atom_font_size_px: 15.6,
     atom_font_family: "Arial",
-    atom_label_horizontal_clearance_px: 0,
-    atom_label_vertical_clearance_px: 0,
     atom_charge_font_size: 11,
-    atom_charge_frame_enabled: true,
     atom_charge_distance: 8,
     index_font_size_ratio: 0.8,
     index_font_weight: 600,

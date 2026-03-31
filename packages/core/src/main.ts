@@ -4,7 +4,7 @@ import { lightTheme, darkTheme, defaultStyle, Style, Theme } from "./controller/
 import { MolConverter } from "./converter/MolConverter";
 import { SmilesConverter } from "./converter/SmilesConverter";
 import { NativeConverter } from "./converter/NativeConverter";
-import { MW, ExactMass, Composition } from "./descriptor/mw";
+import { MW, ExactMass, Formula } from "./descriptor/mw";
 import { DrawableGraph } from "./drawables/Graph";
 import {
     Coords,
@@ -42,7 +42,7 @@ export {
     NativeConverter,
     MW,
     ExactMass,
-    Composition,
+    Formula,
     lightTheme,
     darkTheme,
     defaultStyle

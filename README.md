@@ -33,7 +33,7 @@ If you embed Butlerov in a form or database UI, wire `onchange` (core) or `v-mod
 
 Here are some sample structures drawn with Butlerov.
 
-![Example structures](docs/images/example-structures.png)
+<img src="docs/images/example-structures.png" alt="Example structures" width="720" />
 
 ## Live demo (CodePen)
 
@@ -52,11 +52,11 @@ Changing atom is just hovering over it and pressing first letter of its symbol. 
 
 Except for some rare cases, you need not pull the bonds to build neat structures. Just click, and the geometry will be adjusted. You can press Ctrl-Z to undo any action.
 
-![Click-Click-Click!](docs/images/click-click-click.png)
+<img src="docs/images/click-click-click.png" alt="Click-Click-Click!" width="520" />
 
 Molecule shape will be adjusted automatically for sp-hybridized linear geometries, for tetrahedral sp3 and trigonal sp2 / trisubstituted atoms.
 
-![Hybridization adjustment](docs/images/hybridization-adjustment.png)
+<img src="docs/images/hybridization-adjustment.png" alt="Hybridization adjustment" width="520" />
 
 Pulling bonds is generally discouraged, but it is possible to adjust geometry in conjested systems, and to build bridged polycyclic molecules.
 

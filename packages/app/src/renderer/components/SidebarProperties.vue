@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { MW, ExactMass, Composition, Document } from '@butlerov-chemistry/core';
+import { MW, ExactMass, Formula, Document } from '@butlerov-chemistry/core';
 
 
 
@@ -46,7 +46,7 @@ const composition = computed(() => {
     const graphs = props.document?.objects?.filter(e => e.type == "Graph");
     if (!graphs?.length)
         return "";
-    return new Composition(graphs[0]).compute_as_html();
+    return new Formula(graphs[0]).compute_as_html();
 })
 
 </script>

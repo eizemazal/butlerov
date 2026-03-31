@@ -222,6 +222,12 @@ export class Controller {
             }
             this._theme_name = this._theme.name;
         }
+        else {
+            // Keep active theme in sync with the new style object.
+            // Without this, _theme may still reference the previous style's theme instance
+            // and UI updates (e.g. color edits) are not applied until theme is toggled.
+            this._theme = t;
+        }
         this.draw_background();
         this.update();
     }

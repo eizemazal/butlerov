@@ -3,29 +3,25 @@
     <head>
         <title>Test chemical drawing</title>
         <script type="module">
-            import {MoleculeEditor, SmilesConverter, MolConverter, MW, Composition } from "./src/main.ts";
+            import { MoleculeEditor, SmilesConverter, MolConverter, MW, Formula, defaultStyle } from "./src/main.ts";
             let d;
             let mol_converter;
             let smiles_converter;
+            const style_fields = Object.keys(defaultStyle).filter((k) => !["name", "themes"].includes(k));
             window.init = function() {
-                d = new MoleculeEditor({stage: document.getElementById("chemical")});
+                d = new MoleculeEditor({ stage: document.getElementById("chemical") });
                 d.onchange = onChange;
                 smiles_converter = new SmilesConverter();
                 mol_converter = new MolConverter();
-                for (const el of document.querySelectorAll("[id^=\"style-\"]")) {
-                    const prop_name = el.id.substring("style-".length).replaceAll("-", "_");
-                    const prop_type = typeof(d.style[prop_name]);
-                    if (prop_type == "boolean")
-                        el.checked = d.style[prop_name];
-                    else
-                        el.value = d.style[prop_name];
-                }
+                renderStyleControls();
+                renderThemeControls();
+                onChange();
             };
 
             function onChange() {
                 const mw = new MW(d.graph).compute();
                 document.getElementById("mw").innerHTML = mw ? `Molecular weight: ${mw.toFixed(2)}` : "";
-                const composition = new Composition(d.graph).compute_as_html();
+                const composition = new Formula(d.graph).compute_as_html();
                 document.getElementById("composition").innerHTML = composition ? `Composition: ${composition}` : "";
             }
 
@@ -80,20 +76,100 @@
                 d.readonly = document.getElementById("readonly-chkbx").checked;
             };
 
-            window.stylesheetChange = function(el) {
-                const prop_name = el.id.substring("style-".length).replaceAll("-", "_");
-                const prop_type = typeof(d.stylesheet[prop_name]);
-                if (prop_type == "boolean") {
-                    d.stylesheet[prop_name] = el.checked;
+            function humanize(name) {
+                return name
+                    .replaceAll("_", " ")
+                    .replace(/\b\w/g, (s) => s.toUpperCase());
+            }
+
+            function createInputRow(input_id, label_text, value, onChange) {
+                const li = document.createElement("li");
+                const label = document.createElement("label");
+                label.htmlFor = input_id;
+                label.innerHTML = label_text;
+                li.appendChild(label);
+
+                const input = document.createElement("input");
+                input.id = input_id;
+                if (typeof value === "boolean") {
+                    input.type = "checkbox";
+                    input.checked = value;
+                    input.onchange = () => onChange(input.checked);
                 }
-                else if (prop_type == "number") {
-                    const value_n = parseFloat(el.value);
-                    if (! isNaN(value_n) )
-                        d.stylesheet[prop_name] = value_n;
+                else {
+                    input.type = "text";
+                    input.className = typeof value === "number" ? "small" : "large";
+                    input.value = `${value}`;
+                    input.oninput = () => onChange(input.value);
                 }
-                else
-                    d.stylesheet[prop_name] = el.value;
-                d.graph.update();
+                li.appendChild(input);
+                return li;
+            }
+
+            function setStyleField(field, rawValue) {
+                const current = d.style[field];
+                let value = rawValue;
+                if (typeof current === "number") {
+                    const parsed = parseFloat(`${rawValue}`);
+                    if (Number.isNaN(parsed))
+                        return;
+                    value = parsed;
+                }
+                const next_style = {
+                    ...d.style,
+                    themes: d.style.themes.map((t) => ({ ...t })),
+                    [field]: value,
+                };
+                d.style = next_style;
+            }
+
+            function setThemeField(field, rawValue) {
+                const current_theme = d.theme;
+                const current = current_theme[field];
+                let value = rawValue;
+                if (typeof current === "number") {
+                    const parsed = parseFloat(`${rawValue}`);
+                    if (Number.isNaN(parsed))
+                        return;
+                    value = parsed;
+                }
+                const next_themes = d.style.themes.map((theme) => (
+                    theme.name === current_theme.name ? { ...theme, [field]: value } : { ...theme }
+                ));
+                d.style = { ...d.style, themes: next_themes };
+                d.theme = current_theme.name;
+            }
+
+            function renderStyleControls() {
+                const style_list = document.getElementById("style-controls");
+                style_list.innerHTML = "";
+                style_fields.forEach((field) => {
+                    style_list.appendChild(createInputRow(`style-${field}`, humanize(field), d.style[field], (value) => setStyleField(field, value)));
+                });
+            }
+
+            function renderThemeControls() {
+                const theme_select = document.getElementById("theme-select");
+                const theme_list = document.getElementById("theme-controls");
+                theme_select.innerHTML = "";
+                theme_list.innerHTML = "";
+                d.style.themes.forEach((theme) => {
+                    const option = document.createElement("option");
+                    option.value = theme.name;
+                    option.textContent = theme.name;
+                    option.selected = theme.name === d.theme.name;
+                    theme_select.appendChild(option);
+                });
+                Object.keys(d.theme)
+                    .filter((field) => field !== "name")
+                    .forEach((field) => {
+                        theme_list.appendChild(createInputRow(`theme-${field}`, humanize(field), d.theme[field], (value) => setThemeField(field, value)));
+                    });
+            };
+
+            window.themePresetChange = function(el) {
+                d.theme = el.value;
+                renderThemeControls();
             };
 
             function clearErrors() {
@@ -160,7 +236,7 @@
                 display: inline-block;
                 font: 10pt "Arial";
                 color: #555;
-                width: 130px;
+                width: 220px;
             }
             input.small {
                 width: 40px;
@@ -175,6 +251,14 @@
             #error {
                 color: red;
             }
+            select {
+                width: 140px;
+            }
+            .control-subtitle {
+                margin: 8px 0 6px 0;
+                font: 11pt "Arial";
+                color: #333;
+            }
 
         </style>
     </head>
@@ -184,7 +268,7 @@
                 <h2>Draw molecule</h2>
                 <p>Use mouse. Hover over the atoms, bonds, or empty space, and press spacebar - context menu will open.</p>
                 <button onclick="clearDrawing()">Clear</button>
-                <input type="checkbox" onchange="readonlyChange()" id="readonly-chkbx" name="readonly"/><label for="readonly">Read only</label>
+                <input type="checkbox" onchange="readonlyChange()" id="readonly-chkbx" name="readonly"/><label for="readonly-chkbx">Read only</label>
                 <p class="descriptors">
                     <span id="mw"></span><br />
                     <span id="composition"></span>
@@ -210,50 +294,18 @@
             <div class="column-right">
                 <h2>Drawing settings</h2>
                 <ul>
-                    <li class="section">Atom labels</li>
+                    <li class="section">Theme preset</li>
                     <li>
-                        <label for="style-atom-font-size-px">Font size, px</label>
-                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-atom-font-size-px" name="style-atom-font-size-px" />
+                        <label for="theme-select">Theme</label>
+                        <select id="theme-select" onchange="themePresetChange(this)"></select>
                     </li>
-                    <li>
-                        <label for="style-atom-font-family">Font family</label>
-                        <input type="text" class="large" oninput="stylesheetChange(this)" id="style-atom-font-family" name="style-atom-font-family" />
-                    </li>
-                    <li>
-                        <label for="style-atom-label-color">Font color</label>
-                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-atom-label-color" name="style-atom-label-color" />
-                    </li>
-                    <li>
-                        <label for="style-atom-active-label-color">Color when active</label>
-                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-atom-active-label-color" name="style-atom-active-label-color" />
-                    </li>
-                    <li class="section">Charges</li>
-                    <li>
-                        <label for="style-atom-charge-font-size">Font size, px</label>
-                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-atom-charge-font-size" name="style-atom-charge-font-size" />
-                    </li>
-                    <li>
-                        <label for="style-atom-charge-frame-enabled">Frame around charge</label>
-                        <input type="checkbox" oninput="stylesheetChange(this)" id="style-atom-charge-frame-enabled" name="style-atom-charge-frame-enabled" />
-                    </li>
-                    <li class="section">Bonds</li>
-                    <li>
-                        <label for="style-bond-length-px">Bond length, px</label>
-                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-bond-length-px" name="style-bond-length-px" />
-                    </li>
-                    <li>
-                        <label for="style-bond-thickness-px">Bond thickness, px</label>
-                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-bond-thickness-px" name="style-bond-thickness-px" />
-                    </li>
-                    <li>
-                        <label for="style-bond-spacing-px">Bond spacing, px</label>
-                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-bond-spacing-px" name="style-bond-spacing-px" />
-                    </li>
-                    <li>
-                        <label for="style-double-bond-shortening">Double shortening</label>
-                        <input type="text" class="small" oninput="stylesheetChange(this)" id="style-double-bond-shortening" name="style-double-bond-shortening" />
-                    </li>
+                    <li class="section control-subtitle">Theme properties</li>
                 </ul>
+                <ul id="theme-controls"></ul>
+                <ul>
+                    <li class="section control-subtitle">Style properties</li>
+                </ul>
+                <ul id="style-controls"></ul>
             </div>
             <div style="clear:both"></div>
         </div>

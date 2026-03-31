@@ -136,3 +136,32 @@ test("Isotopes", () => {
     expect(editor.document_container.graph.vertices[0].visible_text).toBe("");
     expect(editor.document_container.graph.vertices[0].isotope).toBe(0); // change atom should change isotope
 });
+
+test("index_font_size_ratio updates index glyph size immediately", () => {
+    fire({ x: 100, y: 100 }, "click");
+    const v = editor.document_container.graph.vertices[0];
+    fire(v.coords, "mousemove");
+    fire_key("N");
+
+    const subscriptBefore = v.group?.findOne("#rb");
+    expect(subscriptBefore).toBeTruthy();
+    if (!subscriptBefore)
+        throw new Error("Expected index glyph for NH2 label");
+    const beforeFontSize = subscriptBefore.getAttr("fontSize");
+
+    const nextRatio = 1.35;
+    editor.style = {
+        ...editor.style,
+        themes: editor.style.themes.map((t) => ({ ...t })),
+        index_font_size_ratio: nextRatio,
+    };
+
+    const subscriptAfter = v.group?.findOne("#rb");
+    expect(subscriptAfter).toBeTruthy();
+    if (!subscriptAfter)
+        throw new Error("Expected index glyph after style update");
+    const afterFontSize = subscriptAfter.getAttr("fontSize");
+
+    expect(afterFontSize).toBeCloseTo(editor.style.atom_font_size_px * nextRatio, 3);
+    expect(afterFontSize).not.toBe(beforeFontSize);
+});
