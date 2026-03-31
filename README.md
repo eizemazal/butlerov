@@ -1,6 +1,8 @@
 # Butlerov
 
-Butlerov is a free, open-source 2D chemical structure editor written in TypeScript and built on [Konva.js](https://konvajs.org/).The package is named after Alexander M. Butlerov (1828-1886), a Russian chemist who proposed the idea that order of atom connection matters for organic compounds, so basically introduced chemical structures.
+Butlerov is a free, open-source 2D chemical structure editor written in TypeScript and built on [Konva.js](https://konvajs.org/) that can be used as a chemical structure editing control for web and standalone applications.
+
+The package is named after Alexander M. Butlerov (1828-1886), a Russian chemist who proposed the idea that order of atom connection matters for organic compounds, so basically introduced chemical structures.
 
 The editor is aimed at fast drawing with keyboard, mouse, and a context menu. The interaction model is closer to Blender 3D than to other chemoinformatic editor UIs (ChemDraw, MarvinSketch, and similar): emphasis is on predictable, symmetrical layouts rather than “pull every bond by hand,” which pays off when collecting user-supplied databases of chemical structures.
 
@@ -12,7 +14,8 @@ Today Butlerov focuses on a **single structure** per canvas; broader **scheme** 
 ## Features
 
 - **File formats:** read and write MDL **MOL** / **SDF** (and related string workflows via converters in code).
-- **Drawing:** chains, rings, fused systems, single and multiple bonds.
+- **Drawing:** chains, rings, fused systems, single and multiple bonds. Fast, symmetrical and chemically proper drawing with mouse, keyboard, and context menu.
+- **Visualization:** light and dark theme, full control over colors, size and thickness of drawing lines, font, etc.
 - **Annotations:** charges, isotopes, superatoms / abbreviations (e.g. CO₂H, TMS).
 - **Editing:** unlimited undo/redo, symmetry tools for neat layouts.
 - **Analysis:** brutto formula, exact mass, and molecular weight from the current structure.
@@ -33,7 +36,7 @@ If you embed Butlerov in a form or database UI, wire `onchange` (core) or `v-mod
 
 Here are some sample structures drawn with Butlerov.
 
-<img src="docs/images/example-structures.png" alt="Example structures" width="720" />
+<img src="docs/images/example-structures.png" alt="Example structures" width="450" />
 
 ## Live demo (CodePen)
 
@@ -52,11 +55,11 @@ Changing atom is just hovering over it and pressing first letter of its symbol. 
 
 Except for some rare cases, you need not pull the bonds to build neat structures. Just click, and the geometry will be adjusted. You can press Ctrl-Z to undo any action.
 
-<img src="docs/images/click-click-click.png" alt="Click-Click-Click!" width="520" />
+<img src="docs/images/click-click-click.png" alt="Click-Click-Click!" width="350" />
 
 Molecule shape will be adjusted automatically for sp-hybridized linear geometries, for tetrahedral sp3 and trigonal sp2 / trisubstituted atoms.
 
-<img src="docs/images/hybridization-adjustment.png" alt="Hybridization adjustment" width="520" />
+<img src="docs/images/hybridization-adjustment.png" alt="Hybridization adjustment" width="350" />
 
 Pulling bonds is generally discouraged, but it is possible to adjust geometry in conjested systems, and to build bridged polycyclic molecules.
 
