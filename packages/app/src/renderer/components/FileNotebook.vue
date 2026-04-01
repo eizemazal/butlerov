@@ -33,7 +33,11 @@
           <VueButlerov
             :ref="setEditorRef"
             v-model="tabs[tab_index].document"
+            v-model:descriptors="tabs[tab_index].descriptors"
             mode="scheme"
+            :style="tabs[tab_index].document.style"
+            :theme="props.editorTheme"
+            :descriptor-keys="descriptorKeysForVue"
             @update:model-value="tabs[tab_index].modified = true"
           />
         </v-tabs-window-item>
@@ -51,8 +55,20 @@ import { NotebookTab } from './types';
 import { NativeConverter, MolConverter, SmilesConverter, Converter, Graph, BUTLEROV_DOCUMENT_FORMAT } from '@butlerov-chemistry/core';
 import VueButlerov from "@butlerov-chemistry/vue"
 
+interface Props {
+  editorTheme?: string;
+}
+
+type DescriptorKey = "mw" | "formula" | "formula_html" | "exact_mass";
+
+const props = withDefaults(defineProps<Props>(), {
+  editorTheme: "light",
+});
+
 
 const active_tab_index = ref<number>(0);
+const descriptorKeys = ["mw", "formula_html", "exact_mass"] as const;
+const descriptorKeysForVue = descriptorKeys as unknown as DescriptorKey[];
 const tabs = ref<NotebookTab[]>(
   [{document: {
   format: BUTLEROV_DOCUMENT_FORMAT,
@@ -63,16 +79,16 @@ const tabs = ref<NotebookTab[]>(
     }]
   },
   filepath: "",
-  modified: false
+  modified: false,
+  descriptors: {},
 }])
 
 const editor_refs = ref<VNodeRef[]>([]);
 
 onBeforeUpdate( () => editor_refs.value = [] );
-//@ts-expect-error implicit any, could not match argument type to what :ref is expecting
-const setEditorRef = (el) => {
+const setEditorRef = (el: unknown) => {
   if (el) {
-    editor_refs.value.push(el);
+    editor_refs.value.push(el as VNodeRef);
   }
 }
 
@@ -142,7 +158,8 @@ window.electronAPI.on('menu-file-new', () => {
       }]
     },
     filepath: "",
-    modified: false
+    modified: false,
+    descriptors: {},
   });
   active_tab_index.value = tabs.value.length - 1;
 })
@@ -185,6 +202,8 @@ window.electronAPI.on('menu-file-open', async () => {
     return;
 
   const converter = filename_to_converter(filepath);
+  if (!converter)
+    return;
 
   const data = await window.electronAPI.readFile(filepath);
 
@@ -192,30 +211,27 @@ window.electronAPI.on('menu-file-open', async () => {
     return;
 
   let doc = undefined;
-    //@ts-expect-error ts does not support function|undefined well
-    if (typeof converter.document_from_string === "function") {
-        //@ts-expect-error ts does not support function|undefined well
-        doc = converter.document_from_string(data);
-    }
-    //@ts-expect-error ts does not support function|undefined well
-    else if (typeof converter.graph_from_string === "function") {
-        //@ts-expect-error ts does not support function|undefined well
-        const graph: Graph = converter.graph_from_string(data)
-        doc = {
-            format: BUTLEROV_DOCUMENT_FORMAT,
-            objects: [graph]
-        }
-    }
-    else {
-        console.error("Converter for this file type does not support read");
-        return;
-    }
+  if (typeof converter.document_from_string === "function") {
+    doc = converter.document_from_string(data);
+  }
+  else if (typeof converter.graph_from_string === "function") {
+    const graph: Graph = converter.graph_from_string(data);
+    doc = {
+      format: BUTLEROV_DOCUMENT_FORMAT,
+      objects: [graph]
+    };
+  }
+  else {
+    console.error("Converter for this file type does not support read");
+    return;
+  }
 
 
   tabs.value.push({
     document: doc,
     filepath: filepath,
-    modified: false
+    modified: false,
+    descriptors: {},
   });
   active_tab_index.value = tabs.value.length - 1;
 });

@@ -10,13 +10,16 @@ import * as directives from 'vuetify/directives'
 
 
 const app = createApp(App);
+const systemDefaultTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+  ? "dark"
+  : "light";
 
 const vuetify = createVuetify({
   components,
   directives,
   theme: {
-    defaultTheme: 'dark'
-  }
+    defaultTheme: systemDefaultTheme,
+  },
 });
 
 app.use(vuetify);

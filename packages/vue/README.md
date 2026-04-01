@@ -6,7 +6,7 @@ Use it as a full-size chemical editor with:
 - native graph binding (`v-model`)
 - MOL string binding (`v-model:mol`)
 - style/theme customization
-- optional computed descriptors (`mw`, `formula`, `formula_html`, `exactMass`)
+- optional computed descriptors (`mw`, `formula`, `formula_html`, `exact_mass`)
 
 ---
 

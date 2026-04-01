@@ -2,6 +2,8 @@ import { app, BrowserWindow, Menu, MenuItemConstructorOptions, dialog, ipcMain, 
 import path from "path";
 import { env } from "node:process";
 
+app.setName("Butlerov");
+
 function createWindow() {
     const mainWindow = new BrowserWindow({
         width: 1200,
@@ -25,7 +27,25 @@ function createWindow() {
     if (env.IS_DEBUG)
         mainWindow.webContents.openDevTools();
 
+    const mac_app_menu: MenuItemConstructorOptions[] = process.platform === "darwin"
+        ? [{
+            label: "Butlerov",
+            submenu: [
+                { role: "about" },
+                { type: "separator" },
+                { role: "services" },
+                { type: "separator" },
+                { role: "hide" },
+                { role: "hideOthers" },
+                { role: "unhide" },
+                { type: "separator" },
+                { role: "quit" },
+            ]
+        }]
+        : [];
+
     const menu_template: MenuItemConstructorOptions[] = [
+        ...mac_app_menu,
         {
             label: "File",
             submenu: [
