@@ -16,7 +16,8 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       }
-    }
+    },
+    "./style.css": "./dist/vue.css"
   },
   "files": [
     "dist"
